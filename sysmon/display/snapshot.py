@@ -1,9 +1,7 @@
 """Snapshot mode - one-shot system info output (neofetch style)."""
 
 import platform
-import time
 
-import psutil
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -13,47 +11,15 @@ from sysmon.collectors.cpu import get_cpu_info
 from sysmon.collectors.memory import get_memory_info, bytes_to_gb
 from sysmon.collectors.network import get_network_info, format_bytes, format_speed
 from sysmon.collectors.gpu import get_gpu_info
-
-
-def _get_os_name() -> str:
-    """Get accurate OS name, correctly identifying Windows 11."""
-    import sys
-    uname = platform.uname()
-
-    if uname.system == "Windows":
-        # Windows 11 has build number >= 22000
-        # platform.uname() returns '10' for both Win10 and Win11
-        try:
-            build = sys.getwindowsversion().build
-            if build >= 22000:
-                return f"Windows 11 (Build {build})"
-            else:
-                return f"Windows 10 (Build {build})"
-        except Exception:
-            return f"Windows {uname.release}"
-    else:
-        return f"{uname.system} {uname.release}"
-
-
-def _get_system_info() -> dict:
-    """Get basic system information."""
-    uname = platform.uname()
-    boot_time = psutil.boot_time()
-    uptime_seconds = time.time() - boot_time
-
-    days = int(uptime_seconds // 86400)
-    hours = int((uptime_seconds % 86400) // 3600)
-    minutes = int((uptime_seconds % 3600) // 60)
-
-    uptime_str = f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m"
-
-    return {
-        "os": _get_os_name(),
-        "hostname": uname.node,
-        "arch": uname.machine,
-        "processor": uname.processor or platform.processor(),
-        "uptime": uptime_str,
-    }
+from sysmon.display.components import (
+    ascii_logo,
+    progress_bar,
+    color_percent,
+    metric_row,
+    gpu_panel,
+    _get_os_name,
+    _get_uptime,
+)
 
 
 def print_snapshot(console: Console, section: str = "all") -> None:
@@ -76,39 +42,48 @@ def print_snapshot(console: Console, section: str = "all") -> None:
 
 
 def _print_all(console: Console) -> None:
-    """Print all system information."""
-    sys_info = _get_system_info()
+    """Print all system information with ASCII logo."""
+    # Get all info
+    hostname = platform.node()
+    os_name = _get_os_name()
+    arch = platform.machine()
+    processor = platform.processor() or "Unknown"
+    uptime = _get_uptime()
     cpu_info = get_cpu_info()
     mem_info = get_memory_info()
     net_info = get_network_info()
     gpu_info = get_gpu_info()
 
-    # System info panel
+    # Print ASCII logo + system info side by side
+    logo_text = ascii_logo()
+
     sys_text = Text()
-    sys_text.append(f"  OS:        ", style="bold")
-    sys_text.append(f"{sys_info['os']}\n")
-    sys_text.append(f"  Hostname:  ", style="bold")
-    sys_text.append(f"{sys_info['hostname']}\n")
-    sys_text.append(f"  Arch:      ", style="bold")
-    sys_text.append(f"{sys_info['arch']}\n")
-    sys_text.append(f"  CPU:       ", style="bold")
-    sys_text.append(f"{sys_info['processor']}\n")
-    sys_text.append(f"  Uptime:    ", style="bold")
-    sys_text.append(f"{sys_info['uptime']}\n")
+    sys_text.append("  System Information\n", style="bold underline")
+    sys_text.append("\n")
+    sys_text.append(f"  {'Host':<12}", style="bold")
+    sys_text.append(f"{hostname}\n", style="bold white")
+    sys_text.append(f"  {'OS':<12}", style="bold")
+    sys_text.append(f"{os_name}\n", style="bold blue")
+    sys_text.append(f"  {'Arch':<12}", style="bold")
+    sys_text.append(f"{arch}\n", style="bold white")
+    sys_text.append(f"  {'CPU':<12}", style="bold")
+    sys_text.append(f"{processor}\n", style="dim")
+    sys_text.append(f"  {'Uptime':<12}", style="bold")
+    sys_text.append(f"{uptime}\n", style="bold green")
 
-    console.print(Panel(sys_text, title="[bold]System[/bold]", border_style="blue"))
+    # Create a table to hold logo and system info
+    info_table = Table(show_header=False, box=None, padding=0)
+    info_table.add_column("logo", ratio=2)
+    info_table.add_column("sys", ratio=3)
+    info_table.add_row(logo_text, sys_text)
 
-    # CPU panel
+    console.print(Panel(info_table, style="on grey11", padding=(1, 2)))
+
+    # Print metrics panels
     _print_cpu(console, cpu_info)
-
-    # Memory panel
     _print_memory(console, mem_info)
-
-    # Network panel
     _print_network(console, net_info)
-
-    # GPU panel
-    _print_gpu(console, gpu_info)
+    console.print(gpu_panel(gpu_info))
 
 
 def _print_cpu(console: Console, info: dict = None) -> None:
@@ -117,15 +92,18 @@ def _print_cpu(console: Console, info: dict = None) -> None:
         info = get_cpu_info()
 
     text = Text()
-    text.append(f"  Usage:     ", style="bold")
-    text.append(f"{info['percent']:.1f}%\n")
-    text.append(f"  Cores:     ", style="bold")
-    text.append(f"{info['count_physical']} physical / {info['count_logical']} logical\n")
-    if info["freq_current"]:
-        text.append(f"  Frequency: ", style="bold")
-        text.append(f"{info['freq_current']:.0f} MHz\n")
+    text.append(f"  {'Usage':<14}", style="bold")
+    text.append_text(progress_bar(info["percent"], width=25))
+    text.append("\n")
 
-    console.print(Panel(text, title="[bold cyan]CPU[/bold cyan]", border_style="cyan"))
+    text.append(f"  {'Cores':<14}", style="bold")
+    text.append(f"{info['count_physical']}P / {info['count_logical']}L\n", style="bold white")
+
+    if info["freq_current"]:
+        text.append(f"  {'Frequency':<14}", style="bold")
+        text.append(f"{info['freq_current']:.0f} MHz\n", style="bold white")
+
+    console.print(Panel(text, title="[bold cyan]📊 CPU[/bold cyan]", border_style="cyan"))
 
 
 def _print_memory(console: Console, info: dict = None) -> None:
@@ -134,16 +112,18 @@ def _print_memory(console: Console, info: dict = None) -> None:
         info = get_memory_info()
 
     text = Text()
-    text.append(f"  RAM:   ", style="bold")
-    text.append(f"{bytes_to_gb(info['used'])} / {bytes_to_gb(info['total'])} GB")
-    text.append(f" ({info['percent']:.1f}%)\n")
+    text.append(f"  {'RAM':<14}", style="bold")
+    text.append_text(progress_bar(info["percent"], width=25))
+    text.append(f"\n  {'':14}")
+    text.append(f"{bytes_to_gb(info['used'])} / {bytes_to_gb(info['total'])} GB\n", style="bold white")
 
     if info["swap_total"] > 0:
-        text.append(f"  Swap:  ", style="bold")
-        text.append(f"{bytes_to_gb(info['swap_used'])} / {bytes_to_gb(info['swap_total'])} GB")
-        text.append(f" ({info['swap_percent']:.1f}%)\n")
+        text.append(f"  {'Swap':<14}", style="bold")
+        text.append_text(progress_bar(info["swap_percent"], width=25))
+        text.append(f"\n  {'':14}")
+        text.append(f"{bytes_to_gb(info['swap_used'])} / {bytes_to_gb(info['swap_total'])} GB\n", style="bold white")
 
-    console.print(Panel(text, title="[bold magenta]Memory[/bold magenta]", border_style="magenta"))
+    console.print(Panel(text, title="[bold magenta]💾 Memory[/bold magenta]", border_style="magenta"))
 
 
 def _print_network(console: Console, info: dict = None) -> None:
@@ -152,16 +132,21 @@ def _print_network(console: Console, info: dict = None) -> None:
         info = get_network_info()
 
     text = Text()
-    text.append(f"  Upload:    ", style="bold")
-    text.append(f"{format_speed(info['speed_up'])}\n", style="green")
-    text.append(f"  Download:  ", style="bold")
-    text.append(f"{format_speed(info['speed_down'])}\n", style="cyan")
-    text.append(f"  Sent:      ", style="bold")
-    text.append(f"{format_bytes(info['bytes_sent'])}\n")
-    text.append(f"  Received:  ", style="bold")
-    text.append(f"{format_bytes(info['bytes_recv'])}\n")
+    text.append(f"  {'↑ Upload':<14}", style="bold")
+    text.append(format_speed(info["speed_up"]) + "\n", style="green")
 
-    console.print(Panel(text, title="[bold green]Network[/bold green]", border_style="green"))
+    text.append(f"  {'↓ Download':<14}", style="bold")
+    text.append(format_speed(info["speed_down"]) + "\n", style="cyan")
+
+    text.append("  " + "─" * 30 + "\n", style="dim")
+
+    text.append(f"  {'Sent':<14}", style="bold")
+    text.append(format_bytes(info["bytes_sent"]) + "\n", style="dim")
+
+    text.append(f"  {'Received':<14}", style="bold")
+    text.append(format_bytes(info["bytes_recv"]) + "\n", style="dim")
+
+    console.print(Panel(text, title="[bold green]🌐 Network[/bold green]", border_style="green"))
 
 
 def _print_gpu(console: Console, info: list = None) -> None:
@@ -169,21 +154,4 @@ def _print_gpu(console: Console, info: list = None) -> None:
     if info is None:
         info = get_gpu_info()
 
-    if info is None:
-        text = Text("  No GPU detected.", style="dim")
-        console.print(Panel(text, title="[bold yellow]GPU[/bold yellow]", border_style="yellow"))
-        return
-
-    for gpu in info:
-        text = Text()
-        text.append(f"  Name:  ", style="bold")
-        text.append(f"{gpu['name']}\n")
-        text.append(f"  Load:  ", style="bold")
-        text.append(f"{gpu['load']:.1f}%\n")
-        text.append(f"  VRAM:  ", style="bold")
-        text.append(f"{gpu['memory_used']:.0f} / {gpu['memory_total']:.0f} MB\n")
-        if gpu["temperature"]:
-            text.append(f"  Temp:  ", style="bold")
-            text.append(f"{gpu['temperature']}°C\n")
-
-        console.print(Panel(text, title=f"[bold yellow]GPU {gpu['id']}[/bold yellow]", border_style="yellow"))
+    console.print(gpu_panel(info))

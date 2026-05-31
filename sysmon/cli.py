@@ -74,6 +74,8 @@ def cpu() -> None:
     """Show CPU information."""
     from sysmon.collectors.cpu import get_cpu_info, get_per_core_usage
     from sysmon.display.snapshot import _print_cpu
+    from rich.text import Text
+    from sysmon.display.components import progress_bar
 
     info = get_cpu_info()
     _print_cpu(console, info)
@@ -81,11 +83,10 @@ def cpu() -> None:
     cores = get_per_core_usage()
     console.print("\n[bold]Per-core usage:[/bold]")
     for i, pct in enumerate(cores):
-        bar_len = 20
-        filled = int(bar_len * pct / 100)
-        bar = "█" * filled + "░" * (bar_len - filled)
-        color = "red" if pct >= 90 else "yellow" if pct >= 70 else "green"
-        console.print(f"  Core {i:2d}: [{bar}] [{color}]{pct:5.1f}%[/{color}]")
+        text = Text()
+        text.append(f"  Core {i:2d} ", style="dim")
+        text.append_text(progress_bar(pct, width=20))
+        console.print(text)
 
 
 @app.command()
