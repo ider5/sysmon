@@ -3,8 +3,14 @@
 import platform
 import re
 import subprocess
+import threading
+import time
 
 import psutil
+
+# Cache for real-time frequency (updated by background thread)
+_freq_cache = {'current': 0, 'base': 0, 'timestamp': 0}
+_freq_lock = threading.Lock()
 
 
 def _get_realtime_freq_windows() -> dict:
@@ -14,20 +20,18 @@ def _get_realtime_freq_windows() -> dict:
     """
     try:
         # Get % Processor Performance counter
-        # Note: typeperf expects \\server\counter format
         counter = '\\Processor Information(_Total)\\% Processor Performance'
         result = subprocess.run(
             ['typeperf', counter, '-sc', '1'],
             capture_output=True, text=True, timeout=3
         )
         if result.returncode == 0:
-            # Find the data line (format: "timestamp","value")
             for line in result.stdout.split('\n'):
                 match = re.search(r'^"[\d/]+ [\d:.]+","([\d.]+)"$', line)
                 if match:
                     perf_percent = float(match.group(1))
 
-                    # Get base frequency
+                    # Get base frequency (cached by system, fast call)
                     result2 = subprocess.run(
                         ['wmic', 'cpu', 'get', 'MaxClockSpeed', '/value'],
                         capture_output=True, text=True, timeout=3
@@ -46,6 +50,41 @@ def _get_realtime_freq_windows() -> dict:
     return {}
 
 
+def _freq_collector_thread():
+    """Background thread that continuously collects CPU frequency."""
+    while True:
+        try:
+            if platform.system() == 'Windows':
+                freq = _get_realtime_freq_windows()
+                if freq:
+                    with _freq_lock:
+                        _freq_cache['current'] = freq['current']
+                        _freq_cache['base'] = freq['base']
+                        _freq_cache['timestamp'] = time.time()
+        except Exception:
+            pass
+        # Sleep to avoid high CPU usage
+        time.sleep(1.5)
+
+
+def _start_freq_collector():
+    """Start the background frequency collector thread (daemon)."""
+    t = threading.Thread(target=_freq_collector_thread, daemon=True)
+    t.start()
+
+
+# Start background collector
+_start_freq_collector()
+
+# Do initial collection synchronously for immediate data
+if platform.system() == 'Windows':
+    freq = _get_realtime_freq_windows()
+    if freq:
+        _freq_cache['current'] = freq['current']
+        _freq_cache['base'] = freq['base']
+        _freq_cache['timestamp'] = time.time()
+
+
 def get_cpu_info() -> dict:
     """Get current CPU metrics.
 
@@ -56,15 +95,16 @@ def get_cpu_info() -> dict:
     count_logical = psutil.cpu_count(logical=True)
     count_physical = psutil.cpu_count(logical=False)
 
-    # Try to get real-time frequency
+    # Get frequency from cache (updated by background thread)
     freq_current = 0
     freq_max = 0
 
     if platform.system() == 'Windows':
-        freq = _get_realtime_freq_windows()
-        if freq:
-            freq_current = freq['current']
-            freq_max = freq['base']
+        with _freq_lock:
+            # Use cached value if fresh (< 3 seconds old)
+            if _freq_cache['timestamp'] > 0 and (time.time() - _freq_cache['timestamp']) < 3:
+                freq_current = _freq_cache['current']
+                freq_max = _freq_cache['base']
     else:
         # On Linux/macOS, psutil works better
         freq = psutil.cpu_freq()
