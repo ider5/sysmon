@@ -97,7 +97,7 @@ def _print_cpu(console: Console, info: dict = None) -> None:
     text.append("\n")
 
     text.append(f"  {'Cores':<14}", style="bold")
-    text.append(f"{info['count_physical']}P / {info['count_logical']}L\n", style="bold white")
+    text.append(f"{info['count_physical']} cores / {info['count_logical']} threads\n", style="bold white")
 
     if info["freq_current"]:
         text.append(f"  {'Frequency':<14}", style="bold")

@@ -38,9 +38,9 @@ def _build_cpu_panel() -> Panel:
 
     # Cores info
     text.append(f"  {'Cores':<14}", style="bold")
-    text.append(f"{info['count_physical']}P / {info['count_logical']}L\n", style="bold white")
+    text.append(f"{info['count_physical']} cores / {info['count_logical']} threads\n", style="bold white")
 
-    # Frequency
+    # Frequency (only show if dynamic frequency detected)
     if info["freq_current"]:
         text.append(f"  {'Frequency':<14}", style="bold")
         text.append(f"{info['freq_current']:.0f} MHz", style="bold white")
@@ -54,7 +54,6 @@ def _build_cpu_panel() -> Panel:
         text.append("Per-core Usage\n", style="bold underline")
 
         # Show cores in 2 columns for better layout
-        col_width = 20
         for i in range(0, len(cores), 2):
             # Left core
             text.append(f"  {i:2d} ", style="dim")
