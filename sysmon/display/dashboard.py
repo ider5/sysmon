@@ -43,10 +43,7 @@ def _build_cpu_panel() -> Panel:
     # Frequency (only show if dynamic frequency detected)
     if info["freq_current"]:
         text.append(f"  {'Frequency':<14}", style="bold")
-        text.append(f"{info['freq_current']:.0f} MHz", style="bold white")
-        if info["freq_max"]:
-            text.append(f" / {info['freq_max']:.0f} MHz", style="dim")
-        text.append("\n")
+        text.append(f"{info['freq_current']:.0f} MHz\n", style="bold white")
 
     # Per-core mini bars (compact view)
     if cores:
