@@ -15,6 +15,26 @@ from sysmon.collectors.network import get_network_info, format_bytes, format_spe
 from sysmon.collectors.gpu import get_gpu_info
 
 
+def _get_os_name() -> str:
+    """Get accurate OS name, correctly identifying Windows 11."""
+    import sys
+    uname = platform.uname()
+
+    if uname.system == "Windows":
+        # Windows 11 has build number >= 22000
+        # platform.uname() returns '10' for both Win10 and Win11
+        try:
+            build = sys.getwindowsversion().build
+            if build >= 22000:
+                return f"Windows 11 (Build {build})"
+            else:
+                return f"Windows 10 (Build {build})"
+        except Exception:
+            return f"Windows {uname.release}"
+    else:
+        return f"{uname.system} {uname.release}"
+
+
 def _get_system_info() -> dict:
     """Get basic system information."""
     uname = platform.uname()
@@ -28,7 +48,7 @@ def _get_system_info() -> dict:
     uptime_str = f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m"
 
     return {
-        "os": f"{uname.system} {uname.release}",
+        "os": _get_os_name(),
         "hostname": uname.node,
         "arch": uname.machine,
         "processor": uname.processor or platform.processor(),
