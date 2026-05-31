@@ -40,3 +40,8 @@ Thumbs.db
 
 # Conda
 .conda/
+
+# PyInstaller
+dist/
+build/
+*.spec

@@ -17,3 +17,8 @@ dependencies = [
 
 [project.scripts]
 sysmon = "sysmon.cli:app"
+
+[project.optional-dependencies]
+dev = [
+    "pyinstaller>=6.0.0",
+]

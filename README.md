@@ -12,6 +12,34 @@ A beautiful system monitoring CLI tool built with Python.
 
 ## Installation
 
+### Option 1: pipx (Recommended for development)
+
+```bash
+# Install pipx if not installed
+pip install pipx
+pipx ensurepath
+
+# Install sysmon globally
+pipx install ./sysmon
+```
+
+After installation, `sysmon` command is available globally without activating any environment.
+
+### Option 2: Standalone Executable (No Python required)
+
+Download `sysmon.exe` from the `dist/` folder and run it directly.
+
+Or build it yourself:
+
+```bash
+cd sysmon
+python build.py
+```
+
+The executable will be created in `dist/sysmon.exe`.
+
+### Option 3: pip install (in a virtual environment)
+
 ```bash
 cd sysmon
 pip install -e .
