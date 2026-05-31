@@ -2,17 +2,23 @@
 
 A beautiful system monitoring CLI tool built with Python.
 
+![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-green.svg)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 ## Features
 
 - **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, and GPU metrics
-- **Snapshot Mode** - One-shot system info output (neofetch style)
-- **Per-module Views** - View individual metrics separately
-- **GPU Support** - NVIDIA GPU monitoring via GPUtil
-- **Cross-platform** - Works on Windows, macOS, and Linux
+- **Snapshot Mode** - One-shot system info output with ASCII art logo
+- **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
+- **GPU Monitoring** - NVIDIA GPU utilization, VRAM, and temperature
+- **Gradient Progress Bars** - Color-coded bars (green → yellow → red)
+- **Per-core CPU View** - Individual core usage visualization
+- **Background Collection** - Non-blocking metric collection for smooth UI
 
 ## Installation
 
-### Option 1: pipx (Recommended for development)
+### Option 1: pipx (Recommended)
 
 ```bash
 # Install pipx if not installed
@@ -47,7 +53,7 @@ pip install -e .
 
 ## Usage
 
-### Real-time Dashboard (default)
+### Real-time Dashboard
 
 ```bash
 sysmon                  # Launch real-time dashboard
@@ -55,10 +61,12 @@ sysmon dashboard        # Same as above
 sysmon dashboard -r 2   # Refresh every 2 seconds
 ```
 
+Press `Ctrl+C` to exit the dashboard.
+
 ### Snapshot Mode
 
 ```bash
-sysmon snapshot         # Show all system info
+sysmon snapshot         # Show all system info with ASCII logo
 sysmon snapshot cpu     # Show only CPU info
 sysmon snapshot memory  # Show only memory info
 sysmon snapshot network # Show only network info
@@ -71,7 +79,7 @@ sysmon snapshot gpu     # Show only GPU info
 sysmon cpu              # CPU details with per-core usage
 sysmon memory           # Memory and swap usage
 sysmon network          # Network speed and totals
-sysmon gpu              # GPU utilization and VRAM
+sysmon gpu              # GPU utilization, VRAM, temperature
 ```
 
 ### Other Options
@@ -80,6 +88,56 @@ sysmon gpu              # GPU utilization and VRAM
 sysmon --version        # Show version
 sysmon --help           # Show help
 ```
+
+## Output Example
+
+### Snapshot Mode
+
+```
+   _____             __  __  ___
+  / ___/__  _______  / / /  |/  /__
+  \__ \/ / / / __ \/ / / /|_/ / _ \
+ ___/ / /_/ / / / / / / /  / /  __/
+/____/\__,_/_/ /_/_/ /_/  /_/\___/
+
+  Host        cym
+  OS          Windows 11
+  Arch        AMD64
+  Uptime      6h 9m
+
+┌────────────────────────────────── 📊 CPU ───────────────────────────────────┐
+│   Usage         ━━━━━━━━━━━━━━━━━━━━━━━━  85.3%                             │
+│   Cores         14 cores / 20 threads                                        │
+│   Frequency     3176 MHz                                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────── 🎮 GPU ───────────────────────────────────┐
+│   🎮 GPU 0: NVIDIA GeForce RTX 3060 Laptop GPU                              │
+│   Utilization   ━━━━━━━━━━━━━━━━━━━━━━━  78.0%                              │
+│   VRAM          ━━━━━━━━━━━━━━━━━━━━━━━  85.2%                              │
+│   Temperature   🌡  72.0°C                                                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Technical Details
+
+### Real-time CPU Frequency
+
+On Windows, `psutil.cpu_freq()` returns the base frequency, not the real-time frequency. SysMon uses Windows Performance Counters to get the actual dynamic frequency:
+
+```
+Real-time Frequency = Base Frequency × % Processor Performance / 100
+```
+
+A background daemon thread collects this data every 1.5 seconds, ensuring the UI remains responsive.
+
+### Color Coding
+
+| Usage Level | Color |
+|-------------|-------|
+| 0-60% | 🟢 Green |
+| 60-80% | 🟡 Yellow |
+| 80-100% | 🔴 Red |
 
 ## Dependencies
 
