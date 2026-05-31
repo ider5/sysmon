@@ -1,6 +1,49 @@
 """CPU metrics collector."""
 
+import platform
+import re
+import subprocess
+
 import psutil
+
+
+def _get_realtime_freq_windows() -> dict:
+    """Get real-time CPU frequency on Windows using Performance Counters.
+
+    Returns dict with 'current' and 'base' keys, or empty dict on failure.
+    """
+    try:
+        # Get % Processor Performance counter
+        # Note: typeperf expects \\server\counter format
+        counter = '\\Processor Information(_Total)\\% Processor Performance'
+        result = subprocess.run(
+            ['typeperf', counter, '-sc', '1'],
+            capture_output=True, text=True, timeout=3
+        )
+        if result.returncode == 0:
+            # Find the data line (format: "timestamp","value")
+            for line in result.stdout.split('\n'):
+                match = re.search(r'^"[\d/]+ [\d:.]+","([\d.]+)"$', line)
+                if match:
+                    perf_percent = float(match.group(1))
+
+                    # Get base frequency
+                    result2 = subprocess.run(
+                        ['wmic', 'cpu', 'get', 'MaxClockSpeed', '/value'],
+                        capture_output=True, text=True, timeout=3
+                    )
+                    if result2.returncode == 0:
+                        for line2 in result2.stdout.split('\n'):
+                            if 'MaxClockSpeed' in line2 and '=' in line2:
+                                base_freq = int(line2.split('=')[1].strip())
+                                return {
+                                    'current': base_freq * perf_percent / 100,
+                                    'base': base_freq,
+                                }
+                    break
+    except Exception:
+        pass
+    return {}
 
 
 def get_cpu_info() -> dict:
@@ -12,15 +55,22 @@ def get_cpu_info() -> dict:
     cpu_percent = psutil.cpu_percent(interval=0.1)
     count_logical = psutil.cpu_count(logical=True)
     count_physical = psutil.cpu_count(logical=False)
-    freq = psutil.cpu_freq()
 
-    # On Windows, psutil.cpu_freq() often returns base frequency (current == max)
-    # which is not the real-time frequency. Only report if we get dynamic values.
+    # Try to get real-time frequency
     freq_current = 0
     freq_max = 0
-    if freq and freq.current and freq.max and freq.current != freq.max:
-        freq_current = freq.current
-        freq_max = freq.max
+
+    if platform.system() == 'Windows':
+        freq = _get_realtime_freq_windows()
+        if freq:
+            freq_current = freq['current']
+            freq_max = freq['base']
+    else:
+        # On Linux/macOS, psutil works better
+        freq = psutil.cpu_freq()
+        if freq and freq.current:
+            freq_current = freq.current
+            freq_max = freq.max if freq.max else 0
 
     return {
         "percent": cpu_percent,
