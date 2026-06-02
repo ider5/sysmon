@@ -10,6 +10,7 @@ A beautiful system monitoring CLI tool built with Python.
 
 - **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, and GPU metrics
 - **Snapshot Mode** - One-shot system info output with ASCII art logo
+- **Brief Mode** - Single-line status display, perfect for terminal prompts
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
 - **GPU Monitoring** - NVIDIA GPU utilization, VRAM, and temperature
 - **Gradient Progress Bars** - Color-coded bars (green → yellow → red)
@@ -80,6 +81,21 @@ sysmon cpu              # CPU details with per-core usage
 sysmon memory           # Memory and swap usage
 sysmon network          # Network speed and totals
 sysmon gpu              # GPU utilization, VRAM, temperature
+```
+
+### Brief Mode (Single-line)
+
+```bash
+sysmon brief            # One-line status output
+sysmon brief -w         # Watch mode (auto-refresh)
+sysmon brief -w -r 2    # Watch mode, refresh every 2 seconds
+sysmon brief --no-color # No colors (for copy-paste)
+sysmon brief --no-gpu   # Hide GPU info
+```
+
+Example output:
+```
+CPU 15% 3176M │ RAM 8.2/16.0G (51%) │ ↑1.2 MB/s ↓5.8 MB/s │ GPU 32% 2.1/10.0G 65°C
 ```
 
 ### Other Options

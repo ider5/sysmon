@@ -124,5 +124,35 @@ def gpu() -> None:
     _print_gpu(console, info)
 
 
+@app.command()
+def brief(
+    watch: bool = typer.Option(
+        False, "--watch", "-w",
+        help="Watch mode: auto-refresh display.",
+    ),
+    refresh: float = typer.Option(
+        1.0, "--refresh", "-r",
+        help="Refresh interval in seconds (for watch mode).",
+        min=0.5,
+        max=10.0,
+    ),
+    no_color: bool = typer.Option(
+        False, "--no-color",
+        help="Disable colors (for copy-paste).",
+    ),
+    no_gpu: bool = typer.Option(
+        False, "--no-gpu",
+        help="Hide GPU information.",
+    ),
+) -> None:
+    """Show brief one-line system status."""
+    from sysmon.display.brief import print_brief, run_brief_watch
+
+    if watch:
+        run_brief_watch(console, refresh_rate=refresh, no_color=no_color, no_gpu=no_gpu)
+    else:
+        print_brief(console, no_color=no_color, no_gpu=no_gpu)
+
+
 if __name__ == "__main__":
     app()
