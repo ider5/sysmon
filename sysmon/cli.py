@@ -130,9 +130,13 @@ def brief(
         False, "--watch", "-w",
         help="Watch mode: auto-refresh display.",
     ),
+    title: bool = typer.Option(
+        False, "--title", "-t",
+        help="Title mode: update terminal window title (non-intrusive).",
+    ),
     refresh: float = typer.Option(
         1.0, "--refresh", "-r",
-        help="Refresh interval in seconds (for watch mode).",
+        help="Refresh interval in seconds.",
         min=0.5,
         max=10.0,
     ),
@@ -146,9 +150,11 @@ def brief(
     ),
 ) -> None:
     """Show brief one-line system status."""
-    from sysmon.display.brief import print_brief, run_brief_watch
+    from sysmon.display.brief import print_brief, run_brief_watch, run_title_mode
 
-    if watch:
+    if title:
+        run_title_mode(console, refresh_rate=refresh, no_gpu=no_gpu)
+    elif watch:
         run_brief_watch(console, refresh_rate=refresh, no_color=no_color, no_gpu=no_gpu)
     else:
         print_brief(console, no_color=no_color, no_gpu=no_gpu)

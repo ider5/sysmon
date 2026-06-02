@@ -1,5 +1,7 @@
 """Brief single-line display mode."""
 
+import sys
+import threading
 import time
 
 from rich.console import Console
@@ -161,3 +163,76 @@ def run_brief_watch(console: Console, refresh_rate: float = 1.0,
                 live.update(build_brief_line(no_color, no_gpu))
         except KeyboardInterrupt:
             pass
+
+
+def _build_brief_string(no_gpu: bool = False) -> str:
+    """Build a plain text brief string for terminal title.
+
+    Args:
+        no_gpu: Hide GPU info
+
+    Returns:
+        Plain text string without Rich formatting
+    """
+    cpu_info = get_cpu_info()
+    mem_info = get_memory_info()
+    net_info = get_network_info()
+    gpu_info = get_gpu_info() if not no_gpu else None
+
+    parts = [
+        f"CPU {cpu_info['percent']:.0f}%",
+        f"RAM {bytes_to_gb(mem_info['used'])}/{bytes_to_gb(mem_info['total'])}G ({mem_info['percent']:.0f}%)",
+        f"↑{format_speed(net_info['speed_up'])} ↓{format_speed(net_info['speed_down'])}",
+    ]
+
+    if gpu_info:
+        gpu = gpu_info[0]
+        gpu_str = f"GPU {gpu['load']:.0f}%"
+        gpu_str += f" {gpu['memory_used']/1024:.1f}/{gpu['memory_total']/1024:.1f}G"
+        if gpu['temperature']:
+            gpu_str += f" {gpu['temperature']}°C"
+        parts.append(gpu_str)
+
+    return " │ ".join(parts)
+
+
+def run_title_mode(console: Console, refresh_rate: float = 2.0,
+                   no_gpu: bool = False) -> None:
+    """Run in terminal title mode - updates window title without affecting terminal.
+
+    This mode runs in the background and updates the terminal window title.
+    It does NOT interfere with normal terminal usage.
+
+    Args:
+        console: Rich Console instance
+        refresh_rate: Seconds between updates
+        no_gpu: Hide GPU info
+    """
+    # Initial network sample
+    get_network_info()
+    time.sleep(0.5)
+
+    def _title_updater():
+        """Background thread to update terminal title."""
+        while True:
+            try:
+                title = _build_brief_string(no_gpu)
+                # ANSI escape sequence to set terminal title
+                sys.stdout.write(f'\033]0;{title}\007')
+                sys.stdout.flush()
+            except Exception:
+                pass
+            time.sleep(refresh_rate)
+
+    # Start background thread
+    t = threading.Thread(target=_title_updater, daemon=True)
+    t.start()
+
+    console.print("[dim]Terminal title mode started. System info will appear in window title.[/dim]")
+    console.print("[dim]Press Ctrl+C to stop.[/dim]")
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        console.print("\n[dim]Title mode stopped.[/dim]")
