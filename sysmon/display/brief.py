@@ -208,12 +208,21 @@ def _title_worker_script(refresh_rate: float = 2.0, no_gpu: bool = False) -> str
     return f'''
 import sys
 import time
-import psutil
+import ctypes
+import traceback
 
 from sysmon.collectors.cpu import get_cpu_info
 from sysmon.collectors.memory import get_memory_info, bytes_to_gb
 from sysmon.collectors.network import get_network_info, format_speed
 from sysmon.collectors.gpu import get_gpu_info
+
+def set_title(title):
+    """Set terminal title using platform-specific method."""
+    if sys.platform == 'win32':
+        ctypes.windll.kernel32.SetConsoleTitleW(title)
+    else:
+        sys.stdout.write(f"\\033]0;{{title}}\\007")
+        sys.stdout.flush()
 
 # Initial network sample
 get_network_info()
@@ -240,10 +249,11 @@ while True:
             parts.append(gpu_str)
 
         title = " │ ".join(parts)
-        sys.stdout.write(f"\\033]0;{{title}}\\007")
-        sys.stdout.flush()
-    except Exception:
-        pass
+        set_title(title)
+    except Exception as e:
+        # Log error to file for debugging
+        with open("C:/Users/50427/sysmon_title_error.log", "a") as f:
+            f.write(f"{{time.strftime('%Y-%m-%d %H:%M:%S')}}: {{traceback.format_exc()}}\\n")
     time.sleep({refresh_rate})
 '''
 
@@ -304,6 +314,13 @@ def run_title_mode(console: Console, refresh_rate: float = 2.0,
         console.print(f"[green]✓[/green] Title mode started (PID: {proc.pid})")
         console.print("[dim]System info will appear in terminal title bar.[/dim]")
         console.print(f"[dim]To stop: sysmon brief --stop[/dim]")
+
+        # Check if running in VS Code
+        if 'TERM_PROGRAM' in __import__('os').environ:
+            if __import__('os').environ['TERM_PROGRAM'] == 'vscode':
+                console.print()
+                console.print("[yellow]⚠[/yellow] VS Code terminal may not show title updates.")
+                console.print("[dim]For best results, use Windows Terminal or other standard terminal.[/dim]")
     except Exception as e:
         console.print(f"[red]Error starting title mode: {e}[/red]")
 

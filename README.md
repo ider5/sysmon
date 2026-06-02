@@ -102,6 +102,8 @@ CPU 15% 3176M │ RAM 8.2/16.0G (51%) │ ↑1.2 MB/s ↓5.8 MB/s │ GPU 32% 2.
 
 **Title Mode (`-t`)** runs as a background process and updates the terminal window title. Completely non-blocking - terminal is free to use immediately. Use `sysmon brief --stop` to stop.
 
+> **Note:** VS Code's integrated terminal may not display title updates. For best results, use Windows Terminal or other standard terminal emulators.
+
 ### Other Options
 
 ```bash
