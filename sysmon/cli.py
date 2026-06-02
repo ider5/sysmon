@@ -134,8 +134,12 @@ def brief(
         False, "--title", "-t",
         help="Title mode: update terminal window title (non-intrusive).",
     ),
+    stop: bool = typer.Option(
+        False, "--stop",
+        help="Stop title mode background process.",
+    ),
     refresh: float = typer.Option(
-        1.0, "--refresh", "-r",
+        2.0, "--refresh", "-r",
         help="Refresh interval in seconds.",
         min=0.5,
         max=10.0,
@@ -150,9 +154,11 @@ def brief(
     ),
 ) -> None:
     """Show brief one-line system status."""
-    from sysmon.display.brief import print_brief, run_brief_watch, run_title_mode
+    from sysmon.display.brief import print_brief, run_brief_watch, run_title_mode, stop_title_mode
 
-    if title:
+    if stop:
+        stop_title_mode(console)
+    elif title:
         run_title_mode(console, refresh_rate=refresh, no_gpu=no_gpu)
     elif watch:
         run_brief_watch(console, refresh_rate=refresh, no_color=no_color, no_gpu=no_gpu)

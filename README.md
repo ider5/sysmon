@@ -89,7 +89,8 @@ sysmon gpu              # GPU utilization, VRAM, temperature
 sysmon brief            # One-line status output
 sysmon brief -w         # Watch mode (auto-refresh)
 sysmon brief -w -r 2    # Watch mode, refresh every 2 seconds
-sysmon brief -t         # Title mode (non-intrusive, updates window title)
+sysmon brief -t         # Title mode (background, updates window title)
+sysmon brief --stop     # Stop title mode
 sysmon brief --no-color # No colors (for copy-paste)
 sysmon brief --no-gpu   # Hide GPU info
 ```
@@ -99,7 +100,7 @@ Example output:
 CPU 15% 3176M │ RAM 8.2/16.0G (51%) │ ↑1.2 MB/s ↓5.8 MB/s │ GPU 32% 2.1/10.0G 65°C
 ```
 
-**Title Mode (`-t`)** updates the terminal window title without affecting terminal content. Perfect for monitoring while working.
+**Title Mode (`-t`)** runs as a background process and updates the terminal window title. Completely non-blocking - terminal is free to use immediately. Use `sysmon brief --stop` to stop.
 
 ### Other Options
 

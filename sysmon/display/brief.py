@@ -196,43 +196,139 @@ def _build_brief_string(no_gpu: bool = False) -> str:
     return " │ ".join(parts)
 
 
+import subprocess
+from pathlib import Path
+
+# PID file location
+_PID_FILE = Path.home() / '.sysmon_title.pid'
+
+
+def _title_worker_script(refresh_rate: float = 2.0, no_gpu: bool = False) -> str:
+    """Generate Python script for background title worker."""
+    return f'''
+import sys
+import time
+import psutil
+
+from sysmon.collectors.cpu import get_cpu_info
+from sysmon.collectors.memory import get_memory_info, bytes_to_gb
+from sysmon.collectors.network import get_network_info, format_speed
+from sysmon.collectors.gpu import get_gpu_info
+
+# Initial network sample
+get_network_info()
+time.sleep(0.5)
+
+while True:
+    try:
+        cpu = get_cpu_info()
+        mem = get_memory_info()
+        net = get_network_info()
+        gpus = get_gpu_info() if {not no_gpu} else None
+
+        parts = [
+            f"CPU {{cpu['percent']:.0f}}%",
+            f"RAM {{bytes_to_gb(mem['used'])}}/{{bytes_to_gb(mem['total'])}}G ({{mem['percent']:.0f}}%)",
+            f"↑{{format_speed(net['speed_up'])}} ↓{{format_speed(net['speed_down'])}}",
+        ]
+
+        if gpus:
+            gpu = gpus[0]
+            gpu_str = f"GPU {{gpu['load']:.0f}}% {{gpu['memory_used']/1024:.1f}}/{{gpu['memory_total']/1024:.1f}}G"
+            if gpu['temperature']:
+                gpu_str += f" {{gpu['temperature']}}°C"
+            parts.append(gpu_str)
+
+        title = " │ ".join(parts)
+        sys.stdout.write(f"\\033]0;{{title}}\\007")
+        sys.stdout.flush()
+    except Exception:
+        pass
+    time.sleep({refresh_rate})
+'''
+
+
+def _stop_existing_title_process():
+    """Stop existing title process if running."""
+    if _PID_FILE.exists():
+        try:
+            pid = int(_PID_FILE.read_text().strip())
+            if psutil.pid_exists(pid):
+                proc = psutil.Process(pid)
+                # Check if it's our sysmon process
+                if 'sysmon' in ' '.join(proc.cmdline()).lower():
+                    proc.terminate()
+                    time.sleep(0.5)
+        except Exception:
+            pass
+        finally:
+            _PID_FILE.unlink(missing_ok=True)
+
+
 def run_title_mode(console: Console, refresh_rate: float = 2.0,
                    no_gpu: bool = False) -> None:
-    """Run in terminal title mode - updates window title without affecting terminal.
+    """Run in terminal title mode - completely non-blocking.
 
-    This mode runs in the background and updates the terminal window title.
-    It does NOT interfere with normal terminal usage.
+    Starts a background process that updates terminal window title.
+    Returns immediately, terminal is free to use.
 
     Args:
         console: Rich Console instance
         refresh_rate: Seconds between updates
         no_gpu: Hide GPU info
     """
-    # Initial network sample
-    get_network_info()
-    time.sleep(0.5)
+    import psutil
 
-    def _title_updater():
-        """Background thread to update terminal title."""
-        while True:
-            try:
-                title = _build_brief_string(no_gpu)
-                # ANSI escape sequence to set terminal title
-                sys.stdout.write(f'\033]0;{title}\007')
-                sys.stdout.flush()
-            except Exception:
-                pass
-            time.sleep(refresh_rate)
+    # Stop any existing title process
+    _stop_existing_title_process()
 
-    # Start background thread
-    t = threading.Thread(target=_title_updater, daemon=True)
-    t.start()
+    # Get Python executable
+    python_exe = sys.executable
 
-    console.print("[dim]Terminal title mode started. System info will appear in window title.[/dim]")
-    console.print("[dim]Press Ctrl+C to stop.[/dim]")
+    # Build the worker script
+    script = _title_worker_script(refresh_rate, no_gpu)
+
+    # Start background process
+    try:
+        proc = subprocess.Popen(
+            [python_exe, '-c', script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0,
+            start_new_session=True,
+        )
+
+        # Save PID
+        _PID_FILE.write_text(str(proc.pid))
+
+        console.print(f"[green]✓[/green] Title mode started (PID: {proc.pid})")
+        console.print("[dim]System info will appear in terminal title bar.[/dim]")
+        console.print(f"[dim]To stop: sysmon brief --stop[/dim]")
+    except Exception as e:
+        console.print(f"[red]Error starting title mode: {e}[/red]")
+
+
+def stop_title_mode(console: Console) -> None:
+    """Stop the background title process.
+
+    Args:
+        console: Rich Console instance
+    """
+    import psutil
+
+    if not _PID_FILE.exists():
+        console.print("[dim]Title mode is not running.[/dim]")
+        return
 
     try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        console.print("\n[dim]Title mode stopped.[/dim]")
+        pid = int(_PID_FILE.read_text().strip())
+        if psutil.pid_exists(pid):
+            proc = psutil.Process(pid)
+            proc.terminate()
+            console.print(f"[green]✓[/green] Title mode stopped (PID: {pid})")
+        else:
+            console.print("[dim]Title mode process was not running.[/dim]")
+    except Exception as e:
+        console.print(f"[red]Error stopping title mode: {e}[/red]")
+    finally:
+        _PID_FILE.unlink(missing_ok=True)
