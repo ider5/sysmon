@@ -8,9 +8,12 @@ A beautiful system monitoring CLI tool built with Python.
 
 ## Features
 
-- **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, and GPU metrics
+- **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, Disk, and GPU metrics
 - **Snapshot Mode** - One-shot system info output with ASCII art logo
 - **Brief Mode** - Single-line status display, perfect for terminal prompts
+- **JSON Output** - Machine-readable output for scripts and automation
+- **Disk Monitoring** - Disk usage and read/write I/O speeds
+- **Configuration File** - Persistent defaults via `~/.config/sysmon/config.toml`
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
 - **GPU Monitoring** - NVIDIA GPU utilization, VRAM, and temperature
 - **Gradient Progress Bars** - Color-coded bars (green → yellow → red)
@@ -71,7 +74,10 @@ sysmon snapshot         # Show all system info with ASCII logo
 sysmon snapshot cpu     # Show only CPU info
 sysmon snapshot memory  # Show only memory info
 sysmon snapshot network # Show only network info
+sysmon snapshot disk    # Show only disk info
 sysmon snapshot gpu     # Show only GPU info
+sysmon snapshot --format json   # JSON output for scripting
+sysmon snapshot -s 0.5          # Faster network/disk speed sampling
 ```
 
 ### Individual Commands
@@ -80,8 +86,29 @@ sysmon snapshot gpu     # Show only GPU info
 sysmon cpu              # CPU details with per-core usage
 sysmon memory           # Memory and swap usage
 sysmon network          # Network speed and totals
+sysmon disk             # Disk usage and I/O speeds
 sysmon gpu              # GPU utilization, VRAM, temperature
+sysmon cpu --format json
 ```
+
+### Configuration
+
+```bash
+sysmon config init      # Create ~/.config/sysmon/config.toml
+sysmon config path      # Show config file location
+```
+
+Example `config.toml`:
+
+```toml
+refresh_interval = 1.0
+sample_interval = 1.0
+brief_refresh_interval = 2.0
+enable_gpu = true
+default_format = "rich"
+```
+
+CLI flags override config values.
 
 ### Brief Mode (Single-line)
 
@@ -169,6 +196,14 @@ A background daemon thread collects this data every 1.5 seconds, ensuring the UI
 | Rich | Terminal UI (panels, tables, live display) |
 | Typer | CLI framework |
 | GPUtil | NVIDIA GPU monitoring |
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+ruff check sysmon tests
+pytest -v
+```
 
 ## License
 

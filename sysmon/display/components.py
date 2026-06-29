@@ -6,7 +6,6 @@ import time
 import psutil
 from rich.bar import Bar
 from rich.panel import Panel
-from rich.table import Table
 from rich.text import Text
 
 from sysmon import __version__
@@ -21,9 +20,9 @@ def _get_os_name() -> str:
         try:
             build = sys.getwindowsversion().build
             if build >= 22000:
-                return f"Windows 11"
+                return "Windows 11"
             else:
-                return f"Windows 10"
+                return "Windows 10"
         except Exception:
             return f"Windows {uname.release}"
     else:
@@ -135,7 +134,7 @@ def header_bar(hostname: str, os_name: str, uptime: str) -> Panel:
     """
     text = Text()
     text.append("⚡ ", style="bold yellow")
-    text.append(f"sysmon", style="bold cyan")
+    text.append("sysmon", style="bold cyan")
     text.append(f" v{__version__}", style="dim")
     text.append("  │  ", style="dim")
     text.append(f"💻 {hostname}", style="bold")

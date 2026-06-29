@@ -1,12 +1,13 @@
 """Network metrics collector."""
 
+import threading
 import time
-from typing import Optional
+
 import psutil
 
-# Store previous sample for speed calculation
 _prev_net_io = None
-_prev_time: float = 0
+_prev_time: float | None = None
+_net_lock = threading.Lock()
 
 
 def get_network_info() -> dict:
@@ -21,20 +22,21 @@ def get_network_info() -> dict:
     current = psutil.net_io_counters()
     now = time.time()
 
-    if _prev_net_io is not None and _prev_time > 0:
-        dt = now - _prev_time
-        if dt > 0:
-            speed_up = (current.bytes_sent - _prev_net_io.bytes_sent) / dt
-            speed_down = (current.bytes_recv - _prev_net_io.bytes_recv) / dt
+    with _net_lock:
+        if _prev_net_io is not None and _prev_time is not None:
+            dt = now - _prev_time
+            if dt > 0:
+                speed_up = (current.bytes_sent - _prev_net_io.bytes_sent) / dt
+                speed_down = (current.bytes_recv - _prev_net_io.bytes_recv) / dt
+            else:
+                speed_up = 0
+                speed_down = 0
         else:
             speed_up = 0
             speed_down = 0
-    else:
-        speed_up = 0
-        speed_down = 0
 
-    _prev_net_io = current
-    _prev_time = now
+        _prev_net_io = current
+        _prev_time = now
 
     return {
         "bytes_sent": current.bytes_sent,

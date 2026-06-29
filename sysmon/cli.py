@@ -1,16 +1,26 @@
 """SysMon CLI entry point."""
 
+import time
+from typing import Literal, Optional
+
 import typer
 from rich.console import Console
 
 from sysmon import __version__
+from sysmon.config import load_config, write_default_config
+from sysmon.paths import get_config_path
 
 app = typer.Typer(
     name="sysmon",
     help="A beautiful system monitoring CLI tool.",
     add_completion=False,
 )
+config_app = typer.Typer(help="Manage sysmon configuration.")
+app.add_typer(config_app, name="config")
 console = Console()
+
+VALID_SECTIONS = ["all", "cpu", "memory", "network", "disk", "gpu"]
+OutputFormat = Literal["rich", "json"]
 
 
 def version_callback(value: bool) -> None:
@@ -18,6 +28,63 @@ def version_callback(value: bool) -> None:
     if value:
         console.print(f"sysmon v{__version__}")
         raise typer.Exit()
+
+
+def _validate_format(output_format: str) -> OutputFormat:
+    if output_format not in ("rich", "json"):
+        console.print(f"[red]Unknown format: {output_format}[/red]")
+        console.print("Valid formats: rich, json")
+        raise typer.Exit(code=1)
+    return output_format  # type: ignore[return-value]
+
+
+def _resolve_format(cli_format: Optional[str]) -> str:
+    settings = load_config()
+    return cli_format if cli_format is not None else settings.default_format
+
+
+def _resolve_gpu_enabled(cli_no_gpu: bool) -> bool:
+    settings = load_config()
+    return settings.enable_gpu and not cli_no_gpu
+
+
+def _emit_json(data: dict) -> None:
+    from sysmon.export import to_json
+
+    print(to_json(data))
+
+
+def _wait_for_rate_sampling(sample_interval: float) -> None:
+    from sysmon.collectors.disk import get_disk_info
+    from sysmon.collectors.network import get_network_info
+
+    get_network_info()
+    get_disk_info()
+    time.sleep(sample_interval)
+
+
+@config_app.command("init")
+def config_init(
+    force: bool = typer.Option(
+        False, "--force",
+        help="Overwrite an existing config file.",
+    ),
+) -> None:
+    """Create a default config file at ~/.config/sysmon/config.toml."""
+    path = get_config_path()
+    if path.exists() and not force:
+        console.print(f"[yellow]Config already exists:[/yellow] {path}")
+        console.print("[dim]Use --force to overwrite.[/dim]")
+        raise typer.Exit(code=1)
+
+    write_default_config()
+    console.print(f"[green]✓[/green] Config written to {path}")
+
+
+@config_app.command("path")
+def config_path() -> None:
+    """Print the config file path."""
+    print(get_config_path())
 
 
 @app.callback()
@@ -32,55 +99,104 @@ def main(
 
 @app.command()
 def dashboard(
-    refresh: float = typer.Option(
-        1.0, "--refresh", "-r",
+    refresh: Optional[float] = typer.Option(
+        None, "--refresh", "-r",
         help="Refresh interval in seconds.",
         min=0.1,
         max=10.0,
     ),
+    no_gpu: bool = typer.Option(
+        False, "--no-gpu",
+        help="Hide GPU information.",
+    ),
 ) -> None:
     """Launch the real-time monitoring dashboard."""
     from sysmon.display.dashboard import run_dashboard
-    run_dashboard(refresh_rate=refresh)
+
+    settings = load_config()
+    refresh_rate = refresh if refresh is not None else settings.refresh_interval
+    run_dashboard(
+        refresh_rate=refresh_rate,
+        include_gpu=_resolve_gpu_enabled(no_gpu),
+    )
 
 
 @app.command()
 def snapshot(
     section: str = typer.Argument(
         "all",
-        help="Section to show: all, cpu, memory, network, gpu.",
+        help="Section to show: all, cpu, memory, network, disk, gpu.",
+    ),
+    sample_interval: Optional[float] = typer.Option(
+        None, "--sample-interval", "-s",
+        help="Seconds to wait for network/disk speed sampling.",
+        min=0.1,
+        max=10.0,
+    ),
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
+    no_gpu: bool = typer.Option(
+        False, "--no-gpu",
+        help="Hide GPU information.",
     ),
 ) -> None:
     """Print a one-shot system snapshot."""
-    from sysmon.display.snapshot import print_snapshot
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format))
+    interval = (
+        sample_interval if sample_interval is not None else settings.sample_interval
+    )
+    include_gpu = _resolve_gpu_enabled(no_gpu)
 
-    valid_sections = ["all", "cpu", "memory", "network", "gpu"]
-    if section not in valid_sections:
+    if section not in VALID_SECTIONS:
         console.print(f"[red]Unknown section: {section}[/red]")
-        console.print(f"Valid sections: {', '.join(valid_sections)}")
+        console.print(f"Valid sections: {', '.join(VALID_SECTIONS)}")
         raise typer.Exit(code=1)
 
-    # Get two samples for network speed
-    from sysmon.collectors.network import get_network_info
-    import time
-    get_network_info()
-    time.sleep(1)
+    _wait_for_rate_sampling(interval)
 
-    print_snapshot(console, section=section)
+    if fmt == "json":
+        from sysmon.export import collect_all, collect_section
+
+        if section == "all":
+            _emit_json(collect_all(include_gpu=include_gpu))
+        else:
+            _emit_json(collect_section(section))
+        return
+
+    from sysmon.display.snapshot import print_snapshot
+
+    print_snapshot(console, section=section, include_gpu=include_gpu)
 
 
 @app.command()
-def cpu() -> None:
+def cpu(
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
+) -> None:
     """Show CPU information."""
-    from sysmon.collectors.cpu import get_cpu_info, get_per_core_usage
-    from sysmon.display.snapshot import _print_cpu
+    fmt = _validate_format(_resolve_format(output_format))
+
+    if fmt == "json":
+        from sysmon.export import collect_section
+
+        _emit_json(collect_section("cpu"))
+        return
+
     from rich.text import Text
+
+    from sysmon.collectors.cpu import get_cpu_snapshot
     from sysmon.display.components import progress_bar
+    from sysmon.display.snapshot import _print_cpu
 
-    info = get_cpu_info()
-    _print_cpu(console, info)
+    snapshot_data = get_cpu_snapshot()
+    _print_cpu(console, snapshot_data)
 
-    cores = get_per_core_usage()
+    cores = snapshot_data["cores"]
     console.print("\n[bold]Per-core usage:[/bold]")
     for i, pct in enumerate(cores):
         text = Text()
@@ -90,38 +206,119 @@ def cpu() -> None:
 
 
 @app.command()
-def memory() -> None:
+def memory(
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
+) -> None:
     """Show Memory information."""
+    fmt = _validate_format(_resolve_format(output_format))
+
+    if fmt == "json":
+        from sysmon.export import collect_section
+
+        _emit_json(collect_section("memory"))
+        return
+
     from sysmon.collectors.memory import get_memory_info
     from sysmon.display.snapshot import _print_memory
 
-    info = get_memory_info()
-    _print_memory(console, info)
+    _print_memory(console, get_memory_info())
 
 
 @app.command()
-def network() -> None:
+def network(
+    sample_interval: Optional[float] = typer.Option(
+        None, "--sample-interval", "-s",
+        help="Seconds to wait for network speed sampling.",
+        min=0.1,
+        max=10.0,
+    ),
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
+) -> None:
     """Show Network information."""
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format))
+    interval = (
+        sample_interval if sample_interval is not None else settings.sample_interval
+    )
+
     from sysmon.collectors.network import get_network_info
-    from sysmon.display.snapshot import _print_network
-    import time
 
-    # Two samples for speed
     get_network_info()
-    time.sleep(1)
+    time.sleep(interval)
 
-    info = get_network_info()
-    _print_network(console, info)
+    if fmt == "json":
+        from sysmon.export import collect_section
+
+        _emit_json(collect_section("network"))
+        return
+
+    from sysmon.display.snapshot import _print_network
+
+    _print_network(console, get_network_info())
 
 
 @app.command()
-def gpu() -> None:
+def disk(
+    sample_interval: Optional[float] = typer.Option(
+        None, "--sample-interval", "-s",
+        help="Seconds to wait for disk I/O speed sampling.",
+        min=0.1,
+        max=10.0,
+    ),
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
+) -> None:
+    """Show Disk usage and I/O information."""
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format))
+    interval = (
+        sample_interval if sample_interval is not None else settings.sample_interval
+    )
+
+    from sysmon.collectors.disk import get_disk_info
+
+    get_disk_info()
+    time.sleep(interval)
+
+    if fmt == "json":
+        from sysmon.export import collect_section
+
+        _emit_json(collect_section("disk"))
+        return
+
+    from sysmon.display.snapshot import _print_disk
+
+    _print_disk(console, get_disk_info())
+
+
+@app.command()
+def gpu(
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
+) -> None:
     """Show GPU information."""
+    fmt = _validate_format(_resolve_format(output_format))
+
+    if fmt == "json":
+        from sysmon.export import collect_section
+
+        _emit_json(collect_section("gpu"))
+        return
+
     from sysmon.collectors.gpu import get_gpu_info
     from sysmon.display.snapshot import _print_gpu
 
-    info = get_gpu_info()
-    _print_gpu(console, info)
+    _print_gpu(console, get_gpu_info())
 
 
 @app.command()
@@ -138,8 +335,8 @@ def brief(
         False, "--stop",
         help="Stop title mode background process.",
     ),
-    refresh: float = typer.Option(
-        2.0, "--refresh", "-r",
+    refresh: Optional[float] = typer.Option(
+        None, "--refresh", "-r",
         help="Refresh interval in seconds.",
         min=0.5,
         max=10.0,
@@ -152,18 +349,56 @@ def brief(
         False, "--no-gpu",
         help="Hide GPU information.",
     ),
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
 ) -> None:
     """Show brief one-line system status."""
-    from sysmon.display.brief import print_brief, run_brief_watch, run_title_mode, stop_title_mode
+    from sysmon.display.brief import (
+        print_brief,
+        run_brief_watch,
+        run_title_mode,
+        stop_title_mode,
+    )
 
     if stop:
         stop_title_mode(console)
-    elif title:
-        run_title_mode(console, refresh_rate=refresh, no_gpu=no_gpu)
+        return
+
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format))
+    refresh_rate = (
+        refresh if refresh is not None else settings.brief_refresh_interval
+    )
+    include_gpu = _resolve_gpu_enabled(no_gpu)
+
+    if fmt == "json":
+        if title or watch:
+            console.print(
+                "[red]JSON output is not supported with --title or --watch.[/red]"
+            )
+            raise typer.Exit(code=1)
+
+        from sysmon.collectors.network import get_network_info
+        from sysmon.export import collect_brief
+
+        get_network_info()
+        time.sleep(settings.sample_interval)
+        _emit_json(collect_brief(include_gpu=include_gpu))
+        return
+
+    if title:
+        run_title_mode(console, refresh_rate=refresh_rate, no_gpu=not include_gpu)
     elif watch:
-        run_brief_watch(console, refresh_rate=refresh, no_color=no_color, no_gpu=no_gpu)
+        run_brief_watch(
+            console,
+            refresh_rate=refresh_rate,
+            no_color=no_color,
+            no_gpu=not include_gpu,
+        )
     else:
-        print_brief(console, no_color=no_color, no_gpu=no_gpu)
+        print_brief(console, no_color=no_color, no_gpu=not include_gpu)
 
 
 if __name__ == "__main__":

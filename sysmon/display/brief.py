@@ -1,17 +1,18 @@
 """Brief single-line display mode."""
 
+import subprocess
 import sys
-import threading
 import time
+from pathlib import Path
 
 from rich.console import Console
 from rich.live import Live
 from rich.text import Text
 
 from sysmon.collectors.cpu import get_cpu_info
-from sysmon.collectors.memory import get_memory_info, bytes_to_gb
-from sysmon.collectors.network import get_network_info, format_bytes, format_speed
 from sysmon.collectors.gpu import get_gpu_info
+from sysmon.collectors.memory import bytes_to_gb, get_memory_info
+from sysmon.collectors.network import format_speed, get_network_info
 
 
 def _format_cpu(info: dict, no_color: bool = False) -> Text:
@@ -196,9 +197,6 @@ def _build_brief_string(no_gpu: bool = False) -> str:
     return " │ ".join(parts)
 
 
-import subprocess
-from pathlib import Path
-
 # PID file location
 _PID_FILE = Path.home() / '.sysmon_title.pid'
 
@@ -215,6 +213,7 @@ from sysmon.collectors.cpu import get_cpu_info
 from sysmon.collectors.memory import get_memory_info, bytes_to_gb
 from sysmon.collectors.network import get_network_info, format_speed
 from sysmon.collectors.gpu import get_gpu_info
+from sysmon.paths import get_log_dir
 
 def set_title(title):
     """Set terminal title using platform-specific method."""
@@ -250,9 +249,9 @@ while True:
 
         title = " │ ".join(parts)
         set_title(title)
-    except Exception as e:
-        # Log error to file for debugging
-        with open("C:/Users/50427/sysmon_title_error.log", "a") as f:
+    except Exception:
+        log_path = get_log_dir() / "title_error.log"
+        with open(log_path, "a", encoding="utf-8") as f:
             f.write(f"{{time.strftime('%Y-%m-%d %H:%M:%S')}}: {{traceback.format_exc()}}\\n")
     time.sleep({refresh_rate})
 '''
@@ -260,6 +259,8 @@ while True:
 
 def _stop_existing_title_process():
     """Stop existing title process if running."""
+    import psutil
+
     if _PID_FILE.exists():
         try:
             pid = int(_PID_FILE.read_text().strip())
@@ -287,7 +288,6 @@ def run_title_mode(console: Console, refresh_rate: float = 2.0,
         refresh_rate: Seconds between updates
         no_gpu: Hide GPU info
     """
-    import psutil
 
     # Stop any existing title process
     _stop_existing_title_process()
@@ -313,7 +313,7 @@ def run_title_mode(console: Console, refresh_rate: float = 2.0,
 
         console.print(f"[green]✓[/green] Title mode started (PID: {proc.pid})")
         console.print("[dim]System info will appear in terminal title bar.[/dim]")
-        console.print(f"[dim]To stop: sysmon brief --stop[/dim]")
+        console.print("[dim]To stop: sysmon brief --stop[/dim]")
 
         # Check if running in VS Code
         if 'TERM_PROGRAM' in __import__('os').environ:
