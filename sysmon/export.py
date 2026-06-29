@@ -1,5 +1,7 @@
 """Structured data export for sysmon."""
 
+from __future__ import annotations
+
 import json
 import platform
 from typing import Any, Optional
