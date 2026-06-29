@@ -53,6 +53,17 @@ def test_from_mapping_modules_and_thresholds():
     assert config.process_limit == 5
 
 
+def test_from_mapping_disk_and_network_selection():
+    config = SysmonConfig.from_mapping(
+        {
+            "disk_mounts": ["C:\\", "D:\\"],
+            "network_interfaces": ["eth0", "Wi-Fi"],
+        }
+    )
+    assert config.disk_mounts == ("C:\\", "D:\\")
+    assert config.network_interfaces == ("eth0", "Wi-Fi")
+
+
 def test_load_config_from_file(tmp_path: Path, monkeypatch):
     config_dir = tmp_path / ".config" / "sysmon"
     config_dir.mkdir(parents=True)

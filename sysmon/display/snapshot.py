@@ -81,9 +81,9 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
     if settings.modules.memory:
         _print_memory(console, get_memory_info())
     if settings.modules.network:
-        _print_network(console, get_network_info())
+        _print_network(console, get_network_info(settings.network_interfaces))
     if settings.modules.disk:
-        _print_disk(console, get_disk_info())
+        _print_disk(console, get_disk_info(settings.disk_mounts))
     if include_gpu and settings.modules.gpu:
         _print_gpu(console, get_gpu_info())
     if settings.modules.process:
@@ -120,8 +120,9 @@ def _print_memory(console: Console, info: dict | None = None) -> None:
 
 def _print_network(console: Console, info: dict | None = None) -> None:
     """Print Network information."""
+    settings = load_config()
     if info is None:
-        info = get_network_info()
+        info = get_network_info(settings.network_interfaces)
     console.print(network_panel(info))
 
 
@@ -129,7 +130,7 @@ def _print_disk(console: Console, info: dict | None = None) -> None:
     """Print Disk information."""
     settings = load_config()
     if info is None:
-        info = get_disk_info()
+        info = get_disk_info(settings.disk_mounts)
     console.print(
         disk_panel(
             info,

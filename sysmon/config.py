@@ -53,6 +53,8 @@ class SysmonConfig:
     modules: ModuleConfig = field(default_factory=ModuleConfig)
     thresholds: ThresholdConfig = field(default_factory=ThresholdConfig)
     process_limit: int = 10
+    disk_mounts: tuple[str, ...] | None = None
+    network_interfaces: tuple[str, ...] | None = None
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> SysmonConfig:
@@ -78,6 +80,17 @@ class SysmonConfig:
             disk_critical=float(thresholds_data.get("disk_critical", 95.0)),
         )
 
+        disk_mounts_raw = data.get("disk_mounts")
+        network_ifaces_raw = data.get("network_interfaces")
+
+        disk_mounts: tuple[str, ...] | None = None
+        if disk_mounts_raw is not None:
+            disk_mounts = tuple(str(m) for m in disk_mounts_raw)
+
+        network_interfaces: tuple[str, ...] | None = None
+        if network_ifaces_raw is not None:
+            network_interfaces = tuple(str(n) for n in network_ifaces_raw)
+
         return cls(
             refresh_interval=float(data.get("refresh_interval", 1.0)),
             sample_interval=float(data.get("sample_interval", 1.0)),
@@ -89,6 +102,8 @@ class SysmonConfig:
             modules=modules,
             thresholds=thresholds,
             process_limit=int(data.get("process_limit", 10)),
+            disk_mounts=disk_mounts,
+            network_interfaces=network_interfaces,
         )
 
 
@@ -104,6 +119,12 @@ brief_refresh_interval = 2.0
 enable_gpu = true
 default_format = "rich"
 process_limit = 10
+
+# Disk mounts to monitor. Omit for primary mount only; use [] for all detected mounts.
+# disk_mounts = ["C:\\\\", "D:\\\\"]
+
+# Network interfaces to show per-NIC stats. Omit for aggregate only; use [] for all.
+# network_interfaces = ["Ethernet", "Wi-Fi"]
 
 [modules]
 cpu = true

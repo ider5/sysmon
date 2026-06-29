@@ -50,7 +50,7 @@ def _memory_payload() -> dict[str, Any]:
 
 def _network_payload() -> dict[str, Any]:
     info = collect_named("network")
-    return {
+    payload: dict[str, Any] = {
         "bytes_sent": info["bytes_sent"],
         "bytes_recv": info["bytes_recv"],
         "speed_up": info["speed_up"],
@@ -58,12 +58,37 @@ def _network_payload() -> dict[str, Any]:
         "packets_sent": info["packets_sent"],
         "packets_recv": info["packets_recv"],
     }
+    if "interfaces" in info:
+        payload["interfaces"] = info["interfaces"]
+    return payload
 
 
 def _disk_payload() -> dict[str, Any]:
     info = collect_named("disk")
     settings = load_config()
+    primary_status = metric_status(
+        info["percent"],
+        settings.thresholds.disk_warn,
+        settings.thresholds.disk_critical,
+    )
+    mounts = []
+    for mount_info in info.get("mounts", []):
+        mounts.append(
+            {
+                "mount": mount_info["mount"],
+                "total": mount_info["total"],
+                "used": mount_info["used"],
+                "free": mount_info["free"],
+                "percent": mount_info["percent"],
+                "status": metric_status(
+                    mount_info["percent"],
+                    settings.thresholds.disk_warn,
+                    settings.thresholds.disk_critical,
+                ),
+            }
+        )
     return {
+        "mounts": mounts,
         "mount": info["mount"],
         "total": info["total"],
         "used": info["used"],
@@ -73,11 +98,7 @@ def _disk_payload() -> dict[str, Any]:
         "write_bytes": info["write_bytes"],
         "read_speed": info["read_speed"],
         "write_speed": info["write_speed"],
-        "status": metric_status(
-            info["percent"],
-            settings.thresholds.disk_warn,
-            settings.thresholds.disk_critical,
-        ),
+        "status": primary_status,
     }
 
 
@@ -99,9 +120,14 @@ def _gpu_payload() -> Optional[list[dict[str, Any]]]:
     ]
 
 
-def _process_payload() -> list[dict[str, Any]]:
+def _process_payload(name_filter: str | None = None) -> list[dict[str, Any]]:
     settings = load_config()
-    return collect_named("process")[: settings.process_limit]
+    from sysmon.collectors.process import get_top_processes
+
+    return get_top_processes(
+        limit=settings.process_limit,
+        name_filter=name_filter,
+    )
 
 
 def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
@@ -137,7 +163,7 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     """Aggregate all metrics into a stable schema."""
     settings = load_config()
     data: dict[str, Any] = {
-        "schema_version": 2,
+        "schema_version": 3,
         "sysmon_version": __version__,
         "host": platform.node(),
         "os": _get_os_name(),

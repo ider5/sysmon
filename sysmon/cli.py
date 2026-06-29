@@ -58,8 +58,9 @@ def _wait_for_rate_sampling(sample_interval: float) -> None:
     from sysmon.collectors.disk import get_disk_info
     from sysmon.collectors.network import get_network_info
 
-    get_network_info()
-    get_disk_info()
+    settings = load_config()
+    get_network_info(settings.network_interfaces)
+    get_disk_info(settings.disk_mounts)
     time.sleep(sample_interval)
 
 
@@ -198,6 +199,20 @@ def top(
         "cpu", "--sort",
         help="Sort by cpu or memory.",
     ),
+    filter_name: Optional[str] = typer.Option(
+        None, "--filter",
+        help="Filter processes by name (case-insensitive substring).",
+    ),
+    watch: bool = typer.Option(
+        False, "--watch", "-w",
+        help="Interactive live view with runtime sort/filter keys.",
+    ),
+    refresh: Optional[float] = typer.Option(
+        None, "--refresh", "-r",
+        help="Refresh interval for watch mode.",
+        min=0.2,
+        max=10.0,
+    ),
     output_format: Optional[str] = typer.Option(
         None, "--format", "-f",
         help="Output format: rich or json.",
@@ -208,18 +223,41 @@ def top(
     fmt = _validate_format(_resolve_format(output_format))
     count = limit if limit is not None else settings.process_limit
     sort_key = sort_by if sort_by in ("cpu", "memory") else "cpu"
+    refresh_rate = refresh if refresh is not None else settings.refresh_interval
+
+    if watch:
+        if fmt == "json":
+            console.print("[red]JSON output is not supported with --watch.[/red]")
+            raise typer.Exit(code=1)
+        from sysmon.display.top_live import run_top_live
+
+        run_top_live(
+            limit=count,
+            sort_by=sort_key,
+            refresh_rate=refresh_rate,
+            name_filter=filter_name,
+        )
+        return
 
     from sysmon.collectors.process import get_top_processes
 
-    processes = get_top_processes(limit=count, sort_by=sort_key)
+    processes = get_top_processes(
+        limit=count,
+        sort_by=sort_key,
+        name_filter=filter_name,
+    )
 
     if fmt == "json":
-        _emit_json({"processes": processes, "sort_by": sort_key})
+        _emit_json({
+            "processes": processes,
+            "sort_by": sort_key,
+            "filter": filter_name,
+        })
         return
 
     from sysmon.display.panels import process_panel
 
-    console.print(process_panel(processes))
+    console.print(process_panel(processes, sort_by=sort_key, name_filter=filter_name))
 
 
 @app.command()
@@ -300,7 +338,7 @@ def network(
 
     from sysmon.collectors.network import get_network_info
 
-    get_network_info()
+    get_network_info(settings.network_interfaces)
     time.sleep(interval)
 
     if fmt == "json":
@@ -311,7 +349,7 @@ def network(
 
     from sysmon.display.snapshot import _print_network
 
-    _print_network(console, get_network_info())
+    _print_network(console, get_network_info(settings.network_interfaces))
 
 
 @app.command()
@@ -336,7 +374,7 @@ def disk(
 
     from sysmon.collectors.disk import get_disk_info
 
-    get_disk_info()
+    get_disk_info(settings.disk_mounts)
     time.sleep(interval)
 
     if fmt == "json":
@@ -347,7 +385,7 @@ def disk(
 
     from sysmon.display.snapshot import _print_disk
 
-    _print_disk(console, get_disk_info())
+    _print_disk(console, get_disk_info(settings.disk_mounts))
 
 
 @app.command()
@@ -434,7 +472,7 @@ def brief(
         from sysmon.collectors.network import get_network_info
         from sysmon.export import collect_brief
 
-        get_network_info()
+        get_network_info(settings.network_interfaces)
         time.sleep(settings.sample_interval)
         _emit_json(collect_brief(include_gpu=include_gpu))
         return

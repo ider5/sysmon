@@ -134,11 +134,29 @@ def build_network_text(
 ) -> Text:
     """Build network metrics text."""
     text = Text()
-    text.append(f"  {'↑ Upload':<14}", style="bold")
-    text.append(format_speed(info["speed_up"]) + "\n", style="green")
+    interfaces = info.get("interfaces")
 
-    text.append(f"  {'↓ Download':<14}", style="bold")
-    text.append(format_speed(info["speed_down"]) + "\n", style="cyan")
+    if interfaces:
+        for idx, iface in enumerate(interfaces):
+            if idx > 0:
+                text.append("  " + "─" * 30 + "\n", style="dim")
+            text.append(f"  {iface['name']:<14}", style="bold underline white")
+            text.append("\n")
+            text.append(f"  {'↑ Upload':<14}", style="bold")
+            text.append(format_speed(iface["speed_up"]) + "\n", style="green")
+            text.append(f"  {'↓ Download':<14}", style="bold")
+            text.append(format_speed(iface["speed_down"]) + "\n", style="cyan")
+        text.append("  " + "─" * 30 + "\n", style="dim")
+        text.append(f"  {'Total ↑':<14}", style="bold")
+        text.append(format_speed(info["speed_up"]) + "\n", style="green")
+        text.append(f"  {'Total ↓':<14}", style="bold")
+        text.append(format_speed(info["speed_down"]) + "\n", style="cyan")
+    else:
+        text.append(f"  {'↑ Upload':<14}", style="bold")
+        text.append(format_speed(info["speed_up"]) + "\n", style="green")
+
+        text.append(f"  {'↓ Download':<14}", style="bold")
+        text.append(format_speed(info["speed_down"]) + "\n", style="cyan")
 
     if download_history:
         text.append(f"  {'History':<14}", style="bold")
@@ -186,23 +204,35 @@ def build_disk_text(
 ) -> Text:
     """Build disk metrics text."""
     text = Text()
-    text.append(f"  {'Mount':<14}", style="bold")
-    text.append(f"{info['mount']}\n", style="bold white")
+    mounts = info.get("mounts") or [
+        {
+            "mount": info.get("mount", "?"),
+            "percent": info.get("percent", 0),
+            "used": info.get("used", 0),
+            "total": info.get("total", 0),
+        }
+    ]
 
-    text.append(f"  {'Usage':<14}", style="bold")
-    text.append_text(progress_bar(info["percent"], width=25, warn=warn, critical=critical))
-    text.append(f"\n  {'':14}")
-    text.append(
-        f"{format_bytes(info['used'])} / {format_bytes(info['total'])}\n",
-        style="bold white",
-    )
+    for idx, mount_info in enumerate(mounts):
+        if idx > 0:
+            text.append("  " + "─" * 30 + "\n", style="dim")
+        text.append(f"  {'Mount':<14}", style="bold")
+        text.append(f"{mount_info['mount']}\n", style="bold white")
+        text.append(f"  {'Usage':<14}", style="bold")
+        text.append_text(
+            progress_bar(mount_info["percent"], width=25, warn=warn, critical=critical)
+        )
+        text.append(f"\n  {'':14}")
+        text.append(
+            f"{format_bytes(mount_info['used'])} / {format_bytes(mount_info['total'])}\n",
+            style="bold white",
+        )
 
+    text.append("  " + "─" * 30 + "\n", style="dim")
     text.append(f"  {'Read':<14}", style="bold")
     text.append(format_speed(info["read_speed"]) + "\n", style="cyan")
-
     text.append(f"  {'Write':<14}", style="bold")
     text.append(format_speed(info["write_speed"]) + "\n", style="magenta")
-
     return text
 
 
@@ -220,9 +250,19 @@ def disk_panel(
     )
 
 
-def process_panel(processes: list[dict]) -> Panel:
+def process_panel(
+    processes: list[dict],
+    *,
+    sort_by: str = "cpu",
+    name_filter: str | None = None,
+) -> Panel:
     """Build top processes panel."""
     text = Text()
+    title_suffix = f" (sort: {sort_by}"
+    if name_filter:
+        title_suffix += f", filter: {name_filter}"
+    title_suffix += ")"
+
     if not processes:
         text.append("  No process data available.\n", style="dim")
     else:
@@ -236,4 +276,8 @@ def process_panel(processes: list[dict]) -> Panel:
             text.append(f"{proc['memory_percent']:>8.1f}", style="magenta")
             text.append(f"{proc['memory_mb']:>9.0f}M\n", style="dim")
 
-    return Panel(text, title="[bold white]⚙ Processes[/bold white]", border_style="white")
+    return Panel(
+        text,
+        title=f"[bold white]⚙ Processes{title_suffix}[/bold white]",
+        border_style="white",
+    )

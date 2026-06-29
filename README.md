@@ -18,22 +18,26 @@ A beautiful system monitoring CLI tool built with Python.
 - **GPU Monitoring** - NVIDIA GPU utilization, VRAM, and temperature
 - **Gradient Progress Bars** - Color-coded bars (green → yellow → red)
 - **Per-core CPU View** - Individual core usage visualization
-- **Background Collection** - Non-blocking metric collection for smooth UI
+- **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats
+- **Interactive Top** - Live process view with runtime sort and name filter
+- **Background Collection** - Cached metric snapshots for smooth dashboard updates
 
 ## Installation
 
-### Option 1: pipx (Recommended)
+### Option 1: pip / pipx (Recommended)
 
 ```bash
-# Install pipx if not installed
-pip install pipx
-pipx ensurepath
-
-# Install sysmon globally
-pipx install ./sysmon
+pip install sysmon          # Core (CPU, memory, network, disk)
+pip install sysmon[gpu]     # With NVIDIA GPU support
+pipx install sysmon         # Global isolated install
 ```
 
-After installation, `sysmon` command is available globally without activating any environment.
+From source:
+
+```bash
+pip install -e ".[dev]"     # Development
+pip install -e ".[gpu]"     # With GPU extras
+```
 
 ### Option 2: Standalone Executable (No Python required)
 
@@ -90,6 +94,8 @@ sysmon disk             # Disk usage and I/O speeds
 sysmon gpu              # GPU utilization, VRAM, temperature
 sysmon top              # Top processes by CPU usage
 sysmon top -n 15 --sort memory
+sysmon top --watch      # Interactive: c/m sort, / filter, q quit
+sysmon top --filter python
 sysmon cpu --format json
 ```
 
@@ -120,6 +126,9 @@ sample_interval = 1.0
 brief_refresh_interval = 2.0
 enable_gpu = true
 process_limit = 10
+
+# disk_mounts = ["C:\\", "D:\\"]       # omit = primary only; [] = all mounts
+# network_interfaces = ["eth0"]        # omit = aggregate; [] = all interfaces
 
 [modules]
 cpu = true
@@ -225,7 +234,21 @@ A background daemon thread collects this data every 1.5 seconds, ensuring the UI
 | psutil | System metrics (CPU, Memory, Network) |
 | Rich | Terminal UI (panels, tables, live display) |
 | Typer | CLI framework |
-| GPUtil | NVIDIA GPU monitoring |
+| GPUtil / nvidia-ml-py | NVIDIA GPU monitoring (optional `[gpu]` extra) |
+
+## Publishing to PyPI
+
+1. Create a GitHub Release (or run the **Publish PyPI** workflow manually).
+2. Set repository secret `PYPI_API_TOKEN` with a PyPI API token.
+3. The workflow runs tests, builds with `python -m build`, and uploads via `twine`.
+
+Local build:
+
+```bash
+pip install build
+python -m build
+twine upload dist/*
+```
 
 ## Development
 

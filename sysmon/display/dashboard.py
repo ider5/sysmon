@@ -11,12 +11,7 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 
-from sysmon.collectors.cpu import get_cpu_snapshot
-from sysmon.collectors.disk import get_disk_info
-from sysmon.collectors.gpu import get_gpu_info
-from sysmon.collectors.memory import get_memory_info
-from sysmon.collectors.network import get_network_info
-from sysmon.collectors.process import get_top_processes
+from sysmon.collectors.service import CollectorService
 from sysmon.config import SysmonConfig, load_config
 from sysmon.display.components import _get_os_name, _get_uptime, gpu_panel, header_bar
 from sysmon.display.panels import (
@@ -34,11 +29,13 @@ def build_dashboard(
     config: SysmonConfig | None = None,
     cpu_history: HistoryBuffer | None = None,
     net_history: HistoryBuffer | None = None,
+    snapshot: dict | None = None,
 ) -> Layout:
     """Build the full dashboard layout."""
     settings = config or load_config()
     modules = settings.modules
     thresholds = settings.thresholds
+    data = snapshot or {}
 
     os_name = _get_os_name()
     hostname = platform.node()
@@ -54,7 +51,11 @@ def build_dashboard(
     active_panels: list[tuple[str, Panel]] = []
 
     if modules.cpu:
-        cpu_snapshot = get_cpu_snapshot()
+        cpu_snapshot = data.get("cpu")
+        if cpu_snapshot is None:
+            from sysmon.collectors.cpu import get_cpu_snapshot
+
+            cpu_snapshot = get_cpu_snapshot()
         if cpu_history is not None:
             cpu_history.add(cpu_snapshot["percent"])
         active_panels.append(
@@ -72,11 +73,16 @@ def build_dashboard(
         )
 
     if modules.memory:
+        mem_info = data.get("memory")
+        if mem_info is None:
+            from sysmon.collectors.memory import get_memory_info
+
+            mem_info = get_memory_info()
         active_panels.append(
             (
                 "memory",
                 memory_panel(
-                    get_memory_info(),
+                    mem_info,
                     show_available=True,
                     warn=thresholds.memory_warn,
                     critical=thresholds.memory_critical,
@@ -85,7 +91,11 @@ def build_dashboard(
         )
 
     if modules.network:
-        net_info = get_network_info()
+        net_info = data.get("network")
+        if net_info is None:
+            from sysmon.collectors.network import get_network_info
+
+            net_info = get_network_info(settings.network_interfaces)
         if net_history is not None:
             net_history.add(net_info["speed_down"])
         active_panels.append(
@@ -100,11 +110,16 @@ def build_dashboard(
         )
 
     if modules.disk:
+        disk_info = data.get("disk")
+        if disk_info is None:
+            from sysmon.collectors.disk import get_disk_info
+
+            disk_info = get_disk_info(settings.disk_mounts)
         active_panels.append(
             (
                 "disk",
                 disk_panel(
-                    get_disk_info(),
+                    disk_info,
                     warn=thresholds.disk_warn,
                     critical=thresholds.disk_critical,
                 ),
@@ -112,12 +127,20 @@ def build_dashboard(
         )
 
     if modules.gpu and include_gpu:
-        active_panels.append(("gpu", gpu_panel(get_gpu_info())))
+        gpu_info = data.get("gpu")
+        if gpu_info is None:
+            from sysmon.collectors.gpu import get_gpu_info
+
+            gpu_info = get_gpu_info()
+        active_panels.append(("gpu", gpu_panel(gpu_info)))
 
     if modules.process:
-        active_panels.append(
-            ("process", process_panel(get_top_processes(limit=settings.process_limit)))
-        )
+        processes = data.get("process")
+        if processes is None:
+            from sysmon.collectors.process import get_top_processes
+
+            processes = get_top_processes(limit=settings.process_limit)
+        active_panels.append(("process", process_panel(processes)))
 
     if not active_panels:
         layout["content"].update(
@@ -125,7 +148,6 @@ def build_dashboard(
         )
         return layout
 
-    # Build grid rows (2 columns max per row)
     rows: list[list[tuple[str, Panel]]] = []
     row: list[tuple[str, Panel]] = []
     for item in active_panels:
@@ -160,31 +182,46 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
     cpu_history = HistoryBuffer(maxlen=60)
     net_history = HistoryBuffer(maxlen=60)
 
-    get_network_info()
-    get_disk_info()
+    from sysmon.collectors.disk import get_disk_info
+    from sysmon.collectors.network import get_network_info
+
+    get_network_info(config.network_interfaces)
+    get_disk_info(config.disk_mounts)
     time.sleep(0.5)
 
-    with Live(
-        build_dashboard(
-            include_gpu=include_gpu,
-            config=config,
-            cpu_history=cpu_history,
-            net_history=net_history,
-        ),
-        console=console,
-        refresh_per_second=1 / refresh_rate,
-        screen=True,
-    ) as live:
-        try:
-            while True:
-                time.sleep(refresh_rate)
-                live.update(
-                    build_dashboard(
-                        include_gpu=include_gpu,
-                        config=config,
-                        cpu_history=cpu_history,
-                        net_history=net_history,
+    service = CollectorService(
+        interval=refresh_rate,
+        include_gpu=include_gpu,
+        config=config,
+    )
+    service.start()
+
+    try:
+        with Live(
+            build_dashboard(
+                include_gpu=include_gpu,
+                config=config,
+                cpu_history=cpu_history,
+                net_history=net_history,
+                snapshot=service.get_snapshot(),
+            ),
+            console=console,
+            refresh_per_second=1 / refresh_rate,
+            screen=True,
+        ) as live:
+            try:
+                while True:
+                    time.sleep(refresh_rate)
+                    live.update(
+                        build_dashboard(
+                            include_gpu=include_gpu,
+                            config=config,
+                            cpu_history=cpu_history,
+                            net_history=net_history,
+                            snapshot=service.get_snapshot(),
+                        )
                     )
-                )
-        except KeyboardInterrupt:
-            pass
+            except KeyboardInterrupt:
+                pass
+    finally:
+        service.stop()
