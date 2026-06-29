@@ -6,6 +6,7 @@ from rich.text import Text
 from sysmon.collectors.memory import bytes_to_gb
 from sysmon.collectors.network import format_bytes, format_speed
 from sysmon.display.components import progress_bar
+from sysmon.display.sparkline import render_sparkline
 
 
 def build_cpu_text(
@@ -13,13 +14,20 @@ def build_cpu_text(
     cores: list[float] | None = None,
     *,
     compact: bool = False,
+    warn: float = 80.0,
+    critical: float = 95.0,
+    history: list[float] | None = None,
 ) -> Text:
     """Build CPU metrics text."""
     text = Text()
     usage_label = "Overall" if compact else "Usage"
     text.append(f"  {usage_label:<14}", style="bold")
-    text.append_text(progress_bar(info["percent"], width=25))
+    text.append_text(progress_bar(info["percent"], width=25, warn=warn, critical=critical))
     text.append("\n")
+
+    if history:
+        text.append(f"  {'History':<14}", style="bold")
+        text.append(render_sparkline(history, width=25) + "\n", style="cyan")
 
     text.append(f"  {'Cores':<14}", style="bold")
     text.append(
@@ -36,10 +44,12 @@ def build_cpu_text(
         text.append("Per-core Usage\n", style="bold underline")
         for i in range(0, len(cores), 2):
             text.append(f"  {i:2d} ", style="dim")
-            text.append_text(progress_bar(cores[i], width=12))
+            text.append_text(progress_bar(cores[i], width=12, warn=warn, critical=critical))
             if i + 1 < len(cores):
                 text.append(f"  {i+1:2d} ", style="dim")
-                text.append_text(progress_bar(cores[i + 1], width=12))
+                text.append_text(
+                    progress_bar(cores[i + 1], width=12, warn=warn, critical=critical)
+                )
             text.append("\n")
 
     return text
@@ -50,20 +60,31 @@ def cpu_panel(
     cores: list[float] | None = None,
     *,
     compact: bool = False,
+    warn: float = 80.0,
+    critical: float = 95.0,
+    history: list[float] | None = None,
 ) -> Panel:
     """Build CPU metrics panel."""
     return Panel(
-        build_cpu_text(info, cores, compact=compact),
+        build_cpu_text(
+            info, cores, compact=compact, warn=warn, critical=critical, history=history
+        ),
         title="[bold cyan]📊 CPU[/bold cyan]",
         border_style="cyan",
     )
 
 
-def build_memory_text(info: dict, *, show_available: bool = False) -> Text:
+def build_memory_text(
+    info: dict,
+    *,
+    show_available: bool = False,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Text:
     """Build memory metrics text."""
     text = Text()
     text.append(f"  {'RAM':<14}", style="bold")
-    text.append_text(progress_bar(info["percent"], width=25))
+    text.append_text(progress_bar(info["percent"], width=25, warn=warn, critical=critical))
     text.append(f"\n  {'':14}")
     text.append(
         f"{bytes_to_gb(info['used'])} / {bytes_to_gb(info['total'])} GB",
@@ -78,7 +99,7 @@ def build_memory_text(info: dict, *, show_available: bool = False) -> Text:
         if show_available:
             text.append("\n")
         text.append(f"  {'Swap':<14}", style="bold")
-        text.append_text(progress_bar(info["swap_percent"], width=25))
+        text.append_text(progress_bar(info["swap_percent"], width=25, warn=warn, critical=critical))
         text.append(f"\n  {'':14}")
         text.append(
             f"{bytes_to_gb(info['swap_used'])} / {bytes_to_gb(info['swap_total'])} GB\n",
@@ -88,16 +109,27 @@ def build_memory_text(info: dict, *, show_available: bool = False) -> Text:
     return text
 
 
-def memory_panel(info: dict, *, show_available: bool = False) -> Panel:
+def memory_panel(
+    info: dict,
+    *,
+    show_available: bool = False,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Panel:
     """Build memory metrics panel."""
     return Panel(
-        build_memory_text(info, show_available=show_available),
+        build_memory_text(info, show_available=show_available, warn=warn, critical=critical),
         title="[bold magenta]💾 Memory[/bold magenta]",
         border_style="magenta",
     )
 
 
-def build_network_text(info: dict, *, show_packets: bool = False) -> Text:
+def build_network_text(
+    info: dict,
+    *,
+    show_packets: bool = False,
+    download_history: list[float] | None = None,
+) -> Text:
     """Build network metrics text."""
     text = Text()
     text.append(f"  {'↑ Upload':<14}", style="bold")
@@ -105,6 +137,10 @@ def build_network_text(info: dict, *, show_packets: bool = False) -> Text:
 
     text.append(f"  {'↓ Download':<14}", style="bold")
     text.append(format_speed(info["speed_down"]) + "\n", style="cyan")
+
+    if download_history:
+        text.append(f"  {'History':<14}", style="bold")
+        text.append(render_sparkline(download_history, width=25) + "\n", style="cyan")
 
     text.append("  " + "─" * 30 + "\n", style="dim")
 
@@ -124,23 +160,35 @@ def build_network_text(info: dict, *, show_packets: bool = False) -> Text:
     return text
 
 
-def network_panel(info: dict, *, show_packets: bool = False) -> Panel:
+def network_panel(
+    info: dict,
+    *,
+    show_packets: bool = False,
+    download_history: list[float] | None = None,
+) -> Panel:
     """Build network metrics panel."""
     return Panel(
-        build_network_text(info, show_packets=show_packets),
+        build_network_text(
+            info, show_packets=show_packets, download_history=download_history
+        ),
         title="[bold green]🌐 Network[/bold green]",
         border_style="green",
     )
 
 
-def build_disk_text(info: dict) -> Text:
+def build_disk_text(
+    info: dict,
+    *,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Text:
     """Build disk metrics text."""
     text = Text()
     text.append(f"  {'Mount':<14}", style="bold")
     text.append(f"{info['mount']}\n", style="bold white")
 
     text.append(f"  {'Usage':<14}", style="bold")
-    text.append_text(progress_bar(info["percent"], width=25))
+    text.append_text(progress_bar(info["percent"], width=25, warn=warn, critical=critical))
     text.append(f"\n  {'':14}")
     text.append(
         f"{format_bytes(info['used'])} / {format_bytes(info['total'])}\n",
@@ -156,10 +204,34 @@ def build_disk_text(info: dict) -> Text:
     return text
 
 
-def disk_panel(info: dict) -> Panel:
+def disk_panel(
+    info: dict,
+    *,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Panel:
     """Build disk metrics panel."""
     return Panel(
-        build_disk_text(info),
+        build_disk_text(info, warn=warn, critical=critical),
         title="[bold blue]💿 Disk[/bold blue]",
         border_style="blue",
     )
+
+
+def process_panel(processes: list[dict]) -> Panel:
+    """Build top processes panel."""
+    text = Text()
+    if not processes:
+        text.append("  No process data available.\n", style="dim")
+    else:
+        text.append(f"  {'PID':<8}{'Name':<22}{'CPU%':>8}{'MEM%':>8}{'RSS':>10}\n", style="bold")
+        text.append("  " + "─" * 54 + "\n", style="dim")
+        for proc in processes:
+            text.append(f"  {proc['pid']:<8}", style="dim")
+            name = proc["name"][:20]
+            text.append(f"{name:<22}", style="white")
+            text.append(f"{proc['cpu_percent']:>8.1f}", style="cyan")
+            text.append(f"{proc['memory_percent']:>8.1f}", style="magenta")
+            text.append(f"{proc['memory_mb']:>9.0f}M\n", style="dim")
+
+    return Panel(text, title="[bold white]⚙ Processes[/bold white]", border_style="white")

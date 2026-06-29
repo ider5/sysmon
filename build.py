@@ -4,6 +4,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+HIDDEN_IMPORTS = [
+    "GPUtil",
+    "tomli",
+    "tomllib",
+    "shtab",
+    "sysmon.display.title_worker",
+    "sysmon.collectors.registry",
+]
+
 
 def build():
     """Build the executable using PyInstaller."""
@@ -19,8 +28,14 @@ def build():
         "--name",
         "sysmon",
         "--clean",
-        str(main_script),
+        "--paths",
+        str(project_root),
     ]
+
+    for hidden in HIDDEN_IMPORTS:
+        cmd.extend(["--hidden-import", hidden])
+
+    cmd.append(str(main_script))
 
     print("Building sysmon executable...")
     print(f"Command: {' '.join(cmd)}")

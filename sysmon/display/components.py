@@ -4,7 +4,6 @@ import platform
 import time
 
 import psutil
-from rich.bar import Bar
 from rich.panel import Panel
 from rich.text import Text
 
@@ -46,50 +45,27 @@ def _get_uptime() -> str:
         return f"{minutes}m"
 
 
-def gradient_color(percent: float) -> str:
-    """Get color based on percentage value.
-
-    Green -> Yellow -> Red gradient:
-    - 0-60%: green
-    - 60-80%: yellow
-    - 80-100%: red
-    """
-    if percent >= 80:
+def gradient_color(percent: float, warn: float = 80.0, critical: float = 95.0) -> str:
+    """Get color based on percentage value and optional thresholds."""
+    if percent >= critical:
         return "red"
-    elif percent >= 60:
+    if percent >= warn:
         return "yellow"
-    else:
-        return "green"
+    if percent >= 60:
+        return "yellow"
+    return "green"
 
 
-def gradient_bar(percent: float, width: int = 30) -> Bar:
-    """Create a Rich Bar with gradient color based on percentage.
-
-    Args:
-        percent: Value from 0-100
-        width: Bar width in characters
-    """
-    color = gradient_color(percent)
-    return Bar(
-        size=100,
-        begin=0,
-        end=percent,
-        width=width,
-        color=color,
-        bgcolor="grey23",
-    )
-
-
-def progress_bar(percent: float, width: int = 30) -> Text:
-    """Create a text-based progress bar with color coding.
-
-    Args:
-        percent: Value from 0-100
-        width: Bar width in characters
-    """
+def progress_bar(
+    percent: float,
+    width: int = 30,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Text:
+    """Create a text-based progress bar with color coding."""
     filled = int(width * percent / 100)
     empty = width - filled
-    color = gradient_color(percent)
+    color = gradient_color(percent, warn=warn, critical=critical)
 
     text = Text()
     text.append("━" * filled, style=color)

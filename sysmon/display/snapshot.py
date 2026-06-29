@@ -12,8 +12,16 @@ from sysmon.collectors.disk import get_disk_info
 from sysmon.collectors.gpu import get_gpu_info
 from sysmon.collectors.memory import get_memory_info
 from sysmon.collectors.network import get_network_info
+from sysmon.collectors.process import get_top_processes
+from sysmon.config import load_config
 from sysmon.display.components import _get_os_name, _get_uptime, ascii_logo, gpu_panel
-from sysmon.display.panels import cpu_panel, disk_panel, memory_panel, network_panel
+from sysmon.display.panels import (
+    cpu_panel,
+    disk_panel,
+    memory_panel,
+    network_panel,
+    process_panel,
+)
 
 
 def print_snapshot(
@@ -29,6 +37,7 @@ def print_snapshot(
         "network": _print_network,
         "disk": _print_disk,
         "gpu": _print_gpu,
+        "process": _print_process,
     }
 
     handler = sections.get(section, sections["all"])
@@ -37,6 +46,7 @@ def print_snapshot(
 
 def _print_all(console: Console, include_gpu: bool = True) -> None:
     """Print all system information with ASCII logo."""
+    settings = load_config()
     hostname = platform.node()
     os_name = _get_os_name()
     arch = platform.machine()
@@ -64,26 +74,46 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
     info_table.add_row(logo_text, sys_text)
     console.print(Panel(info_table, style="on grey11", padding=(1, 2)))
 
-    _print_cpu(console, get_cpu_info())
-    _print_memory(console, get_memory_info())
-    _print_network(console, get_network_info())
-    _print_disk(console, get_disk_info())
-    if include_gpu:
+    if settings.modules.cpu:
+        _print_cpu(console, get_cpu_info())
+    if settings.modules.memory:
+        _print_memory(console, get_memory_info())
+    if settings.modules.network:
+        _print_network(console, get_network_info())
+    if settings.modules.disk:
+        _print_disk(console, get_disk_info())
+    if include_gpu and settings.modules.gpu:
         _print_gpu(console, get_gpu_info())
+    if settings.modules.process:
+        _print_process(console)
 
 
 def _print_cpu(console: Console, info: dict | None = None) -> None:
     """Print CPU information."""
+    settings = load_config()
     if info is None:
         info = get_cpu_info()
-    console.print(cpu_panel(info))
+    console.print(
+        cpu_panel(
+            info,
+            warn=settings.thresholds.cpu_warn,
+            critical=settings.thresholds.cpu_critical,
+        )
+    )
 
 
 def _print_memory(console: Console, info: dict | None = None) -> None:
     """Print Memory information."""
+    settings = load_config()
     if info is None:
         info = get_memory_info()
-    console.print(memory_panel(info))
+    console.print(
+        memory_panel(
+            info,
+            warn=settings.thresholds.memory_warn,
+            critical=settings.thresholds.memory_critical,
+        )
+    )
 
 
 def _print_network(console: Console, info: dict | None = None) -> None:
@@ -95,9 +125,16 @@ def _print_network(console: Console, info: dict | None = None) -> None:
 
 def _print_disk(console: Console, info: dict | None = None) -> None:
     """Print Disk information."""
+    settings = load_config()
     if info is None:
         info = get_disk_info()
-    console.print(disk_panel(info))
+    console.print(
+        disk_panel(
+            info,
+            warn=settings.thresholds.disk_warn,
+            critical=settings.thresholds.disk_critical,
+        )
+    )
 
 
 def _print_gpu(console: Console, info: list | None = None) -> None:
@@ -105,3 +142,10 @@ def _print_gpu(console: Console, info: list | None = None) -> None:
     if info is None:
         info = get_gpu_info()
     console.print(gpu_panel(info))
+
+
+def _print_process(console: Console) -> None:
+    """Print top processes."""
+    settings = load_config()
+    processes = get_top_processes(limit=settings.process_limit)
+    console.print(process_panel(processes))

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sysmon"
-version = "0.1.0"
+version = "0.2.0"
 description = "A beautiful system monitoring CLI tool"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -26,6 +26,7 @@ dev = [
     "pyinstaller>=6.0.0",
     "pytest>=7.0",
     "ruff>=0.4",
+    "shtab>=1.7",
 ]
 
 [tool.pytest.ini_options]

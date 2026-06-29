@@ -88,8 +88,22 @@ sysmon memory           # Memory and swap usage
 sysmon network          # Network speed and totals
 sysmon disk             # Disk usage and I/O speeds
 sysmon gpu              # GPU utilization, VRAM, temperature
+sysmon top              # Top processes by CPU usage
+sysmon top -n 15 --sort memory
 sysmon cpu --format json
 ```
+
+### Shell Completion
+
+```bash
+# Bash (add to ~/.bashrc)
+eval "$(sysmon --print-completion bash)"
+
+# Zsh (add to ~/.zshrc)
+eval "$(sysmon --print-completion zsh)"
+```
+
+Requires `pip install shtab` or `pip install -e ".[dev]"`.
 
 ### Configuration
 
@@ -105,7 +119,23 @@ refresh_interval = 1.0
 sample_interval = 1.0
 brief_refresh_interval = 2.0
 enable_gpu = true
-default_format = "rich"
+process_limit = 10
+
+[modules]
+cpu = true
+memory = true
+network = true
+disk = true
+gpu = true
+process = true
+
+[thresholds]
+cpu_warn = 80
+cpu_critical = 95
+memory_warn = 80
+memory_critical = 95
+disk_warn = 80
+disk_critical = 95
 ```
 
 CLI flags override config values.

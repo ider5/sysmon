@@ -5,16 +5,19 @@ import platform
 from typing import Any, Optional
 
 from sysmon import __version__
-from sysmon.collectors.cpu import get_cpu_snapshot
-from sysmon.collectors.disk import get_disk_info
-from sysmon.collectors.gpu import get_gpu_info
-from sysmon.collectors.memory import get_memory_info
-from sysmon.collectors.network import get_network_info
+from sysmon.collectors.registry import collect_named
+from sysmon.config import load_config, metric_status
 from sysmon.display.components import _get_os_name, _get_uptime
 
 
 def _cpu_payload() -> dict[str, Any]:
-    snapshot = get_cpu_snapshot()
+    snapshot = collect_named("cpu")
+    settings = load_config()
+    status = metric_status(
+        snapshot["percent"],
+        settings.thresholds.cpu_warn,
+        settings.thresholds.cpu_critical,
+    )
     return {
         "percent": snapshot["percent"],
         "cores": snapshot["cores"],
@@ -22,11 +25,13 @@ def _cpu_payload() -> dict[str, Any]:
         "count_physical": snapshot["count_physical"],
         "freq_current_mhz": snapshot["freq_current"],
         "freq_max_mhz": snapshot["freq_max"],
+        "status": status,
     }
 
 
 def _memory_payload() -> dict[str, Any]:
-    info = get_memory_info()
+    info = collect_named("memory")
+    settings = load_config()
     return {
         "total": info["total"],
         "used": info["used"],
@@ -35,11 +40,16 @@ def _memory_payload() -> dict[str, Any]:
         "swap_total": info["swap_total"],
         "swap_used": info["swap_used"],
         "swap_percent": info["swap_percent"],
+        "status": metric_status(
+            info["percent"],
+            settings.thresholds.memory_warn,
+            settings.thresholds.memory_critical,
+        ),
     }
 
 
 def _network_payload() -> dict[str, Any]:
-    info = get_network_info()
+    info = collect_named("network")
     return {
         "bytes_sent": info["bytes_sent"],
         "bytes_recv": info["bytes_recv"],
@@ -51,7 +61,8 @@ def _network_payload() -> dict[str, Any]:
 
 
 def _disk_payload() -> dict[str, Any]:
-    info = get_disk_info()
+    info = collect_named("disk")
+    settings = load_config()
     return {
         "mount": info["mount"],
         "total": info["total"],
@@ -62,11 +73,16 @@ def _disk_payload() -> dict[str, Any]:
         "write_bytes": info["write_bytes"],
         "read_speed": info["read_speed"],
         "write_speed": info["write_speed"],
+        "status": metric_status(
+            info["percent"],
+            settings.thresholds.disk_warn,
+            settings.thresholds.disk_critical,
+        ),
     }
 
 
 def _gpu_payload() -> Optional[list[dict[str, Any]]]:
-    gpus = get_gpu_info()
+    gpus = collect_named("gpu")
     if not gpus:
         return None
     return [
@@ -77,9 +93,15 @@ def _gpu_payload() -> Optional[list[dict[str, Any]]]:
             "memory_total_mb": gpu["memory_total"],
             "memory_used_mb": gpu["memory_used"],
             "temperature_c": gpu["temperature"],
+            "backend": gpu.get("backend", "unknown"),
         }
         for gpu in gpus
     ]
+
+
+def _process_payload() -> list[dict[str, Any]]:
+    settings = load_config()
+    return collect_named("process")[: settings.process_limit]
 
 
 def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
@@ -93,7 +115,9 @@ def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
     if section == "disk":
         return {"disk": _disk_payload()}
     if section == "gpu":
-        return {"gpu": _gpu_payload()}
+        return {"gpu": _gpu_payload() if include_gpu else None}
+    if section == "process":
+        return {"processes": _process_payload()}
     raise ValueError(f"Unknown section: {section}")
 
 
@@ -111,20 +135,29 @@ def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
 
 def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     """Aggregate all metrics into a stable schema."""
+    settings = load_config()
     data: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "sysmon_version": __version__,
         "host": platform.node(),
         "os": _get_os_name(),
         "arch": platform.machine(),
         "uptime": _get_uptime(),
-        "cpu": _cpu_payload(),
-        "memory": _memory_payload(),
-        "network": _network_payload(),
-        "disk": _disk_payload(),
     }
-    if include_gpu:
+
+    if settings.modules.cpu:
+        data["cpu"] = _cpu_payload()
+    if settings.modules.memory:
+        data["memory"] = _memory_payload()
+    if settings.modules.network:
+        data["network"] = _network_payload()
+    if settings.modules.disk:
+        data["disk"] = _disk_payload()
+    if settings.modules.gpu and include_gpu:
         data["gpu"] = _gpu_payload()
+    if settings.modules.process:
+        data["processes"] = _process_payload()
+
     return data
 
 

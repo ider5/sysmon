@@ -31,6 +31,28 @@ def test_from_mapping():
     assert config.default_format == "json"
 
 
+def test_metric_status():
+    from sysmon.config import metric_status
+
+    assert metric_status(50, 80, 95) == "ok"
+    assert metric_status(85, 80, 95) == "warn"
+    assert metric_status(99, 80, 95) == "critical"
+
+
+def test_from_mapping_modules_and_thresholds():
+    config = SysmonConfig.from_mapping(
+        {
+            "modules": {"cpu": False, "process": True},
+            "thresholds": {"cpu_warn": 70, "cpu_critical": 90},
+            "process_limit": 5,
+        }
+    )
+    assert config.modules.cpu is False
+    assert config.modules.process is True
+    assert config.thresholds.cpu_warn == 70.0
+    assert config.process_limit == 5
+
+
 def test_load_config_from_file(tmp_path: Path, monkeypatch):
     config_dir = tmp_path / ".config" / "sysmon"
     config_dir.mkdir(parents=True)

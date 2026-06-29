@@ -19,7 +19,7 @@ config_app = typer.Typer(help="Manage sysmon configuration.")
 app.add_typer(config_app, name="config")
 console = Console()
 
-VALID_SECTIONS = ["all", "cpu", "memory", "network", "disk", "gpu"]
+VALID_SECTIONS = ["all", "cpu", "memory", "network", "disk", "gpu", "process"]
 OutputFormat = Literal["rich", "json"]
 
 
@@ -45,7 +45,7 @@ def _resolve_format(cli_format: Optional[str]) -> str:
 
 def _resolve_gpu_enabled(cli_no_gpu: bool) -> bool:
     settings = load_config()
-    return settings.enable_gpu and not cli_no_gpu
+    return settings.enable_gpu and settings.modules.gpu and not cli_no_gpu
 
 
 def _emit_json(data: dict) -> None:
@@ -93,8 +93,23 @@ def main(
         False, "--version", "-v", callback=version_callback, is_eager=True,
         help="Show version and exit.",
     ),
+    print_completion: Optional[str] = typer.Option(
+        None, "--print-completion",
+        help="Print shell completion script (bash, zsh, tcsh).",
+    ),
 ) -> None:
     """SysMon - System monitoring made beautiful."""
+    if print_completion:
+        try:
+            import shtab
+            import typer.main
+
+            print(shtab.complete(typer.main.get_command(app), shell=print_completion))
+        except ImportError:
+            console.print("[red]shtab is required for shell completion.[/red]")
+            console.print("[dim]Install with: pip install shtab[/dim]")
+            raise typer.Exit(code=1) from None
+        raise typer.Exit()
 
 
 @app.command()
@@ -125,7 +140,7 @@ def dashboard(
 def snapshot(
     section: str = typer.Argument(
         "all",
-        help="Section to show: all, cpu, memory, network, disk, gpu.",
+        help="Section to show: all, cpu, memory, network, disk, gpu, process.",
     ),
     sample_interval: Optional[float] = typer.Option(
         None, "--sample-interval", "-s",
@@ -163,12 +178,48 @@ def snapshot(
         if section == "all":
             _emit_json(collect_all(include_gpu=include_gpu))
         else:
-            _emit_json(collect_section(section))
+            _emit_json(collect_section(section, include_gpu=include_gpu))
         return
 
     from sysmon.display.snapshot import print_snapshot
 
     print_snapshot(console, section=section, include_gpu=include_gpu)
+
+
+@app.command()
+def top(
+    limit: Optional[int] = typer.Option(
+        None, "--limit", "-n",
+        help="Number of processes to show.",
+        min=1,
+        max=50,
+    ),
+    sort_by: str = typer.Option(
+        "cpu", "--sort",
+        help="Sort by cpu or memory.",
+    ),
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
+) -> None:
+    """Show top processes by CPU or memory usage."""
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format))
+    count = limit if limit is not None else settings.process_limit
+    sort_key = sort_by if sort_by in ("cpu", "memory") else "cpu"
+
+    from sysmon.collectors.process import get_top_processes
+
+    processes = get_top_processes(limit=count, sort_by=sort_key)
+
+    if fmt == "json":
+        _emit_json({"processes": processes, "sort_by": sort_key})
+        return
+
+    from sysmon.display.panels import process_panel
+
+    console.print(process_panel(processes))
 
 
 @app.command()
