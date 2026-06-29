@@ -1,5 +1,7 @@
 """Snapshot mode - one-shot system info output (neofetch style)."""
 
+from __future__ import annotations
+
 import platform
 
 from rich.console import Console

@@ -1,5 +1,7 @@
 """Shared metric panel builders for dashboard and snapshot."""
 
+from __future__ import annotations
+
 from rich.panel import Panel
 from rich.text import Text
 

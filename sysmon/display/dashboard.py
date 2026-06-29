@@ -1,5 +1,7 @@
 """Real-time terminal dashboard using Rich Live."""
 
+from __future__ import annotations
+
 import platform
 import time
 

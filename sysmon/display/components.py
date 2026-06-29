@@ -1,5 +1,7 @@
 """Reusable UI components for sysmon display."""
 
+from __future__ import annotations
+
 import platform
 import time
 

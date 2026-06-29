@@ -1,5 +1,7 @@
 """Disk usage and I/O metrics collector."""
 
+from __future__ import annotations
+
 import platform
 import threading
 import time
