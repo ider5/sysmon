@@ -4,7 +4,6 @@ from pathlib import Path
 
 from sysmon.config import (
     SysmonConfig,
-    clear_config_cache,
     load_config,
     write_default_config,
 )
@@ -69,8 +68,12 @@ def test_from_mapping_disk_and_network_selection():
     assert config.network_interfaces == ("eth0", "Wi-Fi")
 
 
+def test_from_mapping_invalid_default_format_falls_back():
+    config = SysmonConfig.from_mapping({"default_format": "yaml"})
+    assert config.default_format == "rich"
+
+
 def test_load_config_from_file(tmp_path: Path, monkeypatch):
-    clear_config_cache()
     config_dir = tmp_path / ".config" / "sysmon"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
@@ -88,7 +91,6 @@ def test_load_config_from_file(tmp_path: Path, monkeypatch):
 
 
 def test_load_config_caches_by_mtime(tmp_path: Path, monkeypatch):
-    clear_config_cache()
     config_path = tmp_path / "config.toml"
     config_path.write_text("refresh_interval = 1.5\n", encoding="utf-8")
     monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
@@ -110,7 +112,6 @@ def test_load_config_caches_by_mtime(tmp_path: Path, monkeypatch):
 
 
 def test_load_config_invalid_toml_falls_back(tmp_path: Path, monkeypatch):
-    clear_config_cache()
     config_path = tmp_path / "config.toml"
     config_path.write_text("not = [valid\n", encoding="utf-8")
     monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
@@ -121,7 +122,6 @@ def test_load_config_invalid_toml_falls_back(tmp_path: Path, monkeypatch):
 
 
 def test_write_default_config(tmp_path: Path, monkeypatch):
-    clear_config_cache()
     config_path = tmp_path / "config.toml"
     monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
 

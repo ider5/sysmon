@@ -7,6 +7,7 @@ import pytest
 from sysmon.collectors import registry
 from sysmon.config import DEFAULT_CONFIG
 from sysmon.export import (
+    SCHEMA_VERSION,
     collect_all,
     collect_brief,
     collect_section,
@@ -26,7 +27,7 @@ _FAKE_GPU = {
 
 def test_collect_all_schema():
     data = collect_all(include_gpu=False)
-    assert data["schema_version"] == 3
+    assert data["schema_version"] == SCHEMA_VERSION
     assert "sysmon_version" in data
     assert "host" in data
     assert "os" in data
