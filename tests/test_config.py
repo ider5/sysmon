@@ -2,7 +2,12 @@
 
 from pathlib import Path
 
-from sysmon.config import SysmonConfig, load_config, write_default_config
+from sysmon.config import (
+    SysmonConfig,
+    clear_config_cache,
+    load_config,
+    write_default_config,
+)
 
 
 def test_default_config_values():
@@ -65,6 +70,7 @@ def test_from_mapping_disk_and_network_selection():
 
 
 def test_load_config_from_file(tmp_path: Path, monkeypatch):
+    clear_config_cache()
     config_dir = tmp_path / ".config" / "sysmon"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
@@ -81,7 +87,41 @@ def test_load_config_from_file(tmp_path: Path, monkeypatch):
     assert config.enable_gpu is False
 
 
+def test_load_config_caches_by_mtime(tmp_path: Path, monkeypatch):
+    clear_config_cache()
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("refresh_interval = 1.5\n", encoding="utf-8")
+    monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
+
+    first = load_config()
+    second = load_config()
+    assert first is second
+    assert first.refresh_interval == 1.5
+
+    config_path.write_text("refresh_interval = 3.5\n", encoding="utf-8")
+    # Ensure mtime advances on fast filesystems
+    import os
+    import time
+
+    os.utime(config_path, (time.time() + 1, time.time() + 1))
+    third = load_config()
+    assert third is not first
+    assert third.refresh_interval == 3.5
+
+
+def test_load_config_invalid_toml_falls_back(tmp_path: Path, monkeypatch):
+    clear_config_cache()
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("not = [valid\n", encoding="utf-8")
+    monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
+
+    config = load_config()
+    assert config.refresh_interval == 1.0
+    assert config.enable_gpu is True
+
+
 def test_write_default_config(tmp_path: Path, monkeypatch):
+    clear_config_cache()
     config_path = tmp_path / "config.toml"
     monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
 

@@ -138,6 +138,29 @@ def test_collect_all_gpu_with_mock(monkeypatch):
     assert data["gpu"][0]["name"] == "FakeGPU"
 
 
+def test_collect_all_respects_disabled_modules(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=True,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+        )
+    )
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    data = collect_all(include_gpu=True)
+    assert "cpu" in data
+    assert "memory" not in data
+    assert "network" not in data
+    assert "disk" not in data
+    assert "gpu" not in data
+    assert "processes" not in data
+
+
 def test_collect_section_unknown_raises():
     with pytest.raises(ValueError, match="Unknown section"):
         collect_section("invalid")
