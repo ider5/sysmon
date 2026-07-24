@@ -4,10 +4,24 @@ Uses pynvml (NVIDIA official) when available, falls back to GPUtil.
 AMD/Intel GPUs are not supported.
 """
 
-from typing import Optional
+from __future__ import annotations
+
+from typing import Optional, TypedDict
 
 
-def _get_gpu_info_pynvml() -> Optional[list[dict]]:
+class GpuInfo(TypedDict):
+    """Normalized GPU metrics payload."""
+
+    id: int
+    name: str
+    load: float
+    memory_total: float
+    memory_used: float
+    temperature: float | None
+    backend: str
+
+
+def _get_gpu_info_pynvml() -> Optional[list[GpuInfo]]:
     try:
         import pynvml
 
@@ -17,7 +31,7 @@ def _get_gpu_info_pynvml() -> Optional[list[dict]]:
             if count == 0:
                 return None
 
-            gpus = []
+            gpus: list[GpuInfo] = []
             for i in range(count):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)
                 name = pynvml.nvmlDeviceGetName(handle)
@@ -51,7 +65,7 @@ def _get_gpu_info_pynvml() -> Optional[list[dict]]:
         return None
 
 
-def _get_gpu_info_gputil() -> Optional[list[dict]]:
+def _get_gpu_info_gputil() -> Optional[list[GpuInfo]]:
     try:
         import GPUtil
 
@@ -75,6 +89,6 @@ def _get_gpu_info_gputil() -> Optional[list[dict]]:
         return None
 
 
-def get_gpu_info() -> Optional[list[dict]]:
+def get_gpu_info() -> Optional[list[GpuInfo]]:
     """Get GPU metrics if available (NVIDIA only)."""
     return _get_gpu_info_pynvml() or _get_gpu_info_gputil()
