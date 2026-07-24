@@ -109,6 +109,9 @@ class SysmonConfig:
 
 DEFAULT_CONFIG = SysmonConfig()
 
+# (path, mtime_or_none_if_missing, config)
+_CONFIG_CACHE: tuple[str, float | None, SysmonConfig] | None = None
+
 DEFAULT_CONFIG_TEMPLATE = """\
 # SysMon configuration
 # CLI flags override these values.
@@ -157,23 +160,59 @@ def metric_status(
     return "ok"
 
 
+def clear_config_cache() -> None:
+    """Drop the in-process config cache (useful for tests)."""
+    global _CONFIG_CACHE
+    _CONFIG_CACHE = None
+
+
 def load_config() -> SysmonConfig:
-    """Load config from disk, falling back to defaults."""
+    """Load config from disk, falling back to defaults.
+
+    Results are cached and invalidated when the config path or mtime changes.
+    """
     from sysmon.paths import get_config_path as config_path_fn
 
+    global _CONFIG_CACHE
+
     path = config_path_fn()
+    path_key = str(path)
+
     if not path.exists():
+        if (
+            _CONFIG_CACHE is not None
+            and _CONFIG_CACHE[0] == path_key
+            and _CONFIG_CACHE[1] is None
+        ):
+            return _CONFIG_CACHE[2]
+        _CONFIG_CACHE = (path_key, None, DEFAULT_CONFIG)
         return DEFAULT_CONFIG
+
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return DEFAULT_CONFIG
+
+    if (
+        _CONFIG_CACHE is not None
+        and _CONFIG_CACHE[0] == path_key
+        and _CONFIG_CACHE[1] == mtime
+    ):
+        return _CONFIG_CACHE[2]
 
     try:
         data = _load_toml(path)
     except Exception:
+        _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)
         return DEFAULT_CONFIG
 
     if not isinstance(data, dict):
+        _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)
         return DEFAULT_CONFIG
 
-    return SysmonConfig.from_mapping(data)
+    config = SysmonConfig.from_mapping(data)
+    _CONFIG_CACHE = (path_key, mtime, config)
+    return config
 
 
 def write_default_config() -> Path:
@@ -183,4 +222,5 @@ def write_default_config() -> Path:
     path = config_path_fn()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(DEFAULT_CONFIG_TEMPLATE, encoding="utf-8")
+    clear_config_cache()
     return path
