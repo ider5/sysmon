@@ -1,7 +1,9 @@
 """SysMon CLI entry point."""
 
+from __future__ import annotations
+
 import time
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 import typer
 from rich.console import Console
@@ -38,7 +40,7 @@ def _validate_format(output_format: str) -> OutputFormat:
     return output_format  # type: ignore[return-value]
 
 
-def _resolve_format(cli_format: Optional[str]) -> str:
+def _resolve_format(cli_format: str | None) -> str:
     settings = load_config()
     return cli_format if cli_format is not None else settings.default_format
 
@@ -48,7 +50,7 @@ def _resolve_gpu_enabled(cli_no_gpu: bool) -> bool:
     return settings.enable_gpu and settings.modules.gpu and not cli_no_gpu
 
 
-def _emit_json(data: dict) -> None:
+def _emit_json(data: dict[str, Any]) -> None:
     from sysmon.export import to_json
 
     print(to_json(data))

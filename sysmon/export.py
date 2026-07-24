@@ -8,17 +8,21 @@ from typing import Any, Optional
 
 from sysmon import __version__
 from sysmon.collectors.registry import collect_named
-from sysmon.config import load_config, metric_status
+from sysmon.config import SysmonConfig, load_config, metric_status
 from sysmon.display.components import _get_os_name, _get_uptime
 
 
-def _cpu_payload() -> dict[str, Any]:
+def _resolve_settings(settings: SysmonConfig | None) -> SysmonConfig:
+    return settings if settings is not None else load_config()
+
+
+def _cpu_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
     snapshot = collect_named("cpu")
-    settings = load_config()
+    cfg = _resolve_settings(settings)
     status = metric_status(
         snapshot["percent"],
-        settings.thresholds.cpu_warn,
-        settings.thresholds.cpu_critical,
+        cfg.thresholds.cpu_warn,
+        cfg.thresholds.cpu_critical,
     )
     return {
         "percent": snapshot["percent"],
@@ -31,9 +35,9 @@ def _cpu_payload() -> dict[str, Any]:
     }
 
 
-def _memory_payload() -> dict[str, Any]:
+def _memory_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
     info = collect_named("memory")
-    settings = load_config()
+    cfg = _resolve_settings(settings)
     return {
         "total": info["total"],
         "used": info["used"],
@@ -44,14 +48,19 @@ def _memory_payload() -> dict[str, Any]:
         "swap_percent": info["swap_percent"],
         "status": metric_status(
             info["percent"],
-            settings.thresholds.memory_warn,
-            settings.thresholds.memory_critical,
+            cfg.thresholds.memory_warn,
+            cfg.thresholds.memory_critical,
         ),
     }
 
 
-def _network_payload() -> dict[str, Any]:
-    info = collect_named("network")
+def _network_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
+    if settings is not None:
+        from sysmon.collectors.network import get_network_info
+
+        info = get_network_info(settings.network_interfaces)
+    else:
+        info = collect_named("network")
     payload: dict[str, Any] = {
         "bytes_sent": info["bytes_sent"],
         "bytes_recv": info["bytes_recv"],
@@ -65,13 +74,18 @@ def _network_payload() -> dict[str, Any]:
     return payload
 
 
-def _disk_payload() -> dict[str, Any]:
-    info = collect_named("disk")
-    settings = load_config()
+def _disk_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
+    cfg = _resolve_settings(settings)
+    if settings is not None:
+        from sysmon.collectors.disk import get_disk_info
+
+        info = get_disk_info(cfg.disk_mounts)
+    else:
+        info = collect_named("disk")
     primary_status = metric_status(
         info["percent"],
-        settings.thresholds.disk_warn,
-        settings.thresholds.disk_critical,
+        cfg.thresholds.disk_warn,
+        cfg.thresholds.disk_critical,
     )
     mounts = []
     for mount_info in info.get("mounts", []):
@@ -84,8 +98,8 @@ def _disk_payload() -> dict[str, Any]:
                 "percent": mount_info["percent"],
                 "status": metric_status(
                     mount_info["percent"],
-                    settings.thresholds.disk_warn,
-                    settings.thresholds.disk_critical,
+                    cfg.thresholds.disk_warn,
+                    cfg.thresholds.disk_critical,
                 ),
             }
         )
@@ -122,12 +136,15 @@ def _gpu_payload() -> Optional[list[dict[str, Any]]]:
     ]
 
 
-def _process_payload(name_filter: str | None = None) -> list[dict[str, Any]]:
-    settings = load_config()
+def _process_payload(
+    name_filter: str | None = None,
+    settings: SysmonConfig | None = None,
+) -> list[dict[str, Any]]:
+    cfg = _resolve_settings(settings)
     from sysmon.collectors.process import get_top_processes
 
     return get_top_processes(
-        limit=settings.process_limit,
+        limit=cfg.process_limit,
         name_filter=name_filter,
     )
 
@@ -151,10 +168,11 @@ def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
 
 def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
     """Collect compact metrics for brief mode."""
+    settings = load_config()
     data: dict[str, Any] = {
-        "cpu": _cpu_payload(),
-        "memory": _memory_payload(),
-        "network": _network_payload(),
+        "cpu": _cpu_payload(settings),
+        "memory": _memory_payload(settings),
+        "network": _network_payload(settings),
     }
     if include_gpu:
         data["gpu"] = _gpu_payload()
@@ -174,17 +192,17 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     }
 
     if settings.modules.cpu:
-        data["cpu"] = _cpu_payload()
+        data["cpu"] = _cpu_payload(settings)
     if settings.modules.memory:
-        data["memory"] = _memory_payload()
+        data["memory"] = _memory_payload(settings)
     if settings.modules.network:
-        data["network"] = _network_payload()
+        data["network"] = _network_payload(settings)
     if settings.modules.disk:
-        data["disk"] = _disk_payload()
+        data["disk"] = _disk_payload(settings)
     if settings.modules.gpu and include_gpu:
         data["gpu"] = _gpu_payload()
     if settings.modules.process:
-        data["processes"] = _process_payload()
+        data["processes"] = _process_payload(settings=settings)
 
     return data
 
