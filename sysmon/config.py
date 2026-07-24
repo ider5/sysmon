@@ -98,7 +98,9 @@ class SysmonConfig:
                 data.get("brief_refresh_interval", data.get("refresh_interval", 2.0))
             ),
             enable_gpu=bool(data.get("enable_gpu", True)),
-            default_format=str(data.get("default_format", "rich")),
+            default_format=_normalize_default_format(
+                str(data.get("default_format", "rich"))
+            ),
             modules=modules,
             thresholds=thresholds,
             process_limit=int(data.get("process_limit", 10)),
@@ -111,6 +113,12 @@ DEFAULT_CONFIG = SysmonConfig()
 
 # (path, mtime_or_none_if_missing, config)
 _CONFIG_CACHE: tuple[str, float | None, SysmonConfig] | None = None
+
+
+def _normalize_default_format(value: str) -> str:
+    """Clamp unknown formats to the safe default."""
+    return value if value in ("rich", "json") else "rich"
+
 
 DEFAULT_CONFIG_TEMPLATE = """\
 # SysMon configuration

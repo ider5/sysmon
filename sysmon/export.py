@@ -11,6 +11,8 @@ from sysmon.collectors.registry import collect_named
 from sysmon.config import SysmonConfig, load_config, metric_status
 from sysmon.display.components import _get_os_name, _get_uptime
 
+SCHEMA_VERSION = 3
+
 
 def _resolve_settings(settings: SysmonConfig | None) -> SysmonConfig:
     return settings if settings is not None else load_config()
@@ -183,7 +185,7 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     """Aggregate all metrics into a stable schema."""
     settings = load_config()
     data: dict[str, Any] = {
-        "schema_version": 3,
+        "schema_version": SCHEMA_VERSION,
         "sysmon_version": __version__,
         "host": platform.node(),
         "os": _get_os_name(),
