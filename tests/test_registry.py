@@ -1,5 +1,7 @@
 """Tests for collector registry."""
 
+import pytest
+
 from sysmon.collectors.registry import collect_named, list_collectors
 
 
@@ -17,3 +19,8 @@ def test_collect_named_cpu():
     data = collect_named("cpu")
     assert "percent" in data
     assert "cores" in data
+
+
+def test_collect_named_unknown_raises():
+    with pytest.raises(ValueError, match="Unknown collector"):
+        collect_named("not-a-collector")

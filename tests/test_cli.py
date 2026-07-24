@@ -145,6 +145,47 @@ def test_gpu_json():
     assert "gpu" in data
 
 
+def test_snapshot_process_json(monkeypatch):
+    monkeypatch.setattr("sysmon.cli._wait_for_rate_sampling", lambda *a, **k: None)
+    result = runner.invoke(
+        app,
+        ["snapshot", "process", "--format", "json", "--sample-interval", "0.1"],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "processes" in data
+    assert isinstance(data["processes"], list)
+
+
+def test_top_watch_rejects_json():
+    result = runner.invoke(app, ["top", "--watch", "--format", "json"])
+    assert result.exit_code == 1
+    assert "JSON output is not supported with --watch" in result.stdout
+
+
+def test_brief_watch_rejects_json():
+    result = runner.invoke(app, ["brief", "--watch", "--format", "json"])
+    assert result.exit_code == 1
+    assert "JSON output is not supported with --title or --watch" in result.stdout
+
+
+def test_config_init(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.toml"
+    monkeypatch.setattr("sysmon.cli.get_config_path", lambda: config_path)
+    monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
+
+    result = runner.invoke(app, ["config", "init"])
+    assert result.exit_code == 0
+    assert config_path.exists()
+
+    again = runner.invoke(app, ["config", "init"])
+    assert again.exit_code == 1
+    assert "already exists" in again.stdout
+
+    forced = runner.invoke(app, ["config", "init", "--force"])
+    assert forced.exit_code == 0
+
+
 def test_config_path():
     result = runner.invoke(app, ["config", "path"])
     assert result.exit_code == 0
