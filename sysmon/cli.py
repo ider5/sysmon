@@ -9,7 +9,7 @@ import typer
 from rich.console import Console
 
 from sysmon import __version__
-from sysmon.config import load_config, write_default_config
+from sysmon.config import SysmonConfig, load_config, write_default_config
 from sysmon.paths import get_config_path
 
 app = typer.Typer(
@@ -40,14 +40,20 @@ def _validate_format(output_format: str) -> OutputFormat:
     return output_format  # type: ignore[return-value]
 
 
-def _resolve_format(cli_format: str | None) -> str:
-    settings = load_config()
-    return cli_format if cli_format is not None else settings.default_format
+def _resolve_format(
+    cli_format: str | None,
+    settings: SysmonConfig | None = None,
+) -> str:
+    cfg = settings if settings is not None else load_config()
+    return cli_format if cli_format is not None else cfg.default_format
 
 
-def _resolve_gpu_enabled(cli_no_gpu: bool) -> bool:
-    settings = load_config()
-    return settings.enable_gpu and settings.modules.gpu and not cli_no_gpu
+def _resolve_gpu_enabled(
+    cli_no_gpu: bool,
+    settings: SysmonConfig | None = None,
+) -> bool:
+    cfg = settings if settings is not None else load_config()
+    return cfg.enable_gpu and cfg.modules.gpu and not cli_no_gpu
 
 
 def _emit_json(data: dict[str, Any]) -> None:
@@ -56,13 +62,16 @@ def _emit_json(data: dict[str, Any]) -> None:
     print(to_json(data))
 
 
-def _wait_for_rate_sampling(sample_interval: float) -> None:
+def _wait_for_rate_sampling(
+    sample_interval: float,
+    settings: SysmonConfig | None = None,
+) -> None:
     from sysmon.collectors.disk import get_disk_info
     from sysmon.collectors.network import get_network_info
 
-    settings = load_config()
-    get_network_info(settings.network_interfaces)
-    get_disk_info(settings.disk_mounts)
+    cfg = settings if settings is not None else load_config()
+    get_network_info(cfg.network_interfaces)
+    get_disk_info(cfg.disk_mounts)
     time.sleep(sample_interval)
 
 
@@ -135,7 +144,7 @@ def dashboard(
     refresh_rate = refresh if refresh is not None else settings.refresh_interval
     run_dashboard(
         refresh_rate=refresh_rate,
-        include_gpu=_resolve_gpu_enabled(no_gpu),
+        include_gpu=_resolve_gpu_enabled(no_gpu, settings),
     )
 
 
@@ -162,18 +171,18 @@ def snapshot(
 ) -> None:
     """Print a one-shot system snapshot."""
     settings = load_config()
-    fmt = _validate_format(_resolve_format(output_format))
+    fmt = _validate_format(_resolve_format(output_format, settings))
     interval = (
         sample_interval if sample_interval is not None else settings.sample_interval
     )
-    include_gpu = _resolve_gpu_enabled(no_gpu)
+    include_gpu = _resolve_gpu_enabled(no_gpu, settings)
 
     if section not in VALID_SECTIONS:
         console.print(f"[red]Unknown section: {section}[/red]")
         console.print(f"Valid sections: {', '.join(VALID_SECTIONS)}")
         raise typer.Exit(code=1)
 
-    _wait_for_rate_sampling(interval)
+    _wait_for_rate_sampling(interval, settings)
 
     if fmt == "json":
         from sysmon.export import collect_all, collect_section
@@ -222,7 +231,7 @@ def top(
 ) -> None:
     """Show top processes by CPU or memory usage."""
     settings = load_config()
-    fmt = _validate_format(_resolve_format(output_format))
+    fmt = _validate_format(_resolve_format(output_format, settings))
     count = limit if limit is not None else settings.process_limit
     sort_key = sort_by if sort_by in ("cpu", "memory") else "cpu"
     refresh_rate = refresh if refresh is not None else settings.refresh_interval
@@ -270,7 +279,8 @@ def cpu(
     ),
 ) -> None:
     """Show CPU information."""
-    fmt = _validate_format(_resolve_format(output_format))
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format, settings))
 
     if fmt == "json":
         from sysmon.export import collect_section
@@ -304,7 +314,8 @@ def memory(
     ),
 ) -> None:
     """Show Memory information."""
-    fmt = _validate_format(_resolve_format(output_format))
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format, settings))
 
     if fmt == "json":
         from sysmon.export import collect_section
@@ -333,7 +344,7 @@ def network(
 ) -> None:
     """Show Network information."""
     settings = load_config()
-    fmt = _validate_format(_resolve_format(output_format))
+    fmt = _validate_format(_resolve_format(output_format, settings))
     interval = (
         sample_interval if sample_interval is not None else settings.sample_interval
     )
@@ -369,7 +380,7 @@ def disk(
 ) -> None:
     """Show Disk usage and I/O information."""
     settings = load_config()
-    fmt = _validate_format(_resolve_format(output_format))
+    fmt = _validate_format(_resolve_format(output_format, settings))
     interval = (
         sample_interval if sample_interval is not None else settings.sample_interval
     )
@@ -398,7 +409,8 @@ def gpu(
     ),
 ) -> None:
     """Show GPU information."""
-    fmt = _validate_format(_resolve_format(output_format))
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format, settings))
 
     if fmt == "json":
         from sysmon.export import collect_section
@@ -458,11 +470,11 @@ def brief(
         return
 
     settings = load_config()
-    fmt = _validate_format(_resolve_format(output_format))
+    fmt = _validate_format(_resolve_format(output_format, settings))
     refresh_rate = (
         refresh if refresh is not None else settings.brief_refresh_interval
     )
-    include_gpu = _resolve_gpu_enabled(no_gpu)
+    include_gpu = _resolve_gpu_enabled(no_gpu, settings)
 
     if fmt == "json":
         if title or watch:
