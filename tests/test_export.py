@@ -82,6 +82,34 @@ def test_collect_section_cpu():
     assert "percent" in data["cpu"]
 
 
+def test_collect_section_memory():
+    data = collect_section("memory")
+    assert "memory" in data
+    assert "percent" in data["memory"]
+    assert data["memory"]["status"] in ("ok", "warn", "critical")
+
+
+def test_collect_section_network():
+    data = collect_section("network")
+    assert "network" in data
+    assert "bytes_sent" in data["network"]
+    assert "speed_down" in data["network"]
+
+
+def test_collect_section_disk():
+    data = collect_section("disk")
+    assert "disk" in data
+    assert "percent" in data["disk"]
+    assert "mounts" in data["disk"]
+    assert data["disk"]["status"] in ("ok", "warn", "critical")
+
+
+def test_collect_section_process():
+    data = collect_section("process")
+    assert "processes" in data
+    assert isinstance(data["processes"], list)
+
+
 def test_collect_section_gpu_with_mock(monkeypatch):
     monkeypatch.setitem(registry._REGISTRY, "gpu", lambda: [_FAKE_GPU])
     data = collect_section("gpu")
