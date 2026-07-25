@@ -41,23 +41,20 @@ pip install -e ".[gpu]"     # With GPU extras
 
 ### Option 2: Standalone Executable (No Python required)
 
-Download `sysmon.exe` from the `dist/` folder and run it directly.
+Download a prebuilt binary from [GitHub Releases](https://github.com/ider5/sysmon/releases):
 
-Or build it yourself:
+- `sysmon-Windows.exe`
+- `sysmon-Linux`
+- `sysmon-macOS`
+
+Or build it yourself from the repository root:
 
 ```bash
-cd sysmon
+pip install -e ".[dev]"
 python build.py
 ```
 
-The executable will be created in `dist/sysmon.exe`.
-
-### Option 3: pip install (in a virtual environment)
-
-```bash
-cd sysmon
-pip install -e .
-```
+The executable will be created as `dist/sysmon.exe` (Windows) or `dist/sysmon` (Linux/macOS).
 
 ## Usage
 
@@ -67,6 +64,7 @@ pip install -e .
 sysmon                  # Launch real-time dashboard
 sysmon dashboard        # Same as above
 sysmon dashboard -r 2   # Refresh every 2 seconds
+sysmon dashboard --no-gpu   # Hide GPU panel
 ```
 
 Press `Ctrl+C` to exit the dashboard.
@@ -80,8 +78,10 @@ sysmon snapshot memory  # Show only memory info
 sysmon snapshot network # Show only network info
 sysmon snapshot disk    # Show only disk info
 sysmon snapshot gpu     # Show only GPU info
+sysmon snapshot process # Show only top processes
 sysmon snapshot --format json   # JSON output for scripting
 sysmon snapshot -s 0.5          # Faster network/disk speed sampling
+sysmon snapshot --no-gpu        # Hide GPU section
 ```
 
 ### Individual Commands
@@ -115,6 +115,7 @@ Requires `pip install shtab` or `pip install -e ".[dev]"`.
 
 ```bash
 sysmon config init      # Create ~/.config/sysmon/config.toml
+sysmon config init --force  # Overwrite an existing config
 sysmon config path      # Show config file location
 ```
 
@@ -125,6 +126,7 @@ refresh_interval = 1.0
 sample_interval = 1.0
 brief_refresh_interval = 2.0
 enable_gpu = true
+default_format = "rich"   # "rich" or "json" (CLI --format overrides)
 process_limit = 10
 
 # disk_mounts = ["C:\\", "D:\\"]       # omit = primary only; [] = all mounts
@@ -159,6 +161,7 @@ sysmon brief -t         # Title mode (background, updates window title)
 sysmon brief --stop     # Stop title mode
 sysmon brief --no-color # No colors (for copy-paste)
 sysmon brief --no-gpu   # Hide GPU info
+sysmon brief --format json  # One-shot JSON (not with -w / -t)
 ```
 
 Example output:
@@ -221,20 +224,24 @@ A background daemon thread collects this data every 1.5 seconds, ensuring the UI
 
 ### Color Coding
 
+Progress bars use configurable thresholds (`[thresholds]` in config; defaults warn=80, critical=95). Brief mode uses a simpler 60/80 split:
+
 | Usage Level | Color |
 |-------------|-------|
-| 0-60% | 🟢 Green |
-| 60-80% | 🟡 Yellow |
-| 80-100% | 🔴 Red |
+| Below warn (or under 60% in brief) | 🟢 Green |
+| Warn range (or 60–80% in brief) | 🟡 Yellow |
+| Critical (or 80%+ in brief) | 🔴 Red |
 
 ## Dependencies
 
 | Library | Purpose |
 |---------|---------|
-| psutil | System metrics (CPU, Memory, Network) |
+| psutil | System metrics (CPU, Memory, Network, Disk) |
 | Rich | Terminal UI (panels, tables, live display) |
 | Typer | CLI framework |
+| tomli | TOML parsing on Python < 3.11 (stdlib `tomllib` on 3.11+) |
 | GPUtil / nvidia-ml-py | NVIDIA GPU monitoring (optional `[gpu]` extra) |
+| shtab | Shell completion (optional; included in `[dev]`) |
 
 ## Publishing to PyPI
 
