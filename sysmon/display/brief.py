@@ -17,14 +17,32 @@ from sysmon.collectors.cpu import get_cpu_info
 from sysmon.collectors.gpu import get_gpu_info
 from sysmon.collectors.memory import bytes_to_gb, get_memory_info
 from sysmon.collectors.network import format_speed, get_network_info
+from sysmon.config import ThresholdConfig, load_config, metric_status
 from sysmon.display.title_worker import WORKER_MARKER
+
+_STATUS_COLORS = {
+    "ok": "green",
+    "warn": "yellow",
+    "critical": "red",
+}
+
+
+def _threshold_color(percent: float, warn: float, critical: float) -> str:
+    """Map a percentage to the dashboard threshold color."""
+    return _STATUS_COLORS[metric_status(percent, warn, critical)]
+
 
 _PID_FILE = Path.home() / ".sysmon_title.pid"
 _LOCK_FILE = Path.home() / ".sysmon_title.lock"
 _WORKER_START_GRACE = 0.2
 
 
-def _format_cpu(info: dict, no_color: bool = False) -> Text:
+def _format_cpu(
+    info: dict,
+    no_color: bool = False,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Text:
     """Format CPU info as compact text."""
     text = Text()
     text.append("CPU ")
@@ -32,15 +50,19 @@ def _format_cpu(info: dict, no_color: bool = False) -> Text:
     if no_color:
         text.append(f"{pct:.0f}%")
     else:
-        color = "green" if pct < 60 else "yellow" if pct < 80 else "red"
-        text.append(f"{pct:.0f}%", style=color)
+        text.append(f"{pct:.0f}%", style=_threshold_color(pct, warn, critical))
 
     if info["freq_current"]:
         text.append(f" {info['freq_current']:.0f}M")
     return text
 
 
-def _format_memory(info: dict, no_color: bool = False) -> Text:
+def _format_memory(
+    info: dict,
+    no_color: bool = False,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Text:
     """Format memory info as compact text."""
     text = Text()
     text.append("RAM ")
@@ -51,9 +73,8 @@ def _format_memory(info: dict, no_color: bool = False) -> Text:
     if no_color:
         text.append(f"{used}/{total}G ({pct:.0f}%)")
     else:
-        color = "green" if pct < 60 else "yellow" if pct < 80 else "red"
         text.append(f"{used}/{total}G", style="bold")
-        text.append(f" ({pct:.0f}%)", style=color)
+        text.append(f" ({pct:.0f}%)", style=_threshold_color(pct, warn, critical))
     return text
 
 
@@ -70,7 +91,12 @@ def _format_network(info: dict, no_color: bool = False) -> Text:
     return text
 
 
-def _format_gpu(gpus: list | None, no_color: bool = False) -> Text | None:
+def _format_gpu(
+    gpus: list | None,
+    no_color: bool = False,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Text | None:
     """Format GPU info as compact text."""
     if not gpus:
         return None
@@ -83,8 +109,7 @@ def _format_gpu(gpus: list | None, no_color: bool = False) -> Text | None:
     if no_color:
         text.append(f"{load:.0f}%")
     else:
-        color = "green" if load < 60 else "yellow" if load < 80 else "red"
-        text.append(f"{load:.0f}%", style=color)
+        text.append(f"{load:.0f}%", style=_threshold_color(load, warn, critical))
 
     mem_used = gpu["memory_used"] / 1024
     mem_total = gpu["memory_total"] / 1024
@@ -105,22 +130,45 @@ def build_brief_line(
     no_color: bool = False,
     no_gpu: bool = False,
     interfaces: Iterable[str] | None = None,
+    thresholds: ThresholdConfig | None = None,
 ) -> Text:
     """Build a single line with all key metrics."""
+    if thresholds is None:
+        thresholds = load_config().thresholds
+
     cpu_info = get_cpu_info()
     mem_info = get_memory_info()
     net_info = get_network_info(interfaces)
     gpu_info = get_gpu_info() if not no_gpu else None
 
     line = Text()
-    line.append_text(_format_cpu(cpu_info, no_color))
+    line.append_text(
+        _format_cpu(
+            cpu_info,
+            no_color,
+            warn=thresholds.cpu_warn,
+            critical=thresholds.cpu_critical,
+        )
+    )
     line.append(" │ ", style="dim")
-    line.append_text(_format_memory(mem_info, no_color))
+    line.append_text(
+        _format_memory(
+            mem_info,
+            no_color,
+            warn=thresholds.memory_warn,
+            critical=thresholds.memory_critical,
+        )
+    )
     line.append(" │ ", style="dim")
     line.append_text(_format_network(net_info, no_color))
 
     if gpu_info:
-        gpu_text = _format_gpu(gpu_info, no_color)
+        gpu_text = _format_gpu(
+            gpu_info,
+            no_color,
+            warn=thresholds.cpu_warn,
+            critical=thresholds.cpu_critical,
+        )
         if gpu_text:
             line.append(" │ ", style="dim")
             line.append_text(gpu_text)
@@ -134,11 +182,16 @@ def print_brief(
     no_gpu: bool = False,
     sample_interval: float = 1.0,
     interfaces: Iterable[str] | None = None,
+    thresholds: ThresholdConfig | None = None,
 ) -> None:
     """Print a single line of key metrics."""
     get_network_info(interfaces)
     time.sleep(sample_interval)
-    console.print(build_brief_line(no_color, no_gpu, interfaces=interfaces))
+    console.print(
+        build_brief_line(
+            no_color, no_gpu, interfaces=interfaces, thresholds=thresholds
+        )
+    )
 
 
 def run_brief_watch(
@@ -147,13 +200,16 @@ def run_brief_watch(
     no_color: bool = False,
     no_gpu: bool = False,
     interfaces: Iterable[str] | None = None,
+    thresholds: ThresholdConfig | None = None,
 ) -> None:
     """Run brief display in watch mode."""
     get_network_info(interfaces)
     time.sleep(min(0.5, refresh_rate))
 
     with Live(
-        build_brief_line(no_color, no_gpu, interfaces=interfaces),
+        build_brief_line(
+            no_color, no_gpu, interfaces=interfaces, thresholds=thresholds
+        ),
         console=console,
         refresh_per_second=4,
         transient=False,
@@ -161,7 +217,14 @@ def run_brief_watch(
         try:
             while True:
                 time.sleep(refresh_rate)
-                live.update(build_brief_line(no_color, no_gpu, interfaces=interfaces))
+                live.update(
+                    build_brief_line(
+                        no_color,
+                        no_gpu,
+                        interfaces=interfaces,
+                        thresholds=thresholds,
+                    )
+                )
         except KeyboardInterrupt:
             pass
 

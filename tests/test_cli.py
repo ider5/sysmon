@@ -109,6 +109,34 @@ def test_top_json(monkeypatch):
     assert isinstance(data["processes"], list)
 
 
+def test_brief_passes_config_thresholds(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+
+    def fake_print_brief(*args, **kwargs):
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr("sysmon.display.brief.print_brief", fake_print_brief)
+    result = runner.invoke(app, ["brief", "--no-gpu"])
+    assert result.exit_code == 0
+    assert captured["kwargs"]["thresholds"] is DEFAULT_CONFIG.thresholds
+
+
+def test_brief_watch_passes_config_thresholds(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+
+    def fake_watch(*args, **kwargs):
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr("sysmon.display.brief.run_brief_watch", fake_watch)
+    result = runner.invoke(app, ["brief", "--watch", "--no-gpu"])
+    assert result.exit_code == 0
+    assert captured["kwargs"]["thresholds"] is DEFAULT_CONFIG.thresholds
+
+
 def test_brief_json(monkeypatch):
     monkeypatch.setattr("sysmon.cli.time.sleep", lambda _s: None)
     result = runner.invoke(app, ["brief", "--format", "json", "--no-gpu"])

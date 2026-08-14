@@ -543,6 +543,7 @@ def brief(
             no_color=no_color,
             no_gpu=not include_gpu,
             interfaces=settings.network_interfaces,
+            thresholds=settings.thresholds,
         )
     else:
         print_brief(
@@ -551,6 +552,7 @@ def brief(
             no_gpu=not include_gpu,
             sample_interval=settings.sample_interval,
             interfaces=settings.network_interfaces,
+            thresholds=settings.thresholds,
         )
 
 

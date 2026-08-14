@@ -5,6 +5,7 @@ All notable changes to SysMon are documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- Brief mode colors now honor configured warn/critical thresholds instead of a hardcoded 60/80 split
 - Renamed `build.py` to `scripts/build_exe.py` so `python -m build` is not shadowed during PyPI publish
 - Title mode now writes OSC title sequences to the user terminal and verifies the worker started
 - Bare `sysmon` launches the dashboard (matching README)
