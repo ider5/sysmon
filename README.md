@@ -8,20 +8,21 @@ A beautiful system monitoring CLI tool built with Python.
 
 ## Features
 
-- **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, Disk, and GPU metrics
+- **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, Disk, GPU, and top processes
 - **Snapshot Mode** - One-shot system info output with ASCII art logo
 - **Brief Mode** - Single-line status display, perfect for terminal prompts
-- **JSON Output** - Machine-readable output for scripts and automation
+- **JSON Output** - Machine-readable payloads with `schema_version` **3** (`--format json`)
 - **Disk Monitoring** - Disk usage and read/write I/O speeds
 - **Configuration File** - Persistent defaults via a platform config file (`sysmon config path`)
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
-- **GPU Monitoring** - NVIDIA via pynvml/GPUtil, plus Linux sysfs for AMD and other DRM GPUs that expose utilization
-- **Local metrics server** - `sysmon serve` exposes JSON and Prometheus text on localhost
-- **Gradient Progress Bars** - Color-coded bars (green → yellow → red)
+- **GPU Monitoring** - NVIDIA via pynvml/GPUtil, merged with Linux DRM sysfs (AMD and other cards that expose `gpu_busy_percent`)
+- **Local metrics server** - `sysmon serve` exposes JSON and Prometheus text on loopback (`/json`, `/metrics`, `/health`)
+- **Optional sensors** - Battery and temperatures when `[modules] sensors = true` (default off; not shown on the dashboard yet)
+- **Gradient Progress Bars** - Color-coded bars from config warn/critical thresholds
 - **Per-core CPU View** - Individual core usage visualization
 - **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats
 - **Interactive Top** - Live process view with runtime sort and name filter
-- **Background Collection** - Cached metric snapshots for smooth dashboard updates
+- **Background Collection** - Parallel cached snapshots for smooth dashboard updates
 - **Optional native process scanner** - Compiles `sysmon._core` when Rust is available; otherwise uses psutil
 
 ## Installation
@@ -83,7 +84,7 @@ sysmon snapshot network # Show only network info
 sysmon snapshot disk    # Show only disk info
 sysmon snapshot gpu     # Show only GPU info
 sysmon snapshot process # Show only top processes
-sysmon snapshot --format json   # JSON output for scripting
+sysmon snapshot --format json   # JSON output for scripting (schema_version 3)
 sysmon snapshot -s 0.5          # Faster network/disk speed sampling
 sysmon snapshot --no-gpu        # Hide GPU section
 ```
@@ -101,9 +102,22 @@ sysmon top -n 15 --sort memory
 sysmon top --watch      # Interactive: c/m sort, / filter, q quit
 sysmon top --filter python
 sysmon cpu --format json
-sysmon serve                 # http://127.0.0.1:9100/json and /metrics
-sysmon serve --port 9101
 ```
+
+### Metrics Server
+
+```bash
+sysmon serve                      # http://127.0.0.1:9100/json and /metrics
+sysmon serve --port 9101
+sysmon serve --host ::1           # IPv6 loopback
+sysmon serve --host 0.0.0.0 --allow-remote
+```
+
+Endpoints: `GET /json` (schema v3), `GET /metrics` (Prometheus text), `GET /` or `/health`.
+
+Binds loopback (`127.0.0.1`, `localhost`, `::1`) by default. Non-loopback addresses require `--allow-remote`. There is **no authentication**—do not expose it on a public interface.
+
+The server primes network/disk counters once so the first scrape is not stuck at 0 B/s.
 
 ### Shell Completion
 
@@ -151,7 +165,7 @@ network = true
 disk = true
 gpu = true
 process = true
-sensors = false
+sensors = false           # battery/temperatures; default off, not on the dashboard yet
 
 [thresholds]
 cpu_warn = 80
@@ -237,6 +251,10 @@ Real-time Frequency = Base Frequency × % Processor Performance / 100
 
 A background daemon thread collects this data every 1.5 seconds, ensuring the UI remains responsive.
 
+### Optional native process backend
+
+When `rustc`/`cargo` are on `PATH`, `pip install` compiles `sysmon._core` (PyO3 + sysinfo). Process listing (`sysmon top`, dashboard, JSON `processes`) uses it first and falls back to psutil if the extension is missing or raises. On Linux, userland threads are omitted so rows match process PIDs.
+
 ### Color Coding
 
 Progress bars and brief mode use configurable thresholds (`[thresholds]` in config; defaults warn=80, critical=95):
@@ -251,12 +269,13 @@ Progress bars and brief mode use configurable thresholds (`[thresholds]` in conf
 
 | Library | Purpose |
 |---------|---------|
-| psutil | System metrics (CPU, Memory, Network, Disk) |
+| psutil | System metrics (CPU, Memory, Network, Disk, optional sensors) |
 | Rich | Terminal UI (panels, tables, live display) |
 | Typer | CLI framework |
 | tomli | TOML parsing on Python < 3.11 (stdlib `tomllib` on 3.11+) |
 | GPUtil / nvidia-ml-py | NVIDIA GPU monitoring (optional `[gpu]` extra) |
-| Linux sysfs | AMD GPU fallback (`gpu_busy_percent` under `/sys/class/drm`) |
+| Linux sysfs | AMD/other DRM GPUs (`gpu_busy_percent` under `/sys/class/drm`); skips NVIDIA vendor `0x10de` so those cards are not double-counted with NVML/GPUtil |
+| sysmon._core | Optional Rust process scanner (built by setuptools-rust when `rustc` is present) |
 | shtab | Shell completion (optional; included in `[dev]`) |
 
 ## Publishing to PyPI
@@ -281,6 +300,8 @@ pip install -e ".[gpu]"   # NVIDIA GPU extras (not included in [dev])
 ruff check sysmon tests
 pytest -v
 ```
+
+With `rustc` on `PATH`, editable install also builds `sysmon._core` and native process tests run against it. Without Rust, those tests `importorskip` the extension.
 
 ## License
 
