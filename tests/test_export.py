@@ -171,3 +171,171 @@ def test_to_json_roundtrip():
     data = collect_brief(include_gpu=False)
     parsed = json.loads(to_json(data))
     assert parsed == data
+
+
+def _cpu_stub(_settings=None):
+    return {
+        "percent": 10.0,
+        "cores": [10.0],
+        "count_logical": 1,
+        "count_physical": 1,
+        "freq_current": 1000.0,
+        "freq_max": 2000.0,
+    }
+
+
+def _memory_stub(_settings=None):
+    return {
+        "total": 8,
+        "used": 4,
+        "available": 4,
+        "percent": 50.0,
+        "swap_total": 1,
+        "swap_used": 0,
+        "swap_percent": 0.0,
+    }
+
+
+def _network_stub(_settings=None):
+    return {
+        "bytes_sent": 1,
+        "bytes_recv": 2,
+        "speed_up": 0.0,
+        "speed_down": 0.0,
+        "packets_sent": 0,
+        "packets_recv": 0,
+    }
+
+
+def _disk_stub(_settings=None):
+    return {
+        "mounts": [],
+        "mount": "/",
+        "total": 1,
+        "used": 1,
+        "free": 0,
+        "percent": 10.0,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "read_speed": 0.0,
+        "write_speed": 0.0,
+    }
+
+
+_COLLECT_STUBS = {
+    "cpu": _cpu_stub,
+    "memory": _memory_stub,
+    "network": _network_stub,
+    "disk": _disk_stub,
+    "gpu": lambda _settings=None: [_FAKE_GPU],
+    "process": lambda _settings=None: [],
+}
+
+
+def _patch_export_collect(monkeypatch, fake_collect):
+    monkeypatch.setattr("sysmon.export.collect", fake_collect)
+
+
+def test_collect_all_passes_same_settings_to_registry_collect(monkeypatch):
+    from sysmon.config import SysmonConfig
+
+    settings = SysmonConfig()
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    calls = []
+
+    def fake_collect(name, collect_settings=None):
+        calls.append((name, collect_settings))
+        return _COLLECT_STUBS[name](collect_settings)
+
+    _patch_export_collect(monkeypatch, fake_collect)
+
+    collect_all(include_gpu=True)
+
+    assert [name for name, _settings in calls] == [
+        "cpu",
+        "memory",
+        "network",
+        "disk",
+        "gpu",
+        "process",
+    ]
+    assert all(collect_settings is settings for _name, collect_settings in calls)
+
+
+def test_collect_brief_passes_same_settings_to_registry_collect(monkeypatch):
+    from sysmon.config import SysmonConfig
+
+    settings = SysmonConfig()
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    calls = []
+
+    def fake_collect(name, collect_settings=None):
+        calls.append((name, collect_settings))
+        return _COLLECT_STUBS[name](collect_settings)
+
+    _patch_export_collect(monkeypatch, fake_collect)
+
+    collect_brief(include_gpu=True)
+
+    assert [name for name, _settings in calls] == ["cpu", "memory", "network", "gpu"]
+    assert all(collect_settings is settings for _name, collect_settings in calls)
+
+
+@pytest.mark.parametrize(
+    "section,collector_name",
+    [
+        ("cpu", "cpu"),
+        ("memory", "memory"),
+        ("network", "network"),
+        ("disk", "disk"),
+        ("gpu", "gpu"),
+        ("process", "process"),
+    ],
+)
+def test_collect_section_passes_resolved_settings_to_collect(
+    monkeypatch, section, collector_name
+):
+    from sysmon.config import SysmonConfig
+
+    settings = SysmonConfig()
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    calls = []
+
+    def fake_collect(name, collect_settings=None):
+        calls.append((name, collect_settings))
+        return _COLLECT_STUBS[name](collect_settings)
+
+    _patch_export_collect(monkeypatch, fake_collect)
+
+    collect_section(section)
+
+    assert calls == [(collector_name, settings)]
+
+
+def test_process_payload_with_name_filter_calls_get_top_processes(monkeypatch):
+    from sysmon.config import SysmonConfig
+    from sysmon.export import _process_payload
+
+    settings = SysmonConfig(process_limit=3)
+    collect_calls = []
+    process_calls = []
+
+    def fake_collect(name, collect_settings=None):
+        collect_calls.append((name, collect_settings))
+        return []
+
+    def fake_get_top_processes(limit=10, name_filter=None, **_kwargs):
+        process_calls.append((limit, name_filter))
+        return [{"pid": 1, "name": "chrome"}]
+
+    _patch_export_collect(monkeypatch, fake_collect)
+    monkeypatch.setattr(
+        "sysmon.collectors.process.get_top_processes",
+        fake_get_top_processes,
+    )
+
+    result = _process_payload(name_filter="chrome", settings=settings)
+
+    assert collect_calls == []
+    assert process_calls == [(3, "chrome")]
+    assert result == [{"pid": 1, "name": "chrome"}]
