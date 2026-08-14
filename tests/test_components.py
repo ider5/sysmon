@@ -40,6 +40,14 @@ def test_progress_bar_contains_percentage():
     assert "42.5%" in str(bar)
 
 
+def test_progress_bar_clamps_fill_above_100_percent():
+    bar = progress_bar(250.0, width=10)
+    rendered = str(bar)
+    assert "250.0%" in rendered
+    assert rendered.count("━") == 10
+    assert rendered.count("─") == 0
+
+
 def test_gpu_panel_empty_list_shows_unavailable():
     panel = gpu_panel([])
     assert "No GPU" in str(panel.renderable)

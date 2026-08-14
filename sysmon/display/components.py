@@ -63,7 +63,7 @@ def progress_bar(
     critical: float = 95.0,
 ) -> Text:
     """Create a text-based progress bar with color coding."""
-    filled = int(width * percent / 100)
+    filled = min(width, max(0, int(width * max(0.0, percent) / 100.0)))
     empty = width - filled
     color = gradient_color(percent, warn=warn, critical=critical)
 

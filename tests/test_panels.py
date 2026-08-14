@@ -86,6 +86,8 @@ def test_process_panel_renders_bordered_table():
     assert "51M" in rendered
     assert rendered.count("┃") >= 6
     assert "┳" in rendered or "╋" in rendered
+    assert any(line.lstrip().startswith("1") and "4242" in line for line in rendered.splitlines())
+    assert "━" in rendered or "─" in rendered
 
 
 def test_process_panel_empty_still_has_table_frame():

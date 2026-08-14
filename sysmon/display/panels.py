@@ -270,11 +270,12 @@ def process_panel(
         box=box.HEAVY,
         expand=True,
         show_header=True,
-        show_lines=True,
+        show_lines=False,
         header_style="bold bright_cyan",
         border_style="bright_cyan",
         row_styles=["none", "on grey11"],
         pad_edge=True,
+        padding=(0, 1),
     )
     table.add_column("#", justify="right", style="dim", no_wrap=True)
     table.add_column("PID", justify="right", style="cyan", no_wrap=True)
@@ -304,4 +305,5 @@ def process_panel(
         table,
         title=f"[bold cyan]⚙ Processes{title_suffix}[/bold cyan]",
         border_style="bright_cyan",
+        padding=(0, 1),
     )

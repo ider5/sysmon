@@ -23,6 +23,7 @@ All notable changes to SysMon are documented in this file.
 - Brief/dashboard GPU colors follow `metric_status` (no hardcoded 60% yellow band)
 - CI matrix includes macOS (Python 3.11 only, matching Windows) and a rich-default snapshot smoke test
 - CPU frequency collector thread starts only on Windows
+- Process panel is a bordered table with rank, CPU bars, and colored memory; dashboard gives it a full-width row
 
 ### Removed
 - Unused `color_percent` and `metric_row` display helpers
@@ -44,7 +45,6 @@ All notable changes to SysMon are documented in this file.
 - GPU NVML is initialized once per process instead of on every sample
 - Network aggregate totals follow the selected interfaces; disk/network speeds clamp counter resets to 0
 - Process lists hide OS idle placeholders (`System Idle Process`, `Idle`, `System Interrupts`, pid 0, Linux `swapper`)
-- Process panel is a bordered table with rank, CPU bars, and colored memory; dashboard gives it a full-width row
 
 ## [0.3.0] - 2026-06-30
 
