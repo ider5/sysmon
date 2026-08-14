@@ -112,7 +112,7 @@ def test_collect_section_process():
 
 
 def test_collect_section_gpu_with_mock(monkeypatch):
-    monkeypatch.setitem(registry._REGISTRY, "gpu", lambda: [_FAKE_GPU])
+    monkeypatch.setitem(registry._REGISTRY, "gpu", lambda _settings: [_FAKE_GPU])
     data = collect_section("gpu")
     assert data["gpu"] is not None
     assert len(data["gpu"]) == 1
@@ -122,7 +122,7 @@ def test_collect_section_gpu_with_mock(monkeypatch):
 
 
 def test_collect_section_gpu_none(monkeypatch):
-    monkeypatch.setitem(registry._REGISTRY, "gpu", lambda: None)
+    monkeypatch.setitem(registry._REGISTRY, "gpu", lambda _settings: None)
     data = collect_section("gpu")
     assert data["gpu"] is None
 
@@ -133,7 +133,7 @@ def test_collect_section_gpu_disabled():
 
 
 def test_collect_all_gpu_with_mock(monkeypatch):
-    monkeypatch.setitem(registry._REGISTRY, "gpu", lambda: [_FAKE_GPU])
+    monkeypatch.setitem(registry._REGISTRY, "gpu", lambda _settings: [_FAKE_GPU])
     data = collect_all(include_gpu=True)
     assert data["gpu"] is not None
     assert data["gpu"][0]["name"] == "FakeGPU"
