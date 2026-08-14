@@ -17,10 +17,12 @@ class CollectorService:
         self,
         interval: float = 1.0,
         include_gpu: bool = True,
+        include_sensors: bool | None = None,
         config: SysmonConfig | None = None,
     ) -> None:
         self._interval = interval
         self._include_gpu = include_gpu
+        self._include_sensors = include_sensors
         self._config = config or load_config()
         self._lock = threading.Lock()
         self._snapshot: dict[str, Any] = {}
@@ -83,7 +85,10 @@ class CollectorService:
             keys.append("gpu")
         if modules.process:
             keys.append("process")
-        if modules.sensors:
+        sensors_enabled = (
+            modules.sensors if self._include_sensors is None else self._include_sensors
+        )
+        if sensors_enabled:
             keys.append("sensors")
         return keys
 

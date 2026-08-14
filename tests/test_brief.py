@@ -26,30 +26,32 @@ def _stub_brief_collectors(
     cpu_percent=1.0,
     memory_percent=50.0,
     gpu=None,
+    network_interfaces=None,
 ):
-    monkeypatch.setattr(
-        brief_mod,
-        "get_cpu_info",
-        lambda: {"percent": cpu_percent, "freq_current": 0},
-    )
-    monkeypatch.setattr(
-        brief_mod,
-        "get_memory_info",
-        lambda: {"used": 1, "total": 2, "percent": memory_percent},
-    )
-    monkeypatch.setattr(brief_mod, "get_gpu_info", lambda: gpu)
-    monkeypatch.setattr(
-        brief_mod,
-        "get_network_info",
-        lambda interfaces=None: {
-            "speed_up": 0,
-            "speed_down": 0,
-            "bytes_sent": 0,
-            "bytes_recv": 0,
-        },
-    )
+    seen = {"interfaces": None}
+
+    def fake_collect(name, settings=None):
+        if name == "cpu":
+            return {"percent": cpu_percent, "freq_current": 0, "cores": []}
+        if name == "memory":
+            return {"used": 1, "total": 2, "percent": memory_percent}
+        if name == "network":
+            if settings is not None:
+                seen["interfaces"] = settings.network_interfaces
+            return {
+                "speed_up": 0,
+                "speed_down": 0,
+                "bytes_sent": 0,
+                "bytes_recv": 0,
+            }
+        if name == "gpu":
+            return gpu
+        raise AssertionError(name)
+
+    monkeypatch.setattr(brief_mod, "collect", fake_collect)
     monkeypatch.setattr(brief_mod, "bytes_to_gb", lambda n: 1.0)
     monkeypatch.setattr(brief_mod, "format_speed", lambda n: "0 B/s")
+    return seen
 
 
 class _AliveProc:
@@ -67,20 +69,7 @@ class _DeadProc:
 
 
 def test_build_brief_line_passes_network_interfaces(monkeypatch):
-    seen = {}
-    _stub_brief_collectors(monkeypatch)
-
-    def fake_net(interfaces=None):
-        seen["interfaces"] = interfaces
-        return {
-            "speed_up": 0,
-            "speed_down": 0,
-            "bytes_sent": 0,
-            "bytes_recv": 0,
-        }
-
-    monkeypatch.setattr(brief_mod, "get_network_info", fake_net)
-
+    seen = _stub_brief_collectors(monkeypatch)
     brief_mod.build_brief_line(no_gpu=True, interfaces=("eth0",))
     assert seen["interfaces"] == ("eth0",)
 
@@ -125,7 +114,7 @@ def test_build_brief_line_gpu_load_uses_gpu_thresholds(monkeypatch):
 def test_print_brief_passes_thresholds(monkeypatch):
     captured = {}
     thresholds = ThresholdConfig(cpu_warn=10, cpu_critical=20)
-    monkeypatch.setattr(brief_mod, "get_network_info", lambda *a, **k: None)
+    monkeypatch.setattr(brief_mod, "collect", lambda *a, **k: None)
 
     def fake_line(*a, **k):
         captured["kwargs"] = k
@@ -142,7 +131,7 @@ def test_print_brief_passes_thresholds(monkeypatch):
 def test_run_brief_watch_passes_thresholds(monkeypatch):
     captured = {}
     thresholds = ThresholdConfig(cpu_warn=10, cpu_critical=20)
-    monkeypatch.setattr(brief_mod, "get_network_info", lambda *a, **k: None)
+    monkeypatch.setattr(brief_mod, "collect", lambda *a, **k: None)
     sleeps = {"n": 0}
 
     def fake_sleep(_s):
@@ -179,7 +168,7 @@ def test_run_brief_watch_passes_thresholds(monkeypatch):
 
 def test_print_brief_uses_sample_interval(monkeypatch):
     slept = {}
-    monkeypatch.setattr(brief_mod, "get_network_info", lambda *a, **k: None)
+    monkeypatch.setattr(brief_mod, "collect", lambda *a, **k: None)
     monkeypatch.setattr(brief_mod, "build_brief_line", lambda *a, **k: "line")
     monkeypatch.setattr(brief_mod.time, "sleep", lambda s: slept.setdefault("s", s))
 

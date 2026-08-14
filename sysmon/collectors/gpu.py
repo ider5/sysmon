@@ -1,7 +1,7 @@
 """GPU metrics collector.
 
 Uses pynvml (NVIDIA official) when available, falls back to GPUtil,
-then Linux DRM sysfs (AMD/Intel).
+then Linux DRM sysfs for cards that expose gpu_busy_percent (typically AMD).
 """
 
 from __future__ import annotations
@@ -203,9 +203,15 @@ def _get_gpu_info_sysfs() -> Optional[list[GpuInfo]]:
 
 
 def get_gpu_info() -> Optional[list[GpuInfo]]:
-    """Get GPU metrics if available (NVIDIA, then Linux sysfs AMD/Intel)."""
-    return (
-        _get_gpu_info_pynvml()
-        or _get_gpu_info_gputil()
-        or _get_gpu_info_sysfs()
-    )
+    """Get GPU metrics (NVIDIA first, then Linux DRM sysfs for other vendors)."""
+    nvidia = _get_gpu_info_pynvml() or _get_gpu_info_gputil() or []
+    sysfs = _get_gpu_info_sysfs() or []
+    if not nvidia and not sysfs:
+        return None
+    merged: list[GpuInfo] = list(nvidia)
+    offset = len(merged)
+    for index, gpu in enumerate(sysfs):
+        item = dict(gpu)
+        item["id"] = offset + index
+        merged.append(item)  # type: ignore[arg-type]
+    return merged

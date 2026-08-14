@@ -589,11 +589,22 @@ def serve(
         min=1,
         max=65535,
     ),
+    allow_remote: bool = typer.Option(
+        False,
+        "--allow-remote",
+        help="Allow binding a non-loopback address (no authentication).",
+    ),
 ) -> None:
     """Expose JSON (/json) and Prometheus (/metrics) on localhost."""
-    from sysmon.server import serve_forever
+    from sysmon.server import LOOPBACK_HOSTS, serve_forever
 
-    serve_forever(host=host, port=port)
+    if not allow_remote and host not in LOOPBACK_HOSTS:
+        console.print(
+            "[red]Refusing to bind a non-loopback address without --allow-remote.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    serve_forever(host=host, port=port, allow_remote=allow_remote)
 
 
 if __name__ == "__main__":

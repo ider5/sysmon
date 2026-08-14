@@ -127,7 +127,7 @@ def gpu_panel(
         critical: Load/VRAM critical threshold percent
     """
     if not gpus:
-        text = Text("  ⚠ No GPU detected or GPUtil not available.", style="dim italic")
+        text = Text("  ⚠ No GPU detected.", style="dim italic")
         return Panel(text, title="[bold yellow]🎮 GPU[/bold yellow]", border_style="yellow")
 
     text = Text()

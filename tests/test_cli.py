@@ -323,15 +323,23 @@ def test_gpu_json_disabled_by_flag():
 def test_serve_command_binds_localhost(monkeypatch):
     captured = {}
 
-    def fake_serve(host="127.0.0.1", port=9100):
+    def fake_serve(host="127.0.0.1", port=9100, allow_remote=False):
         captured["host"] = host
         captured["port"] = port
+        captured["allow_remote"] = allow_remote
 
     monkeypatch.setattr("sysmon.server.serve_forever", fake_serve)
     result = runner.invoke(app, ["serve", "--port", "9101"])
     assert result.exit_code == 0
     assert captured["host"] == "127.0.0.1"
     assert captured["port"] == 9101
+    assert captured["allow_remote"] is False
+
+
+def test_serve_rejects_non_loopback_without_allow_remote():
+    result = runner.invoke(app, ["serve", "--host", "0.0.0.0"])
+    assert result.exit_code == 1
+    assert "allow-remote" in result.stdout.lower()
 
 
 def test_configure_stdio_allows_emoji_on_cp1252_stdout(monkeypatch):

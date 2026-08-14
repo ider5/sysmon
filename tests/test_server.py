@@ -35,9 +35,22 @@ def test_format_prometheus_includes_core_gauges():
     assert "# TYPE sysmon_cpu_percent gauge" in text
 
 
+def test_format_prometheus_emits_gpu_metadata_once():
+    data = {
+        "gpu": [
+            {"id": 0, "load": 10.0},
+            {"id": 1, "load": 20.0},
+        ]
+    }
+    text = format_prometheus(data)
+    assert text.count("# TYPE sysmon_gpu_load gauge") == 1
+    assert 'sysmon_gpu_load{id="0"} 10.0' in text
+    assert 'sysmon_gpu_load{id="1"} 20.0' in text
+
+
 def test_server_json_and_metrics_endpoints(monkeypatch):
     monkeypatch.setattr("sysmon.server.collect_all", lambda include_gpu=True: _FAKE_ALL)
-    httpd = start_server("127.0.0.1", 0)
+    httpd = start_server("127.0.0.1", 0, payload_fn=lambda: _FAKE_ALL)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     try:

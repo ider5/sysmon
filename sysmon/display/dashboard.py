@@ -236,6 +236,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
     service = CollectorService(
         interval=refresh_rate,
         include_gpu=include_gpu,
+        include_sensors=False,
         config=config,
     )
     service.start()

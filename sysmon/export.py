@@ -12,15 +12,19 @@ from sysmon.config import SysmonConfig, load_config, metric_status
 from sysmon.display.components import _get_os_name, _get_uptime
 
 SCHEMA_VERSION = 3
+_MISSING = object()
 
 
 def _resolve_settings(settings: SysmonConfig | None) -> SysmonConfig:
     return settings if settings is not None else load_config()
 
 
-def _cpu_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
+def _cpu_payload(
+    settings: SysmonConfig | None = None,
+    info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
-    snapshot = collect("cpu", cfg)
+    snapshot = info if info is not None else collect("cpu", cfg)
     status = metric_status(
         snapshot["percent"],
         cfg.thresholds.cpu_warn,
@@ -37,9 +41,12 @@ def _cpu_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
     }
 
 
-def _memory_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
+def _memory_payload(
+    settings: SysmonConfig | None = None,
+    info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
-    info = collect("memory", cfg)
+    info = info if info is not None else collect("memory", cfg)
     return {
         "total": info["total"],
         "used": info["used"],
@@ -56,9 +63,12 @@ def _memory_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
     }
 
 
-def _network_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
+def _network_payload(
+    settings: SysmonConfig | None = None,
+    info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
-    info = collect("network", cfg)
+    info = info if info is not None else collect("network", cfg)
     payload: dict[str, Any] = {
         "bytes_sent": info["bytes_sent"],
         "bytes_recv": info["bytes_recv"],
@@ -72,9 +82,12 @@ def _network_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
     return payload
 
 
-def _disk_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
+def _disk_payload(
+    settings: SysmonConfig | None = None,
+    info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
-    info = collect("disk", cfg)
+    info = info if info is not None else collect("disk", cfg)
     primary_status = metric_status(
         info["percent"],
         cfg.thresholds.disk_warn,
@@ -111,9 +124,12 @@ def _disk_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
     }
 
 
-def _gpu_payload(settings: SysmonConfig | None = None) -> Optional[list[dict[str, Any]]]:
+def _gpu_payload(
+    settings: SysmonConfig | None = None,
+    info: Optional[list[dict[str, Any]]] | object = _MISSING,
+) -> Optional[list[dict[str, Any]]]:
     cfg = _resolve_settings(settings)
-    gpus = collect("gpu", cfg)
+    gpus = collect("gpu", cfg) if info is _MISSING else info
     if not gpus:
         return None
     return [
@@ -199,6 +215,39 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     if settings.modules.sensors:
         data["sensors"] = collect("sensors", settings)
 
+    return data
+
+
+def collect_all_from_snapshot(
+    snapshot: dict[str, Any],
+    include_gpu: bool = True,
+    settings: SysmonConfig | None = None,
+) -> dict[str, Any]:
+    """Build a schema v3 payload from a CollectorService snapshot."""
+    cfg = _resolve_settings(settings)
+    data: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "sysmon_version": __version__,
+        "host": platform.node(),
+        "os": _get_os_name(),
+        "arch": platform.machine(),
+        "uptime": _get_uptime(),
+    }
+    if cfg.modules.cpu and snapshot.get("cpu") is not None:
+        data["cpu"] = _cpu_payload(cfg, info=snapshot["cpu"])
+    if cfg.modules.memory and snapshot.get("memory") is not None:
+        data["memory"] = _memory_payload(cfg, info=snapshot["memory"])
+    if cfg.modules.network and snapshot.get("network") is not None:
+        data["network"] = _network_payload(cfg, info=snapshot["network"])
+    if cfg.modules.disk and snapshot.get("disk") is not None:
+        data["disk"] = _disk_payload(cfg, info=snapshot["disk"])
+    if cfg.modules.gpu and include_gpu and "gpu" in snapshot:
+        data["gpu"] = _gpu_payload(cfg, info=snapshot["gpu"])
+    processes = snapshot.get("process", snapshot.get("processes"))
+    if cfg.modules.process and processes is not None:
+        data["processes"] = processes
+    if cfg.modules.sensors and "sensors" in snapshot:
+        data["sensors"] = snapshot["sensors"]
     return data
 
 

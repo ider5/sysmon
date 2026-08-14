@@ -10,7 +10,7 @@ All notable changes to SysMon are documented in this file.
 - Optional Rust process backend (`sysmon._core`) compiled when `rustc` is available; psutil fallback otherwise
 - Platform config directories (Windows `%APPDATA%`, macOS Application Support) with legacy `~/.config/sysmon` fallback
 - Dedicated GPU warn/critical thresholds
-- Linux DRM sysfs GPU backend for AMD/Intel when NVIDIA libraries are unavailable
+- Linux DRM sysfs GPU backend for AMD (and other cards exposing `gpu_busy_percent`) when NVIDIA libraries are unavailable; NVIDIA and sysfs results are merged
 - `sysmon serve` localhost HTTP JSON (`/json`) and Prometheus (`/metrics`) endpoints
 - Opt-in `sensors` collector (battery/temperatures), default off
 

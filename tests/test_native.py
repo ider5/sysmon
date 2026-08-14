@@ -12,18 +12,7 @@ from sysmon.collectors import process as process_module
 
 def test_try_native_returns_none_when_core_missing(monkeypatch):
     monkeypatch.setitem(sys.modules, "sysmon._core", None)
-    assert process_module._try_native_processes(10, "cpu", None, None) is None
-
-
-def test_try_native_skipped_when_sample_interval_required(monkeypatch):
-    fake = ModuleType("sysmon._core")
-
-    def boom(*_a, **_k):
-        raise AssertionError("native backend should not run during one-shot sampling")
-
-    fake.list_processes = boom
-    monkeypatch.setitem(sys.modules, "sysmon._core", fake)
-    assert process_module._try_native_processes(10, "cpu", None, 0.2) is None
+    assert process_module._try_native_processes(10, "cpu", None) is None
 
 
 def test_try_native_returns_none_when_backend_raises(monkeypatch):
@@ -34,7 +23,7 @@ def test_try_native_returns_none_when_backend_raises(monkeypatch):
 
     fake.list_processes = boom
     monkeypatch.setitem(sys.modules, "sysmon._core", fake)
-    assert process_module._try_native_processes(10, "cpu", None, None) is None
+    assert process_module._try_native_processes(10, "cpu", None) is None
 
 
 def test_get_top_processes_uses_native_when_available(monkeypatch):
@@ -70,9 +59,36 @@ def test_try_native_calls_list_processes(monkeypatch):
 
     fake.list_processes = list_processes
     monkeypatch.setitem(sys.modules, "sysmon._core", fake)
-    result = process_module._try_native_processes(4, "memory", "chrome", None)
+    result = process_module._try_native_processes(4, "memory", "chrome")
     assert captured["args"] == (4, "memory", "chrome")
     assert result[0]["pid"] == 1
+
+
+def test_get_top_processes_sample_interval_uses_native(monkeypatch):
+    calls = []
+
+    def fake_native(limit, sort_by, name_filter):
+        calls.append((limit, sort_by, name_filter))
+        return [
+            {
+                "pid": 1,
+                "name": "n",
+                "cpu_percent": float(len(calls)),
+                "memory_percent": 1.0,
+                "memory_mb": 1.0,
+            }
+        ]
+
+    monkeypatch.setattr(process_module, "_try_native_processes", fake_native)
+    monkeypatch.setattr(process_module.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(
+        process_module.psutil,
+        "process_iter",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("psutil fallback")),
+    )
+    result = process_module.get_top_processes(sample_interval=0.15)
+    assert len(calls) == 2
+    assert result[0]["cpu_percent"] == 2.0
 
 
 def test_native_list_processes_payload_shape():

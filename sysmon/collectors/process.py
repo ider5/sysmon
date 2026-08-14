@@ -108,13 +108,18 @@ def get_top_processes(
     Returns:
         List of dicts with pid, name, cpu_percent, memory_percent, memory_mb.
     """
-    native = _try_native_processes(limit, sort_by, name_filter, sample_interval)
-    if native is not None:
-        return native
-
     if sample_interval is not None and sample_interval > 0:
+        if _try_native_processes(limit, sort_by, name_filter) is not None:
+            time.sleep(sample_interval)
+            native = _try_native_processes(limit, sort_by, name_filter)
+            if native is not None:
+                return native
         _prime_cpu_times()
         time.sleep(sample_interval)
+    else:
+        native = _try_native_processes(limit, sort_by, name_filter)
+        if native is not None:
+            return native
 
     processes: list[dict] = []
     needle = name_filter.lower() if name_filter else None
@@ -153,11 +158,8 @@ def _try_native_processes(
     limit: int,
     sort_by: str,
     name_filter: str | None,
-    sample_interval: float | None,
 ) -> list[dict] | None:
-    """Use the optional Rust backend when no one-shot sample sleep is required."""
-    if sample_interval is not None and sample_interval > 0:
-        return None
+    """Use the optional Rust backend; return None to fall back to psutil."""
     try:
         from sysmon._core import list_processes
     except ImportError:

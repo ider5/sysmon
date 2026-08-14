@@ -15,7 +15,7 @@ A beautiful system monitoring CLI tool built with Python.
 - **Disk Monitoring** - Disk usage and read/write I/O speeds
 - **Configuration File** - Persistent defaults via a platform config file (`sysmon config path`)
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
-- **GPU Monitoring** - NVIDIA via pynvml/GPUtil, plus Linux sysfs for AMD/Intel
+- **GPU Monitoring** - NVIDIA via pynvml/GPUtil, plus Linux sysfs for AMD and other DRM GPUs that expose utilization
 - **Local metrics server** - `sysmon serve` exposes JSON and Prometheus text on localhost
 - **Gradient Progress Bars** - Color-coded bars (green → yellow → red)
 - **Per-core CPU View** - Individual core usage visualization
@@ -256,7 +256,7 @@ Progress bars and brief mode use configurable thresholds (`[thresholds]` in conf
 | Typer | CLI framework |
 | tomli | TOML parsing on Python < 3.11 (stdlib `tomllib` on 3.11+) |
 | GPUtil / nvidia-ml-py | NVIDIA GPU monitoring (optional `[gpu]` extra) |
-| Linux sysfs | AMD/Intel GPU fallback (`/sys/class/drm`) |
+| Linux sysfs | AMD GPU fallback (`gpu_busy_percent` under `/sys/class/drm`) |
 | shtab | Shell completion (optional; included in `[dev]`) |
 
 ## Publishing to PyPI

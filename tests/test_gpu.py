@@ -26,6 +26,7 @@ def test_get_gpu_info_prefers_pynvml(monkeypatch):
         "_get_gpu_info_gputil",
         lambda: (_ for _ in ()).throw(AssertionError("should not fallback")),
     )
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_sysfs", lambda: None)
     assert gpu_mod.get_gpu_info() == fake
 
 
@@ -43,6 +44,7 @@ def test_get_gpu_info_falls_back_to_gputil(monkeypatch):
     ]
     monkeypatch.setattr(gpu_mod, "_get_gpu_info_pynvml", lambda: None)
     monkeypatch.setattr(gpu_mod, "_get_gpu_info_gputil", lambda: fake)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_sysfs", lambda: None)
     assert gpu_mod.get_gpu_info() == fake
 
 
@@ -142,3 +144,34 @@ def test_get_gpu_info_falls_back_to_sysfs(monkeypatch, tmp_path):
     gpus = gpu_mod.get_gpu_info()
     assert gpus is not None
     assert gpus[0]["backend"] == "sysfs"
+
+
+def test_get_gpu_info_merges_nvidia_and_sysfs(monkeypatch):
+    nvidia = [
+        {
+            "id": 0,
+            "name": "NV",
+            "load": 11.0,
+            "memory_total": 1.0,
+            "memory_used": 0.0,
+            "temperature": 40.0,
+            "backend": "pynvml",
+        }
+    ]
+    amd = [
+        {
+            "id": 0,
+            "name": "AMD",
+            "load": 33.0,
+            "memory_total": 8192.0,
+            "memory_used": 1024.0,
+            "temperature": 52.0,
+            "backend": "sysfs",
+        }
+    ]
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_pynvml", lambda: nvidia)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_gputil", lambda: None)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_sysfs", lambda: amd)
+    gpus = gpu_mod.get_gpu_info()
+    assert [g["backend"] for g in gpus] == ["pynvml", "sysfs"]
+    assert gpus[1]["id"] == 1
