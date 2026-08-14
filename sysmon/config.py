@@ -227,7 +227,15 @@ def load_config() -> SysmonConfig:
         _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)
         return DEFAULT_CONFIG
 
-    config = SysmonConfig.from_mapping(data)
+    try:
+        config = SysmonConfig.from_mapping(data)
+    except Exception:
+        print(
+            f"sysmon: invalid values in {path}, using defaults.",
+            file=sys.stderr,
+        )
+        _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)
+        return DEFAULT_CONFIG
     _CONFIG_CACHE = (path_key, mtime, config)
     return config
 

@@ -245,6 +245,32 @@ def _stop_existing_title_process() -> None:
         _PID_FILE.unlink(missing_ok=True)
 
 
+def title_worker_command(refresh_rate: float, no_gpu: bool) -> list[str]:
+    """Build the argv used to spawn the title worker."""
+    if getattr(sys, "frozen", False):
+        cmd = [
+            sys.executable,
+            "--title-worker",
+            "--title-refresh",
+            str(refresh_rate),
+        ]
+        if no_gpu:
+            cmd.append("--title-no-gpu")
+        return cmd
+    cmd = [
+        sys.executable,
+        "-m",
+        "sysmon.display.title_worker",
+        "--refresh",
+        str(refresh_rate),
+        "--marker",
+        WORKER_MARKER,
+    ]
+    if no_gpu:
+        cmd.append("--no-gpu")
+    return cmd
+
+
 def run_title_mode(
     console: Console,
     refresh_rate: float = 2.0,
@@ -256,29 +282,11 @@ def run_title_mode(
         console.print("[yellow]Title mode start is already in progress.[/yellow]")
         return
 
+    proc = None
     try:
         _stop_existing_title_process()
-
-        cmd = [
-            sys.executable,
-            "-m",
-            "sysmon.display.title_worker",
-            "--refresh",
-            str(refresh_rate),
-            "--marker",
-            WORKER_MARKER,
-        ]
-        if no_gpu:
-            cmd.append("--no-gpu")
-
-        popen_kwargs: dict = {
-            "stderr": subprocess.DEVNULL,
-            "start_new_session": True,
-        }
-        if sys.platform == "win32":
-            popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-
-        proc = subprocess.Popen(cmd, **popen_kwargs)
+        cmd = title_worker_command(refresh_rate, no_gpu)
+        proc = subprocess.Popen(cmd, stderr=subprocess.DEVNULL)
         time.sleep(_WORKER_START_GRACE)
         if proc.poll() is not None:
             _PID_FILE.unlink(missing_ok=True)
@@ -300,6 +308,8 @@ def run_title_mode(
                 "[dim]For best results, use Windows Terminal or other standard terminal.[/dim]"
             )
     except Exception as e:
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
         console.print(f"[red]Error starting title mode: {e}[/red]")
     finally:
         _release_title_lock(lock)
@@ -308,6 +318,10 @@ def run_title_mode(
 def stop_title_mode(console: Console) -> None:
     """Stop the background title process."""
     lock = _acquire_title_lock()
+    if lock is None:
+        console.print("[yellow]Title mode is busy. Try again.[/yellow]")
+        return
+
     try:
         if not _PID_FILE.exists():
             console.print("[dim]Title mode is not running.[/dim]")
@@ -319,6 +333,10 @@ def stop_title_mode(console: Console) -> None:
                 proc = psutil.Process(pid)
                 if _is_title_worker_process(proc):
                     proc.terminate()
+                    try:
+                        proc.wait(timeout=3)
+                    except psutil.TimeoutExpired:
+                        proc.kill()
                     console.print(f"[green]✓[/green] Title mode stopped (PID: {pid})")
                 else:
                     console.print("[dim]PID file did not match a title worker.[/dim]")

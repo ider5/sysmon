@@ -85,6 +85,7 @@ def test_run_title_mode_inherits_stdout(tmp_path, monkeypatch):
     assert "stdout" not in captured["kwargs"]
     assert captured["kwargs"].get("stdout") is None
     assert captured["kwargs"]["stderr"] is subprocess.DEVNULL
+    assert "start_new_session" not in captured["kwargs"]
     assert "--marker" in captured["cmd"]
     assert (tmp_path / "title.pid").read_text(encoding="utf-8") == "4242"
     assert "Title mode started" in console.export_text()
@@ -101,3 +102,19 @@ def test_run_title_mode_reports_immediate_exit(tmp_path, monkeypatch):
     text = console.export_text()
     assert "exited immediately" in text
     assert not (tmp_path / "title.pid").exists()
+
+
+def test_title_worker_command_uses_module_for_python():
+    cmd = brief_mod.title_worker_command(2.0, True)
+    assert "-m" in cmd
+    assert "sysmon.display.title_worker" in cmd
+    assert "--no-gpu" in cmd
+
+
+def test_title_worker_command_uses_flag_when_frozen(monkeypatch):
+    monkeypatch.setattr(brief_mod.sys, "frozen", True, raising=False)
+    cmd = brief_mod.title_worker_command(1.5, True)
+    assert "--title-worker" in cmd
+    assert "--title-refresh" in cmd
+    assert "--title-no-gpu" in cmd
+    assert "-m" not in cmd

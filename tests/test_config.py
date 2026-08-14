@@ -124,6 +124,17 @@ def test_load_config_invalid_toml_falls_back(tmp_path: Path, monkeypatch, capsys
     assert "failed to parse" in err.lower()
 
 
+def test_load_config_invalid_values_fall_back(tmp_path: Path, monkeypatch, capsys):
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('refresh_interval = "fast"\n', encoding="utf-8")
+    monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
+
+    config = load_config()
+    assert config.refresh_interval == 1.0
+    err = capsys.readouterr().err
+    assert "invalid values" in err.lower()
+
+
 def test_write_default_config(tmp_path: Path, monkeypatch):
     config_path = tmp_path / "config.toml"
     monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)

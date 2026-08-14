@@ -16,6 +16,7 @@ def _proc(pid: int, cpu: float, mem: float, name: str) -> MagicMock:
     mock.pid = pid
     mock.memory_info.return_value = MagicMock(rss=mem * 1024 * 1024)
     mock.cpu_times.return_value = SimpleNamespace(user=cpu, system=0.0)
+    mock.create_time.return_value = 1000.0 + pid
     return mock
 
 
@@ -60,9 +61,20 @@ def test_get_top_processes_name_filter():
     assert names == {"chrome", "Chrome Helper"}
 
 
-def test_get_top_processes_sample_interval_sleeps(monkeypatch):
-    slept = {}
-    monkeypatch.setattr(process_module.time, "sleep", lambda s: slept.setdefault("s", s))
-    monkeypatch.setattr(process_module.psutil, "process_iter", lambda *a, **k: [])
-    process_module.get_top_processes(sample_interval=0.15)
-    assert slept["s"] == 0.15
+def test_get_top_processes_sample_interval_computes_cpu(monkeypatch):
+    proc = _proc(1, 0.0, 1.0, "a")
+    proc.cpu_times.side_effect = [
+        SimpleNamespace(user=0.0, system=0.0),
+        SimpleNamespace(user=0.5, system=0.0),
+    ]
+    ticks = iter([1.0, 2.0])
+    monkeypatch.setattr(process_module.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(process_module.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(
+        process_module.psutil, "process_iter", lambda *a, **k: [proc]
+    )
+
+    result = process_module.get_top_processes(sample_interval=0.15)
+
+    assert len(result) == 1
+    assert result[0]["cpu_percent"] == 50.0

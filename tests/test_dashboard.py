@@ -59,3 +59,51 @@ def test_build_dashboard_uses_snapshot_cpu(monkeypatch):
     console = Console(record=True, width=100)
     console.print(layout)
     assert "12.5%" in console.export_text()
+
+
+def test_build_dashboard_gpu_none_is_unavailable(monkeypatch):
+    def boom(*_a, **_k):
+        raise AssertionError("collector should not run")
+
+    monkeypatch.setattr("sysmon.collectors.gpu.get_gpu_info", boom)
+    config = SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": False,
+                "memory": False,
+                "network": False,
+                "disk": False,
+                "gpu": True,
+                "process": False,
+            }
+        }
+    )
+    layout = build_dashboard(include_gpu=True, config=config, snapshot={"gpu": None})
+    console = Console(record=True, width=80)
+    console.print(layout)
+    text = console.export_text()
+    assert "No GPU" in text
+    assert "Waiting for metrics" not in text
+
+
+def test_build_dashboard_shows_collector_error(monkeypatch):
+    config = SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": True,
+                "memory": False,
+                "network": False,
+                "disk": False,
+                "gpu": False,
+                "process": False,
+            }
+        }
+    )
+    layout = build_dashboard(
+        include_gpu=False,
+        config=config,
+        snapshot={"errors": {"cpu": "cpu down"}},
+    )
+    console = Console(record=True, width=80)
+    console.print(layout)
+    assert "Collection error: cpu down" in console.export_text()

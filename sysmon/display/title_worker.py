@@ -30,9 +30,11 @@ def osc_title_sequence(title: str) -> str:
     return f"\033]0;{sanitize_title(title)}\007"
 
 
-def set_title(title: str) -> None:
-    """Set terminal title via OSC so the parent terminal can receive it."""
-    payload = osc_title_sequence(title)
+def _write_osc(payload: str) -> None:
+    if hasattr(sys.stdout, "isatty") and sys.stdout.isatty():
+        sys.stdout.write(payload)
+        sys.stdout.flush()
+        return
     if sys.platform != "win32":
         try:
             with open("/dev/tty", "w", encoding="utf-8") as tty:
@@ -43,6 +45,18 @@ def set_title(title: str) -> None:
             pass
     sys.stdout.write(payload)
     sys.stdout.flush()
+
+
+def set_title(title: str) -> None:
+    """Set terminal title via OSC (and Windows console API)."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            ctypes.windll.kernel32.SetConsoleTitleW(sanitize_title(title))
+        except Exception:
+            pass
+    _write_osc(osc_title_sequence(title))
 
 
 def build_title(no_gpu: bool) -> str:

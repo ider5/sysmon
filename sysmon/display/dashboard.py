@@ -24,9 +24,10 @@ from sysmon.display.panels import (
 from sysmon.display.sparkline import HistoryBuffer
 
 
-def _waiting_panel(title: str) -> Panel:
+def _waiting_panel(title: str, error: str | None = None) -> Panel:
+    message = f"  Collection error: {error}" if error else "  Waiting for metrics..."
     return Panel(
-        Text("  Waiting for metrics...", style="dim"),
+        Text(message, style="dim"),
         title=title,
         border_style="dim",
     )
@@ -44,6 +45,7 @@ def build_dashboard(
     modules = settings.modules
     thresholds = settings.thresholds
     data = snapshot or {}
+    errors = data.get("errors") if isinstance(data.get("errors"), dict) else {}
 
     os_name = _get_os_name()
     hostname = platform.node()
@@ -61,7 +63,9 @@ def build_dashboard(
     if modules.cpu:
         cpu_snapshot = data.get("cpu")
         if cpu_snapshot is None:
-            active_panels.append(("cpu", _waiting_panel("[bold cyan]📊 CPU[/bold cyan]")))
+            active_panels.append(
+                ("cpu", _waiting_panel("[bold cyan]📊 CPU[/bold cyan]", errors.get("cpu")))
+            )
         else:
             active_panels.append(
                 (
@@ -81,7 +85,13 @@ def build_dashboard(
         mem_info = data.get("memory")
         if mem_info is None:
             active_panels.append(
-                ("memory", _waiting_panel("[bold magenta]💾 Memory[/bold magenta]"))
+                (
+                    "memory",
+                    _waiting_panel(
+                        "[bold magenta]💾 Memory[/bold magenta]",
+                        errors.get("memory"),
+                    ),
+                )
             )
         else:
             active_panels.append(
@@ -100,7 +110,13 @@ def build_dashboard(
         net_info = data.get("network")
         if net_info is None:
             active_panels.append(
-                ("network", _waiting_panel("[bold green]🌐 Network[/bold green]"))
+                (
+                    "network",
+                    _waiting_panel(
+                        "[bold green]🌐 Network[/bold green]",
+                        errors.get("network"),
+                    ),
+                )
             )
         else:
             active_panels.append(
@@ -117,7 +133,9 @@ def build_dashboard(
     if modules.disk:
         disk_info = data.get("disk")
         if disk_info is None:
-            active_panels.append(("disk", _waiting_panel("[bold blue]💽 Disk[/bold blue]")))
+            active_panels.append(
+                ("disk", _waiting_panel("[bold blue]💽 Disk[/bold blue]", errors.get("disk")))
+            )
         else:
             active_panels.append(
                 (
@@ -133,7 +151,15 @@ def build_dashboard(
     if modules.gpu and include_gpu:
         gpu_info = data.get("gpu")
         if "gpu" not in data:
-            active_panels.append(("gpu", _waiting_panel("[bold yellow]🎮 GPU[/bold yellow]")))
+            active_panels.append(
+                (
+                    "gpu",
+                    _waiting_panel(
+                        "[bold yellow]🎮 GPU[/bold yellow]",
+                        errors.get("gpu"),
+                    ),
+                )
+            )
         else:
             active_panels.append(("gpu", gpu_panel(gpu_info)))
 
@@ -141,7 +167,13 @@ def build_dashboard(
         processes = data.get("process")
         if processes is None:
             active_panels.append(
-                ("process", _waiting_panel("[bold white]⚙️  Processes[/bold white]"))
+                (
+                    "process",
+                    _waiting_panel(
+                        "[bold white]⚙️  Processes[/bold white]",
+                        errors.get("process"),
+                    ),
+                )
             )
         else:
             active_panels.append(("process", process_panel(processes)))

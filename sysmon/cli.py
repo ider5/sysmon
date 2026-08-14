@@ -123,6 +123,16 @@ def main(
         None, "--print-completion",
         help="Print shell completion script (bash, zsh, tcsh).",
     ),
+    title_worker: bool = typer.Option(
+        False, "--title-worker", hidden=True,
+        help="Internal: run the title-mode worker loop.",
+    ),
+    title_refresh: float = typer.Option(
+        2.0, "--title-refresh", hidden=True,
+    ),
+    title_no_gpu: bool = typer.Option(
+        False, "--title-no-gpu", hidden=True,
+    ),
 ) -> None:
     """SysMon - System monitoring made beautiful."""
     if print_completion:
@@ -135,6 +145,12 @@ def main(
             console.print("[red]shtab is required for shell completion.[/red]")
             console.print("[dim]Install with: pip install shtab[/dim]")
             raise typer.Exit(code=1) from None
+        raise typer.Exit()
+
+    if title_worker:
+        from sysmon.display.title_worker import run_loop
+
+        run_loop(title_refresh, title_no_gpu)
         raise typer.Exit()
 
     if ctx.invoked_subcommand is None:

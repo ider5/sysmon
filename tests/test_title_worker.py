@@ -17,3 +17,17 @@ def test_osc_title_sequence_wraps_sanitized_text():
     assert seq.startswith("\033]0;")
     assert seq.endswith("\007")
     assert "RAM 1/2G" in seq
+
+
+def test_set_title_writes_osc_to_stdout(monkeypatch):
+    import io
+
+    buf = io.StringIO()
+    buf.isatty = lambda: True  # type: ignore[method-assign]
+    monkeypatch.setattr("sysmon.display.title_worker.sys.stdout", buf)
+    monkeypatch.setattr("sysmon.display.title_worker.sys.platform", "linux")
+
+    from sysmon.display.title_worker import set_title
+
+    set_title("CPU 10%")
+    assert "\033]0;CPU 10%\007" in buf.getvalue()
