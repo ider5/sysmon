@@ -90,6 +90,8 @@ def _freq_collector_thread() -> None:
 
 def _ensure_freq_collector() -> None:
     """Start the background frequency collector on first use."""
+    if platform.system() != "Windows":
+        return
     global _collector_started
     with _collector_lock:
         if _collector_started:
@@ -97,13 +99,12 @@ def _ensure_freq_collector() -> None:
         _collector_started = True
         thread = threading.Thread(target=_freq_collector_thread, daemon=True)
         thread.start()
-        if platform.system() == "Windows":
-            freq = _get_realtime_freq_windows()
-            if freq:
-                with _freq_lock:
-                    _freq_cache["current"] = freq["current"]
-                    _freq_cache["base"] = freq["base"]
-                    _freq_cache["timestamp"] = time.time()
+        freq = _get_realtime_freq_windows()
+        if freq:
+            with _freq_lock:
+                _freq_cache["current"] = freq["current"]
+                _freq_cache["base"] = freq["base"]
+                _freq_cache["timestamp"] = time.time()
 
 
 def _get_freq_fields() -> tuple[float, float]:

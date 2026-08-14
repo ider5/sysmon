@@ -261,6 +261,7 @@ twine upload dist/*
 
 ```bash
 pip install -e ".[dev]"
+pip install -e ".[gpu]"   # NVIDIA GPU extras (not included in [dev])
 ruff check sysmon tests
 pytest -v
 ```

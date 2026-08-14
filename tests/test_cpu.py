@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+from sysmon.collectors import cpu as cpu_mod
 from sysmon.collectors.cpu import get_cpu_snapshot
 
 
@@ -16,3 +17,11 @@ def test_get_cpu_snapshot_overall_from_cores():
     assert snapshot["cores"] == [20.0, 40.0, 60.0, 80.0]
     assert snapshot["count_logical"] == 4
     assert snapshot["count_physical"] == 2
+
+
+def test_ensure_freq_collector_skips_thread_on_non_windows(monkeypatch):
+    monkeypatch.setattr(cpu_mod, "_collector_started", False)
+    monkeypatch.setattr(cpu_mod.platform, "system", lambda: "Linux")
+    with patch("sysmon.collectors.cpu.threading.Thread") as mock_thread:
+        cpu_mod._ensure_freq_collector()
+        mock_thread.assert_not_called()

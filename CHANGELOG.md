@@ -4,6 +4,14 @@ All notable changes to SysMon are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- `[dev]` extra is tooling-only (`pyinstaller`, `pytest`, `ruff`, `shtab`); GPU libraries stay in `[gpu]`
+- CI matrix includes macOS (Python 3.11 only, matching Windows) and a rich-default snapshot smoke test
+- CPU frequency collector thread starts only on Windows
+
+### Removed
+- Unused `color_percent` and `metric_row` display helpers
+
 ### Fixed
 - Brief mode colors now honor configured warn/critical thresholds instead of a hardcoded 60/80 split
 - Renamed `build.py` to `scripts/build_exe.py` so `python -m build` is not shadowed during PyPI publish
