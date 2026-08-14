@@ -36,6 +36,8 @@ All notable changes to SysMon are documented in this file.
 - Bare `sysmon` launches the dashboard (matching README)
 - CollectorService isolates per-module collection errors and can restart after a failed `start()`
 - Process CPU percentages use a pid-level sample cache so `sysmon top` is no longer stuck at 0%
+- Native process backend skips Linux userland threads and waits at least 250ms between CPU samples
+- `sysmon serve` binds IPv6 loopback (`::1`) and primes network/disk counters before the first scrape
 - Brief mode honors `network_interfaces` and `sample_interval`
 - Dashboard no longer falls back to blocking collectors on the UI thread
 - Invalid `--sort` values and unreadable config files now surface errors instead of failing silently

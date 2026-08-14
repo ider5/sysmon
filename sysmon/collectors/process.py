@@ -11,6 +11,9 @@ import psutil
 _prev_cpu: dict[tuple[int, float], tuple[float, float]] = {}
 _cpu_lock = threading.Lock()
 
+# sysinfo only refreshes process CPU when elapsed > 200ms on Linux/macOS.
+NATIVE_CPU_SAMPLE_FLOOR = 0.25
+
 PROCESS_ITER_ATTRS = (
     "pid",
     "name",
@@ -110,7 +113,7 @@ def get_top_processes(
     """
     if sample_interval is not None and sample_interval > 0:
         if _try_native_processes(limit, sort_by, name_filter) is not None:
-            time.sleep(sample_interval)
+            time.sleep(max(sample_interval, NATIVE_CPU_SAMPLE_FLOOR))
             native = _try_native_processes(limit, sort_by, name_filter)
             if native is not None:
                 return native

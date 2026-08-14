@@ -297,6 +297,7 @@ def top(
         )
         return
 
+    from sysmon.collectors.process import NATIVE_CPU_SAMPLE_FLOOR
     from sysmon.collectors.registry import collect_processes
 
     processes = collect_processes(
@@ -304,7 +305,7 @@ def top(
         limit=count,
         sort_by=sort_key,
         name_filter=filter_name,
-        sample_interval=min(settings.sample_interval, 0.2),
+        sample_interval=min(settings.sample_interval, NATIVE_CPU_SAMPLE_FLOOR),
     )
 
     if fmt == "json":

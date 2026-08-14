@@ -3,7 +3,7 @@ use std::sync::{Mutex, OnceLock};
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use sysinfo::{ProcessesToUpdate, System};
+use sysinfo::{ProcessesToUpdate, System, ThreadKind};
 
 static SYSTEM: OnceLock<Mutex<System>> = OnceLock::new();
 
@@ -32,6 +32,9 @@ fn scan_processes(limit: usize, sort_by: &str, name_filter: Option<&str>) -> Vec
 
     let mut rows: Vec<ProcessRow> = Vec::new();
     for (pid, proc) in sys.processes() {
+        if proc.thread_kind() == Some(ThreadKind::Userland) {
+            continue;
+        }
         let name = proc.name().to_string_lossy().into_owned();
         if let Some(ref needle) = needle {
             if !name.to_lowercase().contains(needle) {

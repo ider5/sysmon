@@ -342,6 +342,20 @@ def test_serve_rejects_non_loopback_without_allow_remote():
     assert "allow-remote" in result.stdout.lower()
 
 
+def test_serve_allows_ipv6_loopback_without_allow_remote(monkeypatch):
+    captured = {}
+
+    def fake_serve(host="127.0.0.1", port=9100, allow_remote=False):
+        captured["host"] = host
+        captured["allow_remote"] = allow_remote
+
+    monkeypatch.setattr("sysmon.server.serve_forever", fake_serve)
+    result = runner.invoke(app, ["serve", "--host", "::1"])
+    assert result.exit_code == 0
+    assert captured["host"] == "::1"
+    assert captured["allow_remote"] is False
+
+
 def test_configure_stdio_allows_emoji_on_cp1252_stdout(monkeypatch):
     buf = io.BytesIO()
     stream = io.TextIOWrapper(buf, encoding="cp1252", errors="strict")

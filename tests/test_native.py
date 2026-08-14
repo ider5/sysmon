@@ -111,3 +111,81 @@ def test_native_list_processes_name_filter():
     core = pytest.importorskip("sysmon._core")
     rows = core.list_processes(50, "cpu", "this-name-should-not-match-zzzz")
     assert rows == []
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="sysinfo userland threads are Linux-specific")
+def test_native_list_processes_skips_userland_threads():
+    core = pytest.importorskip("sysmon._core")
+    import psutil
+
+    native_pids = {int(row["pid"]) for row in core.list_processes(50_000, "cpu", None)}
+    psutil_pids = {proc.pid for proc in psutil.process_iter(["pid"])}
+    extras = native_pids - psutil_pids
+
+    userland_tids = []
+    for pid in extras:
+        try:
+            with open(f"/proc/{pid}/status", encoding="utf-8") as handle:
+                lines = handle.readlines()
+        except OSError:
+            continue
+        tgid = None
+        for line in lines:
+            if line.startswith("Tgid:"):
+                tgid = int(line.split()[1])
+                break
+        if tgid is not None and tgid != pid:
+            userland_tids.append(pid)
+
+    assert userland_tids == []
+    assert len(native_pids) < len(psutil_pids) * 2
+
+
+def test_native_sample_interval_sleeps_past_sysinfo_cpu_gate(monkeypatch):
+    slept = []
+    payload = [
+        {
+            "pid": 1,
+            "name": "n",
+            "cpu_percent": 1.0,
+            "memory_percent": 1.0,
+            "memory_mb": 1.0,
+        }
+    ]
+    monkeypatch.setattr(process_module, "_try_native_processes", lambda *_a, **_k: payload)
+    monkeypatch.setattr(process_module.time, "sleep", lambda seconds: slept.append(seconds))
+    monkeypatch.setattr(
+        process_module.psutil,
+        "process_iter",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("psutil fallback")),
+    )
+    process_module.get_top_processes(sample_interval=0.15)
+    assert slept
+    assert slept[0] >= 0.25
+
+
+def test_native_two_sample_reports_cpu_when_requested_interval_is_short():
+    pytest.importorskip("sysmon._core")
+    import os
+    import threading
+    import time
+
+    stop = threading.Event()
+
+    def burn() -> None:
+        value = 0
+        while not stop.is_set():
+            value = (value + 1) % 1_000_003
+
+    worker = threading.Thread(target=burn, daemon=True)
+    worker.start()
+    try:
+        # Expire any CPU sample taken by earlier tests in this process.
+        time.sleep(process_module.NATIVE_CPU_SAMPLE_FLOOR)
+        rows = process_module.get_top_processes(limit=5_000, sample_interval=0.15)
+        match = next((row for row in rows if row["pid"] == os.getpid()), None)
+        assert match is not None
+        assert match["cpu_percent"] > 10
+    finally:
+        stop.set()
+        worker.join(timeout=1)

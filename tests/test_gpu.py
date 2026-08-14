@@ -175,3 +175,21 @@ def test_get_gpu_info_merges_nvidia_and_sysfs(monkeypatch):
     gpus = gpu_mod.get_gpu_info()
     assert [g["backend"] for g in gpus] == ["pynvml", "sysfs"]
     assert gpus[1]["id"] == 1
+
+
+def test_sysfs_backend_skips_nvidia_vendor(tmp_path, monkeypatch):
+    drm = tmp_path / "drm"
+    nvidia = drm / "card0" / "device"
+    nvidia.mkdir(parents=True)
+    (nvidia / "vendor").write_text("0x10de\n", encoding="utf-8")
+    (nvidia / "gpu_busy_percent").write_text("90\n", encoding="utf-8")
+    (nvidia / "product_name").write_text("Fake NVIDIA\n", encoding="utf-8")
+    amd = drm / "card1" / "device"
+    amd.mkdir(parents=True)
+    (amd / "vendor").write_text("0x1002\n", encoding="utf-8")
+    (amd / "gpu_busy_percent").write_text("12\n", encoding="utf-8")
+    (amd / "product_name").write_text("Fake AMD\n", encoding="utf-8")
+    monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)
+    gpus = gpu_mod._get_gpu_info_sysfs()
+    assert gpus is not None
+    assert [gpu["name"] for gpu in gpus] == ["Fake AMD"]

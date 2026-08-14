@@ -9,6 +9,7 @@ from sysmon.config import DEFAULT_CONFIG
 from sysmon.export import (
     SCHEMA_VERSION,
     collect_all,
+    collect_all_from_snapshot,
     collect_brief,
     collect_section,
     to_json,
@@ -339,3 +340,38 @@ def test_process_payload_with_name_filter_calls_get_top_processes(monkeypatch):
     assert collect_calls == []
     assert process_calls == [(3, "chrome")]
     assert result == [{"pid": 1, "name": "chrome"}]
+
+
+def test_collect_all_from_snapshot_maps_collector_fields():
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    snapshot = {
+        "cpu": _cpu_stub(),
+        "memory": _memory_stub(),
+        "network": _network_stub(),
+        "disk": _disk_stub(),
+        "gpu": [_FAKE_GPU],
+        "process": [
+            {
+                "pid": 9,
+                "name": "proc",
+                "cpu_percent": 1.5,
+                "memory_percent": 2.0,
+                "memory_mb": 3.0,
+            }
+        ],
+        "sensors": {"battery_percent": 80.0, "temperatures": []},
+    }
+    settings = SysmonConfig(modules=ModuleConfig(sensors=True))
+    data = collect_all_from_snapshot(snapshot, include_gpu=True, settings=settings)
+    assert data["schema_version"] == SCHEMA_VERSION
+    assert data["cpu"]["freq_current_mhz"] == 1000.0
+    assert data["cpu"]["freq_max_mhz"] == 2000.0
+    assert "freq_current" not in data["cpu"]
+    assert data["gpu"][0]["memory_total_mb"] == 8192.0
+    assert data["gpu"][0]["memory_used_mb"] == 1024.0
+    assert data["gpu"][0]["temperature_c"] == 48.0
+    assert "memory_total" not in data["gpu"][0]
+    assert data["processes"][0]["pid"] == 9
+    assert "process" not in data
+    assert data["sensors"]["battery_percent"] == 80.0

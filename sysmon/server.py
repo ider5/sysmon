@@ -2,15 +2,46 @@
 
 from __future__ import annotations
 
+import socket
+import time
 from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
 
+from sysmon.config import SysmonConfig
 from sysmon.export import collect_all, collect_all_from_snapshot, to_json
 
 PayloadFn = Callable[[], dict[str, Any]]
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+_RATE_PRIME_SLEEP = 0.5
+
+
+def _is_ipv6_host(host: str) -> bool:
+    try:
+        socket.inet_pton(socket.AF_INET6, host)
+        return True
+    except OSError:
+        return False
+
+
+def _http_server_class(host: str) -> type[ThreadingHTTPServer]:
+    if not _is_ipv6_host(host):
+        return ThreadingHTTPServer
+
+    class IPv6ThreadingHTTPServer(ThreadingHTTPServer):
+        address_family = socket.AF_INET6
+
+    return IPv6ThreadingHTTPServer
+
+
+def _prime_rate_collectors(settings: SysmonConfig) -> None:
+    """Take a first network/disk sample so the next collect has speeds."""
+    from sysmon.collectors.registry import collect
+
+    collect("network", settings)
+    collect("disk", settings)
+    time.sleep(min(_RATE_PRIME_SLEEP, settings.refresh_interval))
 
 
 def _fmt(value: float) -> str:
@@ -116,7 +147,7 @@ def start_server(
     class BoundHandler(MetricsHandler):
         payload_fn = staticmethod(fn)  # type: ignore[assignment]
 
-    return ThreadingHTTPServer((host, port), BoundHandler)
+    return _http_server_class(host)((host, port), BoundHandler)
 
 
 def serve_forever(
@@ -132,6 +163,7 @@ def serve_forever(
     from sysmon.config import load_config
 
     settings = load_config()
+    _prime_rate_collectors(settings)
     service = CollectorService(
         interval=settings.refresh_interval,
         include_gpu=settings.enable_gpu and settings.modules.gpu,
