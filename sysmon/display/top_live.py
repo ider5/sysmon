@@ -69,6 +69,8 @@ def run_top_live(
     sort_by: str = "cpu",
     refresh_rate: float = 1.0,
     name_filter: str | None = None,
+    warn: float = 80.0,
+    critical: float = 95.0,
 ) -> None:
     """Run interactive top with runtime sort and filter."""
     console = Console()
@@ -87,6 +89,8 @@ def run_top_live(
             processes,
             sort_by=current_sort,
             name_filter=current_filter,
+            warn=warn,
+            critical=critical,
         )
         footer = Panel(_footer_text(filter_mode, filter_buffer), border_style="dim")
         return Group(main, footer)

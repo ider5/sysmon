@@ -294,6 +294,8 @@ def top(
             sort_by=sort_key,
             refresh_rate=refresh_rate,
             name_filter=filter_name,
+            warn=settings.thresholds.cpu_warn,
+            critical=settings.thresholds.cpu_critical,
         )
         return
 
@@ -318,7 +320,15 @@ def top(
 
     from sysmon.display.panels import process_panel
 
-    console.print(process_panel(processes, sort_by=sort_key, name_filter=filter_name))
+    console.print(
+        process_panel(
+            processes,
+            sort_by=sort_key,
+            name_filter=filter_name,
+            warn=settings.thresholds.cpu_warn,
+            critical=settings.thresholds.cpu_critical,
+        )
+    )
 
 
 @app.command()

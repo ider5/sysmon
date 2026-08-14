@@ -149,3 +149,58 @@ def test_build_dashboard_passes_gpu_thresholds(monkeypatch):
     assert captured["warn"] == 12.0
     assert captured["critical"] == 34.0
     assert captured["gpus"] == gpu
+
+
+def test_build_dashboard_process_row_is_full_width():
+    config = SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": True,
+                "memory": True,
+                "network": False,
+                "disk": False,
+                "gpu": False,
+                "process": True,
+            }
+        }
+    )
+    snapshot = {
+        "cpu": {
+            "percent": 12.5,
+            "cores": [12.5],
+            "count_logical": 1,
+            "count_physical": 1,
+            "freq_current": 1000,
+            "freq_max": 2000,
+        },
+        "memory": {
+            "percent": 10.0,
+            "used": 1 * 1024 ** 3,
+            "total": 2 * 1024 ** 3,
+            "available": 1 * 1024 ** 3,
+            "swap_total": 0,
+            "swap_used": 0,
+            "swap_percent": 0.0,
+        },
+        "process": [
+            {
+                "pid": 4242,
+                "name": "python",
+                "cpu_percent": 12.3,
+                "memory_percent": 1.5,
+                "memory_mb": 50.0,
+            }
+        ],
+    }
+    layout = build_dashboard(include_gpu=False, config=config, snapshot=snapshot)
+    content = layout["content"]
+    assert [child.name for child in content.children] == ["row0", "row1"]
+    assert [child.name for child in content["row0"].children] == ["cpu", "memory"]
+    assert content["row1"].children == []
+
+    console = Console(record=True, width=120)
+    console.print(layout)
+    text = console.export_text()
+    assert "4242" in text
+    assert "python" in text
+    assert "PID" in text

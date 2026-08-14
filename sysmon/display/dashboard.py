@@ -58,16 +58,17 @@ def build_dashboard(
     )
     layout["header"].update(header_bar(hostname, os_name, uptime))
 
-    active_panels: list[tuple[str, Panel]] = []
+    metric_panels: list[tuple[str, Panel]] = []
+    process_item: tuple[str, Panel] | None = None
 
     if modules.cpu:
         cpu_snapshot = data.get("cpu")
         if cpu_snapshot is None:
-            active_panels.append(
+            metric_panels.append(
                 ("cpu", _waiting_panel("[bold cyan]📊 CPU[/bold cyan]", errors.get("cpu")))
             )
         else:
-            active_panels.append(
+            metric_panels.append(
                 (
                     "cpu",
                     cpu_panel(
@@ -84,7 +85,7 @@ def build_dashboard(
     if modules.memory:
         mem_info = data.get("memory")
         if mem_info is None:
-            active_panels.append(
+            metric_panels.append(
                 (
                     "memory",
                     _waiting_panel(
@@ -94,7 +95,7 @@ def build_dashboard(
                 )
             )
         else:
-            active_panels.append(
+            metric_panels.append(
                 (
                     "memory",
                     memory_panel(
@@ -109,7 +110,7 @@ def build_dashboard(
     if modules.network:
         net_info = data.get("network")
         if net_info is None:
-            active_panels.append(
+            metric_panels.append(
                 (
                     "network",
                     _waiting_panel(
@@ -119,7 +120,7 @@ def build_dashboard(
                 )
             )
         else:
-            active_panels.append(
+            metric_panels.append(
                 (
                     "network",
                     network_panel(
@@ -133,11 +134,11 @@ def build_dashboard(
     if modules.disk:
         disk_info = data.get("disk")
         if disk_info is None:
-            active_panels.append(
+            metric_panels.append(
                 ("disk", _waiting_panel("[bold blue]💽 Disk[/bold blue]", errors.get("disk")))
             )
         else:
-            active_panels.append(
+            metric_panels.append(
                 (
                     "disk",
                     disk_panel(
@@ -151,7 +152,7 @@ def build_dashboard(
     if modules.gpu and include_gpu:
         gpu_info = data.get("gpu")
         if "gpu" not in data:
-            active_panels.append(
+            metric_panels.append(
                 (
                     "gpu",
                     _waiting_panel(
@@ -161,7 +162,7 @@ def build_dashboard(
                 )
             )
         else:
-            active_panels.append(
+            metric_panels.append(
                 (
                     "gpu",
                     gpu_panel(
@@ -175,19 +176,24 @@ def build_dashboard(
     if modules.process:
         processes = data.get("process")
         if processes is None:
-            active_panels.append(
-                (
-                    "process",
-                    _waiting_panel(
-                        "[bold white]⚙️  Processes[/bold white]",
-                        errors.get("process"),
-                    ),
-                )
+            process_item = (
+                "process",
+                _waiting_panel(
+                    "[bold cyan]⚙ Processes[/bold cyan]",
+                    errors.get("process"),
+                ),
             )
         else:
-            active_panels.append(("process", process_panel(processes)))
+            process_item = (
+                "process",
+                process_panel(
+                    processes,
+                    warn=thresholds.cpu_warn,
+                    critical=thresholds.cpu_critical,
+                ),
+            )
 
-    if not active_panels:
+    if not metric_panels and process_item is None:
         layout["content"].update(
             Panel(Text("  All modules disabled in config.", style="dim"))
         )
@@ -195,16 +201,24 @@ def build_dashboard(
 
     rows: list[list[tuple[str, Panel]]] = []
     row: list[tuple[str, Panel]] = []
-    for item in active_panels:
+    for item in metric_panels:
         row.append(item)
         if len(row) == 2:
             rows.append(row)
             row = []
     if row:
         rows.append(row)
+    if process_item is not None:
+        rows.append([process_item])
 
     layout["content"].split_column(
-        *[Layout(name=f"row{i}", ratio=1) for i in range(len(rows))]
+        *[
+            Layout(
+                name=f"row{i}",
+                ratio=2 if len(row_panels) == 1 and row_panels[0][0] == "process" else 1,
+            )
+            for i, row_panels in enumerate(rows)
+        ]
     )
     for i, row_panels in enumerate(rows):
         if len(row_panels) == 1:

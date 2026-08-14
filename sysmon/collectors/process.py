@@ -13,6 +13,15 @@ _cpu_lock = threading.Lock()
 
 # sysinfo only refreshes process CPU when elapsed > 200ms on Linux/macOS.
 NATIVE_CPU_SAMPLE_FLOOR = 0.25
+IDLE_FETCH_EXTRA = 16
+_IDLE_NAMES = frozenset(
+    {
+        "idle",
+        "system idle process",
+        "system interrupts",
+        "swapper",
+    }
+)
 
 PROCESS_ITER_ATTRS = (
     "pid",
@@ -22,6 +31,18 @@ PROCESS_ITER_ATTRS = (
     "create_time",
     "memory_percent",
 )
+
+
+def is_idle_process(name: str, pid: int | None = None) -> bool:
+    """Return True for OS idle / placeholder processes that are not useful in top."""
+    if pid is not None and int(pid) == 0:
+        return True
+    normalized = (name or "").strip().lower()
+    if normalized.endswith(".exe"):
+        normalized = normalized[:-4]
+    if normalized in _IDLE_NAMES:
+        return True
+    return normalized.startswith("swapper/")
 
 
 def clear_process_cpu_cache() -> None:
@@ -134,6 +155,8 @@ def get_top_processes(
             key = _proc_key(proc, info)
             alive.add(key)
             name = info.get("name") or "unknown"
+            if is_idle_process(name, info.get("pid", proc.pid)):
+                continue
             if needle is not None and needle not in name.lower():
                 continue
             mem_info = _memory_info(proc, info)
@@ -168,6 +191,12 @@ def _try_native_processes(
     except ImportError:
         return None
     try:
-        return list_processes(limit, sort_by, name_filter)
+        fetch = 0 if limit <= 0 else limit + IDLE_FETCH_EXTRA
+        rows = list_processes(fetch, sort_by, name_filter)
+        return [
+            row
+            for row in rows
+            if not is_idle_process(str(row.get("name", "")), row.get("pid"))
+        ][:limit]
     except Exception:
         return None

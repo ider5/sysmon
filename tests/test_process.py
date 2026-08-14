@@ -92,3 +92,35 @@ def test_get_top_processes_sample_interval_computes_cpu(monkeypatch):
 
     assert len(result) == 1
     assert result[0]["cpu_percent"] == 50.0
+
+
+@pytest.mark.parametrize(
+    "name,pid,expected",
+    [
+        ("System Idle Process", 0, True),
+        ("Idle", 1, True),
+        ("idle.exe", 4, True),
+        ("System Interrupts", 2, True),
+        ("swapper/0", 0, True),
+        ("python.exe", 1234, False),
+        ("browser_idle", 8, False),
+        ("chrome", 0, True),
+    ],
+)
+def test_is_idle_process(name, pid, expected):
+    assert process_module.is_idle_process(name, pid) is expected
+
+
+def test_get_top_processes_skips_idle_and_fills_limit():
+    procs = [
+        _proc(0, 0.0, 99.0, "System Idle Process"),
+        _proc(1, 0.0, 80.0, "Idle"),
+        _proc(2, 0.0, 10.0, "python"),
+        _proc(3, 0.0, 20.0, "chrome"),
+        _proc(4, 0.0, 15.0, "explorer"),
+    ]
+    with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
+        with patch("sysmon.collectors.process.time.monotonic", return_value=1.0):
+            result = process_module.get_top_processes(limit=2, sort_by="memory")
+
+    assert [item["name"] for item in result] == ["chrome", "explorer"]

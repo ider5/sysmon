@@ -155,4 +155,10 @@ def _print_process(console: Console) -> None:
     """Print top processes."""
     settings = load_config()
     processes = collect("process", settings)
-    console.print(process_panel(processes))
+    console.print(
+        process_panel(
+            processes,
+            warn=settings.thresholds.cpu_warn,
+            critical=settings.thresholds.cpu_critical,
+        )
+    )

@@ -43,6 +43,8 @@ All notable changes to SysMon are documented in this file.
 - Invalid `--sort` values and unreadable config files now surface errors instead of failing silently
 - GPU NVML is initialized once per process instead of on every sample
 - Network aggregate totals follow the selected interfaces; disk/network speeds clamp counter resets to 0
+- Process lists hide OS idle placeholders (`System Idle Process`, `Idle`, `System Interrupts`, pid 0, Linux `swapper`)
+- Process panel is a bordered table with rank, CPU bars, and colored memory; dashboard gives it a full-width row
 
 ## [0.3.0] - 2026-06-30
 

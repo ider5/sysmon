@@ -1,6 +1,13 @@
 """Tests for shared display panels."""
 
-from sysmon.display.panels import build_cpu_text, build_disk_text, build_memory_text
+from rich.console import Console
+
+from sysmon.display.panels import (
+    build_cpu_text,
+    build_disk_text,
+    build_memory_text,
+    process_panel,
+)
 
 
 def test_build_cpu_text_includes_usage():
@@ -44,3 +51,45 @@ def test_build_disk_text_includes_mount():
     rendered = str(text)
     assert "C:\\" in rendered
     assert "70.0%" in rendered
+
+
+def _render_panel(panel) -> str:
+    console = Console(width=80, force_terminal=True, color_system=None)
+    with console.capture() as capture:
+        console.print(panel)
+    return capture.get()
+
+
+def test_process_panel_renders_bordered_table():
+    panel = process_panel(
+        [
+            {
+                "pid": 4242,
+                "name": "python",
+                "cpu_percent": 12.3,
+                "memory_percent": 1.5,
+                "memory_mb": 50.7,
+            }
+        ],
+        sort_by="cpu",
+    )
+    rendered = _render_panel(panel)
+    assert "PID" in rendered
+    assert "Name" in rendered
+    assert "CPU%" in rendered
+    assert "MEM%" in rendered
+    assert "RSS" in rendered
+    assert "4242" in rendered
+    assert "python" in rendered
+    assert "12.3" in rendered
+    assert "1.5%" in rendered
+    assert "51M" in rendered
+    assert rendered.count("┃") >= 6
+    assert "┳" in rendered or "╋" in rendered
+
+
+def test_process_panel_empty_still_has_table_frame():
+    rendered = _render_panel(process_panel([]))
+    assert "PID" in rendered
+    assert "No matching processes" in rendered
+    assert "┳" in rendered or "╋" in rendered

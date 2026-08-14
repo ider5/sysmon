@@ -49,6 +49,36 @@ def test_get_top_processes_uses_native_when_available(monkeypatch):
     assert process_module.get_top_processes(limit=3) == payload
 
 
+def test_native_backend_drops_idle_before_limit(monkeypatch):
+    captured = {}
+
+    def fake_list(limit, sort_by, name_filter):
+        captured["limit"] = limit
+        return [
+            {
+                "pid": 0,
+                "name": "System Idle Process",
+                "cpu_percent": 90.0,
+                "memory_percent": 0.0,
+                "memory_mb": 0.0,
+            },
+            {
+                "pid": 8,
+                "name": "python",
+                "cpu_percent": 12.0,
+                "memory_percent": 1.0,
+                "memory_mb": 20.0,
+            },
+        ]
+
+    fake = ModuleType("sysmon._core")
+    fake.list_processes = fake_list
+    monkeypatch.setitem(sys.modules, "sysmon._core", fake)
+    result = process_module._try_native_processes(1, "cpu", None)
+    assert captured["limit"] > 1
+    assert [row["name"] for row in result] == ["python"]
+
+
 def test_try_native_calls_list_processes(monkeypatch):
     captured = {}
     fake = ModuleType("sysmon._core")
@@ -60,7 +90,11 @@ def test_try_native_calls_list_processes(monkeypatch):
     fake.list_processes = list_processes
     monkeypatch.setitem(sys.modules, "sysmon._core", fake)
     result = process_module._try_native_processes(4, "memory", "chrome")
-    assert captured["args"] == (4, "memory", "chrome")
+    assert captured["args"] == (
+        4 + process_module.IDLE_FETCH_EXTRA,
+        "memory",
+        "chrome",
+    )
     assert result[0]["pid"] == 1
 
 

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from rich import box
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
 from sysmon.collectors.memory import bytes_to_gb
 from sysmon.collectors.network import format_bytes, format_speed
-from sysmon.display.components import progress_bar
+from sysmon.display.components import gradient_color, progress_bar
 from sysmon.display.sparkline import render_sparkline
 
 
@@ -255,29 +257,51 @@ def process_panel(
     *,
     sort_by: str = "cpu",
     name_filter: str | None = None,
+    warn: float = 80.0,
+    critical: float = 95.0,
 ) -> Panel:
-    """Build top processes panel."""
-    text = Text()
+    """Build a bordered top-processes table."""
     title_suffix = f" (sort: {sort_by}"
     if name_filter:
         title_suffix += f", filter: {name_filter}"
     title_suffix += ")"
 
+    table = Table(
+        box=box.HEAVY,
+        expand=True,
+        show_header=True,
+        show_lines=True,
+        header_style="bold bright_cyan",
+        border_style="bright_cyan",
+        row_styles=["none", "on grey11"],
+        pad_edge=True,
+    )
+    table.add_column("#", justify="right", style="dim", no_wrap=True)
+    table.add_column("PID", justify="right", style="cyan", no_wrap=True)
+    table.add_column("Name", overflow="ellipsis", no_wrap=True, min_width=12)
+    table.add_column("CPU%", justify="left", no_wrap=True)
+    table.add_column("MEM%", justify="right", no_wrap=True)
+    table.add_column("RSS", justify="right", style="dim", no_wrap=True)
+
     if not processes:
-        text.append("  No process data available.\n", style="dim")
+        table.add_row("—", "—", "No matching processes", "—", "—", "—")
     else:
-        text.append(f"  {'PID':<8}{'Name':<22}{'CPU%':>8}{'MEM%':>8}{'RSS':>10}\n", style="bold")
-        text.append("  " + "─" * 54 + "\n", style="dim")
-        for proc in processes:
-            text.append(f"  {proc['pid']:<8}", style="dim")
-            name = proc["name"][:20]
-            text.append(f"{name:<22}", style="white")
-            text.append(f"{proc['cpu_percent']:>8.1f}", style="cyan")
-            text.append(f"{proc['memory_percent']:>8.1f}", style="magenta")
-            text.append(f"{proc['memory_mb']:>9.0f}M\n", style="dim")
+        for index, proc in enumerate(processes, start=1):
+            cpu = float(proc.get("cpu_percent") or 0.0)
+            mem = float(proc.get("memory_percent") or 0.0)
+            rss = float(proc.get("memory_mb") or 0.0)
+            mem_color = gradient_color(mem, warn=warn, critical=critical)
+            table.add_row(
+                str(index),
+                str(proc.get("pid", "")),
+                str(proc.get("name") or "unknown"),
+                progress_bar(cpu, width=10, warn=warn, critical=critical),
+                Text(f"{mem:.1f}%", style=f"bold {mem_color}"),
+                f"{rss:.0f}M",
+            )
 
     return Panel(
-        text,
-        title=f"[bold white]⚙ Processes{title_suffix}[/bold white]",
-        border_style="white",
+        table,
+        title=f"[bold cyan]⚙ Processes{title_suffix}[/bold cyan]",
+        border_style="bright_cyan",
     )
