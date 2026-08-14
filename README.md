@@ -21,6 +21,7 @@ A beautiful system monitoring CLI tool built with Python.
 - **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats
 - **Interactive Top** - Live process view with runtime sort and name filter
 - **Background Collection** - Cached metric snapshots for smooth dashboard updates
+- **Optional native process scanner** - Compiles `sysmon._core` when Rust is available; otherwise uses psutil
 
 ## Installation
 
@@ -35,9 +36,11 @@ pipx install sysmon         # Global isolated install
 From source:
 
 ```bash
-pip install -e ".[dev]"     # Development
+pip install -e ".[dev]"     # Development (compiles sysmon._core if rustc is on PATH)
 pip install -e ".[gpu]"     # With GPU extras
 ```
+
+`pip install` succeeds without a Rust toolchain; process listing then uses psutil. With `rustc`/`cargo` available, setuptools-rust builds `sysmon._core` automatically.
 
 ### Option 2: Standalone Executable (No Python required)
 

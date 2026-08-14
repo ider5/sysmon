@@ -4,8 +4,17 @@ All notable changes to SysMon are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Optional Rust process backend (`sysmon._core`) compiled when `rustc` is available; psutil fallback otherwise
+- Platform config directories (Windows `%APPDATA%`, macOS Application Support) with legacy `~/.config/sysmon` fallback
+- Dedicated GPU warn/critical thresholds
+
 ### Changed
 - `[dev]` extra is tooling-only (`pyinstaller`, `pytest`, `ruff`, `shtab`); GPU libraries stay in `[gpu]`
+- CLI snapshot/top/cpu/memory/network/disk/gpu collect through `registry.collect` (same path as dashboard/export)
+- CollectorService samples enabled modules in parallel and returns a shallow snapshot copy
+- Process scan uses batched `process_iter` attrs and `heapq.nlargest` instead of a full sort
+- Brief/dashboard GPU colors follow `metric_status` (no hardcoded 60% yellow band)
 - CI matrix includes macOS (Python 3.11 only, matching Windows) and a rich-default snapshot smoke test
 - CPU frequency collector thread starts only on Windows
 

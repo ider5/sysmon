@@ -1,0 +1,15 @@
+[package]
+name = "sysmon-core"
+version = "0.1.0"
+edition = "2021"
+description = "Optional native process scanner for SysMon"
+license = "MIT"
+publish = false
+
+[lib]
+name = "_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module"] }
+sysinfo = "0.33"

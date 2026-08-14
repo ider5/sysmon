@@ -50,3 +50,25 @@ jobs:
           sysmon --version
           sysmon snapshot --format json --sample-interval 0.1
           sysmon snapshot --no-gpu --sample-interval 0.1
+
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Pytest with native backend
+        run: pytest -v
+
+      - name: Assert native module loaded
+        run: python -c "import sysmon._core; print(sysmon._core.__file__)"
