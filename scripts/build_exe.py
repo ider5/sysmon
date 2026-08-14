@@ -7,8 +7,11 @@ from pathlib import Path
 HIDDEN_IMPORTS = [
     "GPUtil",
     "shtab",
+    "sysmon.config",
+    "sysmon.export",
     "sysmon.display.title_worker",
     "sysmon.collectors.registry",
+    "sysmon.collectors.service",
     "sysmon.collectors.cpu",
     "sysmon.collectors.memory",
     "sysmon.collectors.network",
@@ -25,7 +28,7 @@ COLLECT_ALL = [
 
 def build() -> None:
     """Build the executable using PyInstaller."""
-    project_root = Path(__file__).parent.resolve()
+    project_root = Path(__file__).resolve().parent.parent
     main_script = project_root / "sysmon" / "cli.py"
     exe_name = "sysmon.exe" if sys.platform == "win32" else "sysmon"
 
@@ -45,10 +48,11 @@ def build() -> None:
         "typer",
     ]
 
+    hidden_imports = list(HIDDEN_IMPORTS)
     if sys.version_info < (3, 11):
-        HIDDEN_IMPORTS.append("tomli")
+        hidden_imports.append("tomli")
 
-    for hidden in HIDDEN_IMPORTS:
+    for hidden in hidden_imports:
         cmd.extend(["--hidden-import", hidden])
 
     for package in COLLECT_ALL:
