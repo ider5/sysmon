@@ -45,6 +45,7 @@ All notable changes to SysMon are documented in this file.
 - GPU NVML is initialized once per process instead of on every sample
 - Network aggregate totals follow the selected interfaces; disk/network speeds clamp counter resets to 0
 - Process lists hide OS idle placeholders (`System Idle Process`, `Idle`, `System Interrupts`, pid 0, Linux `swapper`)
+- Process lists hide the running sysmon process itself (often `python.exe` when launched from source)
 
 ## [0.3.0] - 2026-06-30
 

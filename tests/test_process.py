@@ -124,3 +124,24 @@ def test_get_top_processes_skips_idle_and_fills_limit():
             result = process_module.get_top_processes(limit=2, sort_by="memory")
 
     assert [item["name"] for item in result] == ["chrome", "explorer"]
+
+
+def test_is_self_process(monkeypatch):
+    monkeypatch.setattr(process_module.os, "getpid", lambda: 14260)
+    assert process_module.is_self_process(14260) is True
+    assert process_module.is_self_process(1) is False
+    assert process_module.is_self_process(None) is False
+
+
+def test_get_top_processes_skips_self_and_fills_limit(monkeypatch):
+    monkeypatch.setattr(process_module.os, "getpid", lambda: 99)
+    procs = [
+        _proc(99, 0.0, 90.0, "python.exe"),
+        _proc(3, 0.0, 20.0, "chrome"),
+        _proc(4, 0.0, 15.0, "explorer"),
+    ]
+    with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
+        with patch("sysmon.collectors.process.time.monotonic", return_value=1.0):
+            result = process_module.get_top_processes(limit=2, sort_by="memory")
+
+    assert [item["name"] for item in result] == ["chrome", "explorer"]
