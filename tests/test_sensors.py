@@ -29,6 +29,7 @@ def test_get_sensors_info_maps_psutil(monkeypatch):
         sensors_mod.psutil,
         "sensors_battery",
         lambda: SimpleNamespace(percent=80.0, secsleft=3600, power_plugged=False),
+        raising=False,
     )
     monkeypatch.setattr(
         sensors_mod.psutil,
@@ -38,12 +39,26 @@ def test_get_sensors_info_maps_psutil(monkeypatch):
                 SimpleNamespace(label="Package", current=45.0, high=80.0, critical=100.0)
             ]
         },
+        raising=False,
     )
     info = sensors_mod.get_sensors_info()
     assert info["battery"]["percent"] == 80.0
     assert info["battery"]["power_plugged"] is False
     assert info["temperatures"]["coretemp"][0]["label"] == "Package"
     assert info["temperatures"]["coretemp"][0]["current"] == 45.0
+
+
+def test_get_sensors_info_without_temperature_api(monkeypatch):
+    monkeypatch.setattr(
+        sensors_mod.psutil,
+        "sensors_battery",
+        lambda: SimpleNamespace(percent=50.0, secsleft=-1, power_plugged=True),
+        raising=False,
+    )
+    monkeypatch.delattr(sensors_mod.psutil, "sensors_temperatures", raising=False)
+    info = sensors_mod.get_sensors_info()
+    assert info["battery"]["percent"] == 50.0
+    assert info["temperatures"] == {}
 
 
 def test_collect_all_omits_sensors_by_default(monkeypatch):
