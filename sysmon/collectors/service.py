@@ -84,12 +84,7 @@ class CollectorService:
                 data[key] = prev[key]
 
     def _collect_once(self) -> None:
-        from sysmon.collectors.cpu import get_cpu_snapshot
-        from sysmon.collectors.disk import get_disk_info
-        from sysmon.collectors.gpu import get_gpu_info
-        from sysmon.collectors.memory import get_memory_info
-        from sysmon.collectors.network import get_network_info
-        from sysmon.collectors.process import get_top_processes
+        from sysmon.collectors.registry import collect
 
         modules = self._config.modules
         with self._lock:
@@ -97,33 +92,22 @@ class CollectorService:
 
         data: dict[str, Any] = {"timestamp": time.time()}
 
+        keys: list[str] = []
         if modules.cpu:
-            self._safe_collect(data, prev, "cpu", get_cpu_snapshot)
+            keys.append("cpu")
         if modules.memory:
-            self._safe_collect(data, prev, "memory", get_memory_info)
+            keys.append("memory")
         if modules.network:
-            self._safe_collect(
-                data,
-                prev,
-                "network",
-                lambda: get_network_info(self._config.network_interfaces),
-            )
+            keys.append("network")
         if modules.disk:
-            self._safe_collect(
-                data,
-                prev,
-                "disk",
-                lambda: get_disk_info(self._config.disk_mounts),
-            )
+            keys.append("disk")
         if modules.gpu and self._include_gpu and self._config.enable_gpu:
-            self._safe_collect(data, prev, "gpu", get_gpu_info)
+            keys.append("gpu")
         if modules.process:
-            self._safe_collect(
-                data,
-                prev,
-                "process",
-                lambda: get_top_processes(limit=self._config.process_limit),
-            )
+            keys.append("process")
+
+        for key in keys:
+            self._safe_collect(data, prev, key, lambda n=key: collect(n, self._config))
 
         with self._lock:
             self._snapshot = data
