@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from typing import Any, Literal, Optional
 
@@ -11,6 +12,24 @@ from rich.console import Console
 from sysmon import __version__
 from sysmon.config import SysmonConfig, load_config, write_default_config
 from sysmon.paths import get_config_path
+
+
+def _configure_stdio() -> None:
+    """Prefer UTF-8 on stdout/stderr so Rich UI can print emoji on Windows."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError, AttributeError):
+            try:
+                reconfigure(errors="replace")
+            except (OSError, ValueError, AttributeError):
+                pass
+
+
+_configure_stdio()
 
 app = typer.Typer(
     name="sysmon",

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import json
+import sys
 
 from typer.testing import CliRunner
 
@@ -254,3 +256,14 @@ def test_gpu_json_disabled_by_flag():
     assert result.exit_code == 0
     data = json.loads(result.stdout)
     assert data == {"gpu": None}
+
+
+def test_configure_stdio_allows_emoji_on_cp1252_stdout(monkeypatch):
+    buf = io.BytesIO()
+    stream = io.TextIOWrapper(buf, encoding="cp1252", errors="strict")
+    monkeypatch.setattr(sys, "stdout", stream)
+    from sysmon.cli import _configure_stdio
+
+    _configure_stdio()
+    sys.stdout.write("📊 CPU")
+    sys.stdout.flush()

@@ -13,6 +13,8 @@ All notable changes to SysMon are documented in this file.
 - Unused `color_percent` and `metric_row` display helpers
 
 ### Fixed
+- CPU frequency falls back to 0 when `psutil.cpu_freq` is missing (macOS CI / some ARM hosts)
+- Windows consoles that default to cp1252 no longer crash on snapshot emoji
 - Brief mode colors now honor configured warn/critical thresholds instead of a hardcoded 60/80 split
 - Renamed `build.py` to `scripts/build_exe.py` so `python -m build` is not shadowed during PyPI publish
 - Title mode now writes OSC title sequences to the user terminal and verifies the worker started
