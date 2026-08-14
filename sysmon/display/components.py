@@ -76,32 +76,6 @@ def progress_bar(
     return text
 
 
-def color_percent(percent: float) -> Text:
-    """Return color-coded percentage text.
-
-    Args:
-        percent: Value from 0-100
-    """
-    color = gradient_color(percent)
-    text = Text()
-    text.append(f"{percent:.1f}%", style=f"bold {color}")
-    return text
-
-
-def metric_row(label: str, value: str, style: str = "") -> Text:
-    """Create a standard metric row with label and value.
-
-    Args:
-        label: Metric name
-        value: Metric value
-        style: Optional Rich style for value
-    """
-    text = Text()
-    text.append(f"  {label:<14}", style="bold")
-    text.append(value, style=style)
-    return text
-
-
 def header_bar(hostname: str, os_name: str, uptime: str) -> Panel:
     """Create the dashboard header bar with system info.
 

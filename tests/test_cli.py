@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import json
+import sys
 
 from typer.testing import CliRunner
 
@@ -107,6 +109,34 @@ def test_top_json(monkeypatch):
     assert "processes" in data
     assert data["sort_by"] == "cpu"
     assert isinstance(data["processes"], list)
+
+
+def test_brief_passes_config_thresholds(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+
+    def fake_print_brief(*args, **kwargs):
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr("sysmon.display.brief.print_brief", fake_print_brief)
+    result = runner.invoke(app, ["brief", "--no-gpu"])
+    assert result.exit_code == 0
+    assert captured["kwargs"]["thresholds"] is DEFAULT_CONFIG.thresholds
+
+
+def test_brief_watch_passes_config_thresholds(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+
+    def fake_watch(*args, **kwargs):
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr("sysmon.display.brief.run_brief_watch", fake_watch)
+    result = runner.invoke(app, ["brief", "--watch", "--no-gpu"])
+    assert result.exit_code == 0
+    assert captured["kwargs"]["thresholds"] is DEFAULT_CONFIG.thresholds
 
 
 def test_brief_json(monkeypatch):
@@ -226,3 +256,14 @@ def test_gpu_json_disabled_by_flag():
     assert result.exit_code == 0
     data = json.loads(result.stdout)
     assert data == {"gpu": None}
+
+
+def test_configure_stdio_allows_emoji_on_cp1252_stdout(monkeypatch):
+    buf = io.BytesIO()
+    stream = io.TextIOWrapper(buf, encoding="cp1252", errors="strict")
+    monkeypatch.setattr(sys, "stdout", stream)
+    from sysmon.cli import _configure_stdio
+
+    _configure_stdio()
+    sys.stdout.write("📊 CPU")
+    sys.stdout.flush()

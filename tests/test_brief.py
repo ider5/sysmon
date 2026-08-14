@@ -6,7 +6,50 @@ import subprocess
 
 from rich.console import Console
 
+from sysmon.config import ThresholdConfig
 from sysmon.display import brief as brief_mod
+
+
+def _span_styles_for(text, needle: str) -> list[str]:
+    start = text.plain.index(needle)
+    end = start + len(needle)
+    return [
+        str(span.style)
+        for span in text.spans
+        if span.start < end and span.end > start
+    ]
+
+
+def _stub_brief_collectors(
+    monkeypatch,
+    *,
+    cpu_percent=1.0,
+    memory_percent=50.0,
+    gpu=None,
+):
+    monkeypatch.setattr(
+        brief_mod,
+        "get_cpu_info",
+        lambda: {"percent": cpu_percent, "freq_current": 0},
+    )
+    monkeypatch.setattr(
+        brief_mod,
+        "get_memory_info",
+        lambda: {"used": 1, "total": 2, "percent": memory_percent},
+    )
+    monkeypatch.setattr(brief_mod, "get_gpu_info", lambda: gpu)
+    monkeypatch.setattr(
+        brief_mod,
+        "get_network_info",
+        lambda interfaces=None: {
+            "speed_up": 0,
+            "speed_down": 0,
+            "bytes_sent": 0,
+            "bytes_recv": 0,
+        },
+    )
+    monkeypatch.setattr(brief_mod, "bytes_to_gb", lambda n: 1.0)
+    monkeypatch.setattr(brief_mod, "format_speed", lambda n: "0 B/s")
 
 
 class _AliveProc:
@@ -25,18 +68,7 @@ class _DeadProc:
 
 def test_build_brief_line_passes_network_interfaces(monkeypatch):
     seen = {}
-
-    monkeypatch.setattr(
-        brief_mod,
-        "get_cpu_info",
-        lambda: {"percent": 1.0, "freq_current": 0},
-    )
-    monkeypatch.setattr(
-        brief_mod,
-        "get_memory_info",
-        lambda: {"used": 1, "total": 2, "percent": 50},
-    )
-    monkeypatch.setattr(brief_mod, "get_gpu_info", lambda: None)
+    _stub_brief_collectors(monkeypatch)
 
     def fake_net(interfaces=None):
         seen["interfaces"] = interfaces
@@ -48,11 +80,101 @@ def test_build_brief_line_passes_network_interfaces(monkeypatch):
         }
 
     monkeypatch.setattr(brief_mod, "get_network_info", fake_net)
-    monkeypatch.setattr(brief_mod, "bytes_to_gb", lambda n: 1.0)
-    monkeypatch.setattr(brief_mod, "format_speed", lambda n: "0 B/s")
 
     brief_mod.build_brief_line(no_gpu=True, interfaces=("eth0",))
     assert seen["interfaces"] == ("eth0",)
+
+
+def test_build_brief_line_cpu_color_uses_config_thresholds(monkeypatch):
+    _stub_brief_collectors(monkeypatch, cpu_percent=15.0)
+    line = brief_mod.build_brief_line(
+        no_gpu=True,
+        thresholds=ThresholdConfig(cpu_warn=10, cpu_critical=20),
+    )
+    styles = _span_styles_for(line, "15%")
+    assert any("yellow" in style for style in styles)
+
+
+def test_build_brief_line_memory_color_uses_memory_thresholds(monkeypatch):
+    _stub_brief_collectors(monkeypatch, cpu_percent=1.0, memory_percent=15.0)
+    line = brief_mod.build_brief_line(
+        no_gpu=True,
+        thresholds=ThresholdConfig(memory_warn=10, memory_critical=20),
+    )
+    styles = _span_styles_for(line, "(15%)")
+    assert any("yellow" in style for style in styles)
+
+
+def test_build_brief_line_gpu_load_uses_cpu_thresholds(monkeypatch):
+    gpu = [
+        {
+            "load": 15.0,
+            "memory_used": 1024,
+            "memory_total": 2048,
+            "temperature": 40,
+        }
+    ]
+    _stub_brief_collectors(monkeypatch, gpu=gpu)
+    line = brief_mod.build_brief_line(
+        thresholds=ThresholdConfig(cpu_warn=10, cpu_critical=20),
+    )
+    styles = _span_styles_for(line, "GPU 15%")
+    assert any("yellow" in style for style in styles)
+
+
+def test_print_brief_passes_thresholds(monkeypatch):
+    captured = {}
+    thresholds = ThresholdConfig(cpu_warn=10, cpu_critical=20)
+    monkeypatch.setattr(brief_mod, "get_network_info", lambda *a, **k: None)
+
+    def fake_line(*a, **k):
+        captured["kwargs"] = k
+        return "line"
+
+    monkeypatch.setattr(brief_mod, "build_brief_line", fake_line)
+    monkeypatch.setattr(brief_mod.time, "sleep", lambda s: None)
+
+    console = Console(record=True)
+    brief_mod.print_brief(console, no_gpu=True, thresholds=thresholds)
+    assert captured["kwargs"]["thresholds"] is thresholds
+
+
+def test_run_brief_watch_passes_thresholds(monkeypatch):
+    captured = {}
+    thresholds = ThresholdConfig(cpu_warn=10, cpu_critical=20)
+    monkeypatch.setattr(brief_mod, "get_network_info", lambda *a, **k: None)
+    sleeps = {"n": 0}
+
+    def fake_sleep(_s):
+        sleeps["n"] += 1
+        if sleeps["n"] > 1:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(brief_mod.time, "sleep", fake_sleep)
+
+    def fake_line(*a, **k):
+        captured["kwargs"] = k
+        return "line"
+
+    monkeypatch.setattr(brief_mod, "build_brief_line", fake_line)
+
+    class _Live:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def update(self, _line):
+            pass
+
+    monkeypatch.setattr(brief_mod, "Live", _Live)
+    console = Console(record=True)
+    brief_mod.run_brief_watch(console, no_gpu=True, thresholds=thresholds)
+    assert captured["kwargs"]["thresholds"] is thresholds
 
 
 def test_print_brief_uses_sample_interval(monkeypatch):

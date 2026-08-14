@@ -224,13 +224,13 @@ A background daemon thread collects this data every 1.5 seconds, ensuring the UI
 
 ### Color Coding
 
-Progress bars use configurable thresholds (`[thresholds]` in config; defaults warn=80, critical=95). Brief mode uses a simpler 60/80 split:
+Progress bars and brief mode use configurable thresholds (`[thresholds]` in config; defaults warn=80, critical=95):
 
 | Usage Level | Color |
 |-------------|-------|
-| Below warn (or under 60% in brief) | 🟢 Green |
-| Warn range (or 60–80% in brief) | 🟡 Yellow |
-| Critical (or 80%+ in brief) | 🔴 Red |
+| Below warn | 🟢 Green |
+| Warn range | 🟡 Yellow |
+| Critical | 🔴 Red |
 
 ## Dependencies
 
@@ -261,6 +261,7 @@ twine upload dist/*
 
 ```bash
 pip install -e ".[dev]"
+pip install -e ".[gpu]"   # NVIDIA GPU extras (not included in [dev])
 ruff check sysmon tests
 pytest -v
 ```

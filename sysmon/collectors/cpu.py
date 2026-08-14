@@ -36,7 +36,7 @@ def _get_base_freq_windows() -> int:
     except Exception:
         pass
 
-    freq = psutil.cpu_freq()
+    freq = _psutil_cpu_freq()
     if freq and freq.max:
         return int(freq.max)
     return 0
@@ -88,8 +88,21 @@ def _freq_collector_thread() -> None:
         time.sleep(1.5)
 
 
+def _psutil_cpu_freq():
+    """Return psutil.cpu_freq() or None when the platform does not expose it."""
+    cpu_freq = getattr(psutil, "cpu_freq", None)
+    if cpu_freq is None:
+        return None
+    try:
+        return cpu_freq()
+    except (AttributeError, NotImplementedError, OSError, RuntimeError):
+        return None
+
+
 def _ensure_freq_collector() -> None:
     """Start the background frequency collector on first use."""
+    if platform.system() != "Windows":
+        return
     global _collector_started
     with _collector_lock:
         if _collector_started:
@@ -97,13 +110,12 @@ def _ensure_freq_collector() -> None:
         _collector_started = True
         thread = threading.Thread(target=_freq_collector_thread, daemon=True)
         thread.start()
-        if platform.system() == "Windows":
-            freq = _get_realtime_freq_windows()
-            if freq:
-                with _freq_lock:
-                    _freq_cache["current"] = freq["current"]
-                    _freq_cache["base"] = freq["base"]
-                    _freq_cache["timestamp"] = time.time()
+        freq = _get_realtime_freq_windows()
+        if freq:
+            with _freq_lock:
+                _freq_cache["current"] = freq["current"]
+                _freq_cache["base"] = freq["base"]
+                _freq_cache["timestamp"] = time.time()
 
 
 def _get_freq_fields() -> tuple[float, float]:
@@ -117,7 +129,7 @@ def _get_freq_fields() -> tuple[float, float]:
                 freq_current = _freq_cache["current"]
                 freq_max = _freq_cache["base"]
     else:
-        freq = psutil.cpu_freq()
+        freq = _psutil_cpu_freq()
         if freq and freq.current:
             freq_current = freq.current
             freq_max = freq.max if freq.max else 0

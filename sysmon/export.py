@@ -7,7 +7,7 @@ import platform
 from typing import Any, Optional
 
 from sysmon import __version__
-from sysmon.collectors.registry import collect_named
+from sysmon.collectors.registry import collect
 from sysmon.config import SysmonConfig, load_config, metric_status
 from sysmon.display.components import _get_os_name, _get_uptime
 
@@ -19,8 +19,8 @@ def _resolve_settings(settings: SysmonConfig | None) -> SysmonConfig:
 
 
 def _cpu_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
-    snapshot = collect_named("cpu")
     cfg = _resolve_settings(settings)
+    snapshot = collect("cpu", cfg)
     status = metric_status(
         snapshot["percent"],
         cfg.thresholds.cpu_warn,
@@ -38,8 +38,8 @@ def _cpu_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
 
 
 def _memory_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
-    info = collect_named("memory")
     cfg = _resolve_settings(settings)
+    info = collect("memory", cfg)
     return {
         "total": info["total"],
         "used": info["used"],
@@ -57,12 +57,8 @@ def _memory_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
 
 
 def _network_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
-    if settings is not None:
-        from sysmon.collectors.network import get_network_info
-
-        info = get_network_info(settings.network_interfaces)
-    else:
-        info = collect_named("network")
+    cfg = _resolve_settings(settings)
+    info = collect("network", cfg)
     payload: dict[str, Any] = {
         "bytes_sent": info["bytes_sent"],
         "bytes_recv": info["bytes_recv"],
@@ -78,12 +74,7 @@ def _network_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
 
 def _disk_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
-    if settings is not None:
-        from sysmon.collectors.disk import get_disk_info
-
-        info = get_disk_info(cfg.disk_mounts)
-    else:
-        info = collect_named("disk")
+    info = collect("disk", cfg)
     primary_status = metric_status(
         info["percent"],
         cfg.thresholds.disk_warn,
@@ -120,8 +111,9 @@ def _disk_payload(settings: SysmonConfig | None = None) -> dict[str, Any]:
     }
 
 
-def _gpu_payload() -> Optional[list[dict[str, Any]]]:
-    gpus = collect_named("gpu")
+def _gpu_payload(settings: SysmonConfig | None = None) -> Optional[list[dict[str, Any]]]:
+    cfg = _resolve_settings(settings)
+    gpus = collect("gpu", cfg)
     if not gpus:
         return None
     return [
@@ -143,12 +135,14 @@ def _process_payload(
     settings: SysmonConfig | None = None,
 ) -> list[dict[str, Any]]:
     cfg = _resolve_settings(settings)
-    from sysmon.collectors.process import get_top_processes
+    if name_filter is not None:
+        from sysmon.collectors.process import get_top_processes
 
-    return get_top_processes(
-        limit=cfg.process_limit,
-        name_filter=name_filter,
-    )
+        return get_top_processes(
+            limit=cfg.process_limit,
+            name_filter=name_filter,
+        )
+    return collect("process", cfg)
 
 
 def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
@@ -177,7 +171,7 @@ def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
         "network": _network_payload(settings),
     }
     if include_gpu:
-        data["gpu"] = _gpu_payload()
+        data["gpu"] = _gpu_payload(settings)
     return data
 
 
@@ -202,7 +196,7 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     if settings.modules.disk:
         data["disk"] = _disk_payload(settings)
     if settings.modules.gpu and include_gpu:
-        data["gpu"] = _gpu_payload()
+        data["gpu"] = _gpu_payload(settings)
     if settings.modules.process:
         data["processes"] = _process_payload(settings=settings)
 
