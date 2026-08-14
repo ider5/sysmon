@@ -574,5 +574,27 @@ def brief(
         )
 
 
+@app.command()
+def serve(
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="Bind address (default localhost).",
+    ),
+    port: int = typer.Option(
+        9100,
+        "--port",
+        "-p",
+        help="TCP port.",
+        min=1,
+        max=65535,
+    ),
+) -> None:
+    """Expose JSON (/json) and Prometheus (/metrics) on localhost."""
+    from sysmon.server import serve_forever
+
+    serve_forever(host=host, port=port)
+
+
 if __name__ == "__main__":
     app()

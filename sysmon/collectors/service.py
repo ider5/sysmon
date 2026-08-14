@@ -83,7 +83,7 @@ class CollectorService:
             keys.append("gpu")
         if modules.process:
             keys.append("process")
-        if getattr(modules, "sensors", False):
+        if modules.sensors:
             keys.append("sensors")
         return keys
 

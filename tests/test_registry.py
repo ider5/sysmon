@@ -15,6 +15,7 @@ def test_list_collectors_includes_builtins():
     assert "disk" in names
     assert "gpu" in names
     assert "process" in names
+    assert "sensors" in names
 
 
 def test_collect_named_cpu():

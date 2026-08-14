@@ -196,6 +196,8 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
         data["gpu"] = _gpu_payload(settings)
     if settings.modules.process:
         data["processes"] = _process_payload(settings=settings)
+    if settings.modules.sensors:
+        data["sensors"] = collect("sensors", settings)
 
     return data
 

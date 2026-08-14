@@ -320,6 +320,20 @@ def test_gpu_json_disabled_by_flag():
     assert data == {"gpu": None}
 
 
+def test_serve_command_binds_localhost(monkeypatch):
+    captured = {}
+
+    def fake_serve(host="127.0.0.1", port=9100):
+        captured["host"] = host
+        captured["port"] = port
+
+    monkeypatch.setattr("sysmon.server.serve_forever", fake_serve)
+    result = runner.invoke(app, ["serve", "--port", "9101"])
+    assert result.exit_code == 0
+    assert captured["host"] == "127.0.0.1"
+    assert captured["port"] == 9101
+
+
 def test_configure_stdio_allows_emoji_on_cp1252_stdout(monkeypatch):
     buf = io.BytesIO()
     stream = io.TextIOWrapper(buf, encoding="cp1252", errors="strict")

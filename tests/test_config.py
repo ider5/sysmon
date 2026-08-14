@@ -16,6 +16,7 @@ def test_default_config_values():
     assert config.brief_refresh_interval == 2.0
     assert config.enable_gpu is True
     assert config.default_format == "rich"
+    assert config.modules.sensors is False
 
 
 def test_from_mapping():
@@ -163,3 +164,4 @@ def test_write_default_config(tmp_path: Path, monkeypatch):
     assert "refresh_interval" in text
     assert "gpu_warn" in text
     assert "gpu_critical" in text
+    assert "sensors = false" in text

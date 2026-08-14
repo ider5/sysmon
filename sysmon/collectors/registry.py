@@ -95,6 +95,12 @@ def _collect_process(settings: SysmonConfig) -> Any:
     return collect_processes(settings)
 
 
+def _collect_sensors(settings: SysmonConfig) -> Any:
+    from sysmon.collectors.sensors import get_sensors_info
+
+    return get_sensors_info()
+
+
 def _register_builtins() -> None:
     register("cpu", _collect_cpu)
     register("memory", _collect_memory)
@@ -102,6 +108,7 @@ def _register_builtins() -> None:
     register("disk", _collect_disk)
     register("gpu", _collect_gpu)
     register("process", _collect_process)
+    register("sensors", _collect_sensors)
 
 
 _register_builtins()

@@ -1,17 +1,20 @@
 """GPU metrics collector.
 
-Uses pynvml (NVIDIA official) when available, falls back to GPUtil.
-AMD/Intel GPUs are not supported.
+Uses pynvml (NVIDIA official) when available, falls back to GPUtil,
+then Linux DRM sysfs (AMD/Intel).
 """
 
 from __future__ import annotations
 
 import atexit
 import threading
+from pathlib import Path
 from typing import Optional, TypedDict
 
 _nvml_state: bool | None = None
 _nvml_lock = threading.Lock()
+_DRM_ROOT = Path("/sys/class/drm")
+_NVIDIA_VENDOR = "0x10de"
 
 
 class GpuInfo(TypedDict):
@@ -128,6 +131,81 @@ def _get_gpu_info_gputil() -> Optional[list[GpuInfo]]:
         return None
 
 
+def _read_sysfs_text(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+
+
+def _read_sysfs_int(path: Path) -> int | None:
+    raw = _read_sysfs_text(path)
+    if raw is None:
+        return None
+    try:
+        return int(raw, 0)
+    except ValueError:
+        return None
+
+
+def _hwmon_temp_c(device: Path) -> float | None:
+    hwmon_root = device / "hwmon"
+    if not hwmon_root.is_dir():
+        return None
+    try:
+        entries = sorted(hwmon_root.iterdir())
+    except OSError:
+        return None
+    for entry in entries:
+        milli = _read_sysfs_int(entry / "temp1_input")
+        if milli is not None:
+            return milli / 1000.0
+    return None
+
+
+def _get_gpu_info_sysfs() -> Optional[list[GpuInfo]]:
+    if not _DRM_ROOT.is_dir():
+        return None
+    try:
+        cards = sorted(_DRM_ROOT.iterdir())
+    except OSError:
+        return None
+
+    gpus: list[GpuInfo] = []
+    index = 0
+    for card in cards:
+        name = card.name
+        if not name.startswith("card") or not name[4:].isdigit():
+            continue
+        device = card / "device"
+        vendor = (_read_sysfs_text(device / "vendor") or "").lower()
+        if vendor == _NVIDIA_VENDOR:
+            continue
+        busy = _read_sysfs_int(device / "gpu_busy_percent")
+        if busy is None:
+            continue
+        vram_total = _read_sysfs_int(device / "mem_info_vram_total") or 0
+        vram_used = _read_sysfs_int(device / "mem_info_vram_used") or 0
+        label = _read_sysfs_text(device / "product_name") or f"GPU {name}"
+        gpus.append(
+            {
+                "id": index,
+                "name": label,
+                "load": float(busy),
+                "memory_total": vram_total / (1024 * 1024),
+                "memory_used": vram_used / (1024 * 1024),
+                "temperature": _hwmon_temp_c(device),
+                "backend": "sysfs",
+            }
+        )
+        index += 1
+    return gpus or None
+
+
 def get_gpu_info() -> Optional[list[GpuInfo]]:
-    """Get GPU metrics if available (NVIDIA only)."""
-    return _get_gpu_info_pynvml() or _get_gpu_info_gputil()
+    """Get GPU metrics if available (NVIDIA, then Linux sysfs AMD/Intel)."""
+    return (
+        _get_gpu_info_pynvml()
+        or _get_gpu_info_gputil()
+        or _get_gpu_info_sysfs()
+    )

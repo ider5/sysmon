@@ -28,6 +28,7 @@ class ModuleConfig:
     disk: bool = True
     gpu: bool = True
     process: bool = True
+    sensors: bool = False
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,7 @@ class SysmonConfig:
             disk=bool(modules_data.get("disk", True)),
             gpu=bool(modules_data.get("gpu", data.get("enable_gpu", True))),
             process=bool(modules_data.get("process", True)),
+            sensors=bool(modules_data.get("sensors", False)),
         )
 
         thresholds = ThresholdConfig(
@@ -149,6 +151,7 @@ network = true
 disk = true
 gpu = true
 process = true
+sensors = false
 
 [thresholds]
 cpu_warn = 80

@@ -4,12 +4,18 @@ All notable changes to SysMon are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-14
+
 ### Added
 - Optional Rust process backend (`sysmon._core`) compiled when `rustc` is available; psutil fallback otherwise
 - Platform config directories (Windows `%APPDATA%`, macOS Application Support) with legacy `~/.config/sysmon` fallback
 - Dedicated GPU warn/critical thresholds
+- Linux DRM sysfs GPU backend for AMD/Intel when NVIDIA libraries are unavailable
+- `sysmon serve` localhost HTTP JSON (`/json`) and Prometheus (`/metrics`) endpoints
+- Opt-in `sensors` collector (battery/temperatures), default off
 
 ### Changed
+- Version bumped to 0.4.0; JSON `schema_version` remains 3
 - `[dev]` extra is tooling-only (`pyinstaller`, `pytest`, `ruff`, `shtab`); GPU libraries stay in `[gpu]`
 - CLI snapshot/top/cpu/memory/network/disk/gpu collect through `registry.collect` (same path as dashboard/export)
 - CollectorService samples enabled modules in parallel and returns a shallow snapshot copy

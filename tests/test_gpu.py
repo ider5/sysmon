@@ -49,6 +49,7 @@ def test_get_gpu_info_falls_back_to_gputil(monkeypatch):
 def test_get_gpu_info_none_when_unavailable(monkeypatch):
     monkeypatch.setattr(gpu_mod, "_get_gpu_info_pynvml", lambda: None)
     monkeypatch.setattr(gpu_mod, "_get_gpu_info_gputil", lambda: None)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_sysfs", lambda: None)
     assert gpu_mod.get_gpu_info() is None
 
 
@@ -103,3 +104,41 @@ def test_pynvml_init_once_and_maps_fields(monkeypatch):
     assert first[0]["load"] == 40.0
     assert first[0]["backend"] == "pynvml"
     assert second == first
+
+
+def _write_amd_sysfs(root):
+    card = root / "card0" / "device"
+    hwmon = card / "hwmon" / "hwmon1"
+    hwmon.mkdir(parents=True)
+    (card / "vendor").write_text("0x1002\n", encoding="utf-8")
+    (card / "gpu_busy_percent").write_text("33\n", encoding="utf-8")
+    (card / "mem_info_vram_total").write_text(str(8 * 1024 * 1024 * 1024) + "\n", encoding="utf-8")
+    (card / "mem_info_vram_used").write_text(str(1024 * 1024 * 1024) + "\n", encoding="utf-8")
+    (card / "product_name").write_text("Fake AMD\n", encoding="utf-8")
+    (hwmon / "temp1_input").write_text("52000\n", encoding="utf-8")
+    return root
+
+
+def test_sysfs_backend_reads_amd_card(tmp_path, monkeypatch):
+    drm = _write_amd_sysfs(tmp_path / "drm")
+    monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)
+    gpus = gpu_mod._get_gpu_info_sysfs()
+    assert gpus is not None
+    assert len(gpus) == 1
+    gpu = gpus[0]
+    assert gpu["name"] == "Fake AMD"
+    assert gpu["load"] == 33.0
+    assert gpu["memory_total"] == 8192.0
+    assert gpu["memory_used"] == 1024.0
+    assert gpu["temperature"] == 52.0
+    assert gpu["backend"] == "sysfs"
+
+
+def test_get_gpu_info_falls_back_to_sysfs(monkeypatch, tmp_path):
+    drm = _write_amd_sysfs(tmp_path / "drm")
+    monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_pynvml", lambda: None)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_gputil", lambda: None)
+    gpus = gpu_mod.get_gpu_info()
+    assert gpus is not None
+    assert gpus[0]["backend"] == "sysfs"

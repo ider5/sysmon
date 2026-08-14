@@ -15,7 +15,8 @@ A beautiful system monitoring CLI tool built with Python.
 - **Disk Monitoring** - Disk usage and read/write I/O speeds
 - **Configuration File** - Persistent defaults via a platform config file (`sysmon config path`)
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
-- **GPU Monitoring** - NVIDIA GPU utilization, VRAM, and temperature
+- **GPU Monitoring** - NVIDIA via pynvml/GPUtil, plus Linux sysfs for AMD/Intel
+- **Local metrics server** - `sysmon serve` exposes JSON and Prometheus text on localhost
 - **Gradient Progress Bars** - Color-coded bars (green → yellow → red)
 - **Per-core CPU View** - Individual core usage visualization
 - **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats
@@ -100,6 +101,8 @@ sysmon top -n 15 --sort memory
 sysmon top --watch      # Interactive: c/m sort, / filter, q quit
 sysmon top --filter python
 sysmon cpu --format json
+sysmon serve                 # http://127.0.0.1:9100/json and /metrics
+sysmon serve --port 9101
 ```
 
 ### Shell Completion
@@ -148,6 +151,7 @@ network = true
 disk = true
 gpu = true
 process = true
+sensors = false
 
 [thresholds]
 cpu_warn = 80
@@ -252,6 +256,7 @@ Progress bars and brief mode use configurable thresholds (`[thresholds]` in conf
 | Typer | CLI framework |
 | tomli | TOML parsing on Python < 3.11 (stdlib `tomllib` on 3.11+) |
 | GPUtil / nvidia-ml-py | NVIDIA GPU monitoring (optional `[gpu]` extra) |
+| Linux sysfs | AMD/Intel GPU fallback (`/sys/class/drm`) |
 | shtab | Shell completion (optional; included in `[dev]`) |
 
 ## Publishing to PyPI
