@@ -1,0 +1,5 @@
+recursive-include native/sysmon-core *
+prune native/sysmon-core/target
+global-exclude *.so
+global-exclude *.pyd
+global-exclude *.pyc

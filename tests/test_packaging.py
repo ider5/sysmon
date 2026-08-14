@@ -58,3 +58,23 @@ def test_project_urls_and_classifiers():
 def test_setuptools_finds_sysmon_packages():
     find = _load_pyproject()["tool"]["setuptools"]["packages"]["find"]
     assert find["include"] == ["sysmon*"]
+
+
+def test_build_backend_stays_setuptools_for_pure_python_install():
+    build = _load_pyproject()["build-system"]
+    assert build["build-backend"] == "setuptools.build_meta"
+    assert "setuptools-rust>=1.10" in build["requires"]
+
+
+def test_maturin_targets_sysmon_core_extension():
+    maturin = _load_pyproject()["tool"]["maturin"]
+    assert maturin["module-name"] == "sysmon._core"
+    assert maturin["manifest-path"] == "native/sysmon-core/Cargo.toml"
+
+
+def test_native_crate_is_present_for_optional_build():
+    cargo = ROOT / "native" / "sysmon-core" / "Cargo.toml"
+    assert cargo.exists()
+    text = cargo.read_text(encoding="utf-8")
+    assert 'name = "sysmon-core"' in text
+    assert "pyo3" in text

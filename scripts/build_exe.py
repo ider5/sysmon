@@ -18,6 +18,8 @@ HIDDEN_IMPORTS = [
     "sysmon.collectors.disk",
     "sysmon.collectors.gpu",
     "sysmon.collectors.process",
+    "sysmon.collectors.sensors",
+    "sysmon.server",
 ]
 
 COLLECT_ALL = [

@@ -96,14 +96,12 @@ def _wait_for_rate_sampling(
     sample_interval: float,
     settings: SysmonConfig | None = None,
 ) -> None:
-    from sysmon.collectors.disk import get_disk_info
-    from sysmon.collectors.network import get_network_info
-    from sysmon.collectors.process import get_top_processes
+    from sysmon.collectors.registry import collect
 
     cfg = settings if settings is not None else load_config()
-    get_network_info(cfg.network_interfaces)
-    get_disk_info(cfg.disk_mounts)
-    get_top_processes(limit=1)
+    collect("network", cfg)
+    collect("disk", cfg)
+    collect("process", cfg)
     time.sleep(sample_interval)
 
 
@@ -114,7 +112,7 @@ def config_init(
         help="Overwrite an existing config file.",
     ),
 ) -> None:
-    """Create a default config file at ~/.config/sysmon/config.toml."""
+    """Create a default config file (platform config directory)."""
     path = get_config_path()
     if path.exists() and not force:
         console.print(f"[yellow]Config already exists:[/yellow] {path}")
@@ -299,13 +297,15 @@ def top(
         )
         return
 
-    from sysmon.collectors.process import get_top_processes
+    from sysmon.collectors.process import NATIVE_CPU_SAMPLE_FLOOR
+    from sysmon.collectors.registry import collect_processes
 
-    processes = get_top_processes(
+    processes = collect_processes(
+        settings,
         limit=count,
         sort_by=sort_key,
         name_filter=filter_name,
-        sample_interval=min(settings.sample_interval, 0.2),
+        sample_interval=min(settings.sample_interval, NATIVE_CPU_SAMPLE_FLOOR),
     )
 
     if fmt == "json":
@@ -340,11 +340,11 @@ def cpu(
 
     from rich.text import Text
 
-    from sysmon.collectors.cpu import get_cpu_snapshot
+    from sysmon.collectors.registry import collect
     from sysmon.display.components import progress_bar
     from sysmon.display.snapshot import _print_cpu
 
-    snapshot_data = get_cpu_snapshot()
+    snapshot_data = collect("cpu", settings)
     _print_cpu(console, snapshot_data)
 
     cores = snapshot_data["cores"]
@@ -373,10 +373,10 @@ def memory(
         _emit_json(collect_section("memory"))
         return
 
-    from sysmon.collectors.memory import get_memory_info
+    from sysmon.collectors.registry import collect
     from sysmon.display.snapshot import _print_memory
 
-    _print_memory(console, get_memory_info())
+    _print_memory(console, collect("memory", settings))
 
 
 @app.command()
@@ -399,9 +399,9 @@ def network(
         sample_interval if sample_interval is not None else settings.sample_interval
     )
 
-    from sysmon.collectors.network import get_network_info
+    from sysmon.collectors.registry import collect
 
-    get_network_info(settings.network_interfaces)
+    collect("network", settings)
     time.sleep(interval)
 
     if fmt == "json":
@@ -412,7 +412,7 @@ def network(
 
     from sysmon.display.snapshot import _print_network
 
-    _print_network(console, get_network_info(settings.network_interfaces))
+    _print_network(console, collect("network", settings))
 
 
 @app.command()
@@ -435,9 +435,9 @@ def disk(
         sample_interval if sample_interval is not None else settings.sample_interval
     )
 
-    from sysmon.collectors.disk import get_disk_info
+    from sysmon.collectors.registry import collect
 
-    get_disk_info(settings.disk_mounts)
+    collect("disk", settings)
     time.sleep(interval)
 
     if fmt == "json":
@@ -448,7 +448,7 @@ def disk(
 
     from sysmon.display.snapshot import _print_disk
 
-    _print_disk(console, get_disk_info(settings.disk_mounts))
+    _print_disk(console, collect("disk", settings))
 
 
 @app.command()
@@ -480,10 +480,10 @@ def gpu(
         _emit_json(collect_section("gpu"))
         return
 
-    from sysmon.collectors.gpu import get_gpu_info
+    from sysmon.collectors.registry import collect
     from sysmon.display.snapshot import _print_gpu
 
-    _print_gpu(console, get_gpu_info())
+    _print_gpu(console, collect("gpu", settings))
 
 
 @app.command()
@@ -545,10 +545,10 @@ def brief(
             )
             raise typer.Exit(code=1)
 
-        from sysmon.collectors.network import get_network_info
+        from sysmon.collectors.registry import collect
         from sysmon.export import collect_brief
 
-        get_network_info(settings.network_interfaces)
+        collect("network", settings)
         time.sleep(settings.sample_interval)
         _emit_json(collect_brief(include_gpu=include_gpu))
         return
@@ -573,6 +573,39 @@ def brief(
             interfaces=settings.network_interfaces,
             thresholds=settings.thresholds,
         )
+
+
+@app.command()
+def serve(
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="Bind address (default localhost).",
+    ),
+    port: int = typer.Option(
+        9100,
+        "--port",
+        "-p",
+        help="TCP port.",
+        min=1,
+        max=65535,
+    ),
+    allow_remote: bool = typer.Option(
+        False,
+        "--allow-remote",
+        help="Allow binding a non-loopback address (no authentication).",
+    ),
+) -> None:
+    """Expose JSON (/json) and Prometheus (/metrics) on localhost."""
+    from sysmon.server import LOOPBACK_HOSTS, serve_forever
+
+    if not allow_remote and host not in LOOPBACK_HOSTS:
+        console.print(
+            "[red]Refusing to bind a non-loopback address without --allow-remote.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    serve_forever(host=host, port=port, allow_remote=allow_remote)
 
 
 if __name__ == "__main__":

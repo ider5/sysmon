@@ -13,14 +13,16 @@ A beautiful system monitoring CLI tool built with Python.
 - **Brief Mode** - Single-line status display, perfect for terminal prompts
 - **JSON Output** - Machine-readable output for scripts and automation
 - **Disk Monitoring** - Disk usage and read/write I/O speeds
-- **Configuration File** - Persistent defaults via `~/.config/sysmon/config.toml`
+- **Configuration File** - Persistent defaults via a platform config file (`sysmon config path`)
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
-- **GPU Monitoring** - NVIDIA GPU utilization, VRAM, and temperature
+- **GPU Monitoring** - NVIDIA via pynvml/GPUtil, plus Linux sysfs for AMD and other DRM GPUs that expose utilization
+- **Local metrics server** - `sysmon serve` exposes JSON and Prometheus text on localhost
 - **Gradient Progress Bars** - Color-coded bars (green → yellow → red)
 - **Per-core CPU View** - Individual core usage visualization
 - **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats
 - **Interactive Top** - Live process view with runtime sort and name filter
 - **Background Collection** - Cached metric snapshots for smooth dashboard updates
+- **Optional native process scanner** - Compiles `sysmon._core` when Rust is available; otherwise uses psutil
 
 ## Installation
 
@@ -35,9 +37,11 @@ pipx install sysmon         # Global isolated install
 From source:
 
 ```bash
-pip install -e ".[dev]"     # Development
+pip install -e ".[dev]"     # Development (compiles sysmon._core if rustc is on PATH)
 pip install -e ".[gpu]"     # With GPU extras
 ```
+
+`pip install` succeeds without a Rust toolchain; process listing then uses psutil. With `rustc`/`cargo` available, setuptools-rust builds `sysmon._core` automatically.
 
 ### Option 2: Standalone Executable (No Python required)
 
@@ -97,6 +101,8 @@ sysmon top -n 15 --sort memory
 sysmon top --watch      # Interactive: c/m sort, / filter, q quit
 sysmon top --filter python
 sysmon cpu --format json
+sysmon serve                 # http://127.0.0.1:9100/json and /metrics
+sysmon serve --port 9101
 ```
 
 ### Shell Completion
@@ -114,10 +120,16 @@ Requires `pip install shtab` or `pip install -e ".[dev]"`.
 ### Configuration
 
 ```bash
-sysmon config init      # Create ~/.config/sysmon/config.toml
+sysmon config init      # Create the platform config file
 sysmon config init --force  # Overwrite an existing config
 sysmon config path      # Show config file location
 ```
+
+Config directory (first existing `config.toml` wins on Windows/macOS):
+
+- Linux: `$XDG_CONFIG_HOME/sysmon` or `~/.config/sysmon`
+- macOS: `~/Library/Application Support/sysmon` (falls back to `~/.config/sysmon`)
+- Windows: `%APPDATA%\sysmon` (falls back to `~/.config/sysmon`)
 
 Example `config.toml`:
 
@@ -139,6 +151,7 @@ network = true
 disk = true
 gpu = true
 process = true
+sensors = false
 
 [thresholds]
 cpu_warn = 80
@@ -147,6 +160,8 @@ memory_warn = 80
 memory_critical = 95
 disk_warn = 80
 disk_critical = 95
+gpu_warn = 80
+gpu_critical = 95
 ```
 
 CLI flags override config values.
@@ -241,6 +256,7 @@ Progress bars and brief mode use configurable thresholds (`[thresholds]` in conf
 | Typer | CLI framework |
 | tomli | TOML parsing on Python < 3.11 (stdlib `tomllib` on 3.11+) |
 | GPUtil / nvidia-ml-py | NVIDIA GPU monitoring (optional `[gpu]` extra) |
+| Linux sysfs | AMD GPU fallback (`gpu_busy_percent` under `/sys/class/drm`) |
 | shtab | Shell completion (optional; included in `[dev]`) |
 
 ## Publishing to PyPI

@@ -45,3 +45,7 @@ Thumbs.db
 dist/
 build/
 *.spec
+
+# Rust
+target/
+native/sysmon-core/target/

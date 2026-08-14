@@ -4,8 +4,23 @@ All notable changes to SysMon are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-14
+
+### Added
+- Optional Rust process backend (`sysmon._core`) compiled when `rustc` is available; psutil fallback otherwise
+- Platform config directories (Windows `%APPDATA%`, macOS Application Support) with legacy `~/.config/sysmon` fallback
+- Dedicated GPU warn/critical thresholds
+- Linux DRM sysfs GPU backend for AMD (and other cards exposing `gpu_busy_percent`) when NVIDIA libraries are unavailable; NVIDIA and sysfs results are merged
+- `sysmon serve` localhost HTTP JSON (`/json`) and Prometheus (`/metrics`) endpoints
+- Opt-in `sensors` collector (battery/temperatures), default off
+
 ### Changed
+- Version bumped to 0.4.0; JSON `schema_version` remains 3
 - `[dev]` extra is tooling-only (`pyinstaller`, `pytest`, `ruff`, `shtab`); GPU libraries stay in `[gpu]`
+- CLI snapshot/top/cpu/memory/network/disk/gpu collect through `registry.collect` (same path as dashboard/export)
+- CollectorService samples enabled modules in parallel and returns a shallow snapshot copy
+- Process scan uses batched `process_iter` attrs and `heapq.nlargest` instead of a full sort
+- Brief/dashboard GPU colors follow `metric_status` (no hardcoded 60% yellow band)
 - CI matrix includes macOS (Python 3.11 only, matching Windows) and a rich-default snapshot smoke test
 - CPU frequency collector thread starts only on Windows
 
@@ -21,6 +36,8 @@ All notable changes to SysMon are documented in this file.
 - Bare `sysmon` launches the dashboard (matching README)
 - CollectorService isolates per-module collection errors and can restart after a failed `start()`
 - Process CPU percentages use a pid-level sample cache so `sysmon top` is no longer stuck at 0%
+- Native process backend skips Linux userland threads and waits at least 250ms between CPU samples
+- `sysmon serve` binds IPv6 loopback (`::1`) and primes network/disk counters before the first scrape
 - Brief mode honors `network_interfaces` and `sample_interval`
 - Dashboard no longer falls back to blocking collectors on the UI thread
 - Invalid `--sort` values and unreadable config files now surface errors instead of failing silently

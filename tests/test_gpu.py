@@ -26,6 +26,7 @@ def test_get_gpu_info_prefers_pynvml(monkeypatch):
         "_get_gpu_info_gputil",
         lambda: (_ for _ in ()).throw(AssertionError("should not fallback")),
     )
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_sysfs", lambda: None)
     assert gpu_mod.get_gpu_info() == fake
 
 
@@ -43,12 +44,14 @@ def test_get_gpu_info_falls_back_to_gputil(monkeypatch):
     ]
     monkeypatch.setattr(gpu_mod, "_get_gpu_info_pynvml", lambda: None)
     monkeypatch.setattr(gpu_mod, "_get_gpu_info_gputil", lambda: fake)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_sysfs", lambda: None)
     assert gpu_mod.get_gpu_info() == fake
 
 
 def test_get_gpu_info_none_when_unavailable(monkeypatch):
     monkeypatch.setattr(gpu_mod, "_get_gpu_info_pynvml", lambda: None)
     monkeypatch.setattr(gpu_mod, "_get_gpu_info_gputil", lambda: None)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_sysfs", lambda: None)
     assert gpu_mod.get_gpu_info() is None
 
 
@@ -103,3 +106,90 @@ def test_pynvml_init_once_and_maps_fields(monkeypatch):
     assert first[0]["load"] == 40.0
     assert first[0]["backend"] == "pynvml"
     assert second == first
+
+
+def _write_amd_sysfs(root):
+    card = root / "card0" / "device"
+    hwmon = card / "hwmon" / "hwmon1"
+    hwmon.mkdir(parents=True)
+    (card / "vendor").write_text("0x1002\n", encoding="utf-8")
+    (card / "gpu_busy_percent").write_text("33\n", encoding="utf-8")
+    (card / "mem_info_vram_total").write_text(str(8 * 1024 * 1024 * 1024) + "\n", encoding="utf-8")
+    (card / "mem_info_vram_used").write_text(str(1024 * 1024 * 1024) + "\n", encoding="utf-8")
+    (card / "product_name").write_text("Fake AMD\n", encoding="utf-8")
+    (hwmon / "temp1_input").write_text("52000\n", encoding="utf-8")
+    return root
+
+
+def test_sysfs_backend_reads_amd_card(tmp_path, monkeypatch):
+    drm = _write_amd_sysfs(tmp_path / "drm")
+    monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)
+    gpus = gpu_mod._get_gpu_info_sysfs()
+    assert gpus is not None
+    assert len(gpus) == 1
+    gpu = gpus[0]
+    assert gpu["name"] == "Fake AMD"
+    assert gpu["load"] == 33.0
+    assert gpu["memory_total"] == 8192.0
+    assert gpu["memory_used"] == 1024.0
+    assert gpu["temperature"] == 52.0
+    assert gpu["backend"] == "sysfs"
+
+
+def test_get_gpu_info_falls_back_to_sysfs(monkeypatch, tmp_path):
+    drm = _write_amd_sysfs(tmp_path / "drm")
+    monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_pynvml", lambda: None)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_gputil", lambda: None)
+    gpus = gpu_mod.get_gpu_info()
+    assert gpus is not None
+    assert gpus[0]["backend"] == "sysfs"
+
+
+def test_get_gpu_info_merges_nvidia_and_sysfs(monkeypatch):
+    nvidia = [
+        {
+            "id": 0,
+            "name": "NV",
+            "load": 11.0,
+            "memory_total": 1.0,
+            "memory_used": 0.0,
+            "temperature": 40.0,
+            "backend": "pynvml",
+        }
+    ]
+    amd = [
+        {
+            "id": 0,
+            "name": "AMD",
+            "load": 33.0,
+            "memory_total": 8192.0,
+            "memory_used": 1024.0,
+            "temperature": 52.0,
+            "backend": "sysfs",
+        }
+    ]
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_pynvml", lambda: nvidia)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_gputil", lambda: None)
+    monkeypatch.setattr(gpu_mod, "_get_gpu_info_sysfs", lambda: amd)
+    gpus = gpu_mod.get_gpu_info()
+    assert [g["backend"] for g in gpus] == ["pynvml", "sysfs"]
+    assert gpus[1]["id"] == 1
+
+
+def test_sysfs_backend_skips_nvidia_vendor(tmp_path, monkeypatch):
+    drm = tmp_path / "drm"
+    nvidia = drm / "card0" / "device"
+    nvidia.mkdir(parents=True)
+    (nvidia / "vendor").write_text("0x10de\n", encoding="utf-8")
+    (nvidia / "gpu_busy_percent").write_text("90\n", encoding="utf-8")
+    (nvidia / "product_name").write_text("Fake NVIDIA\n", encoding="utf-8")
+    amd = drm / "card1" / "device"
+    amd.mkdir(parents=True)
+    (amd / "vendor").write_text("0x1002\n", encoding="utf-8")
+    (amd / "gpu_busy_percent").write_text("12\n", encoding="utf-8")
+    (amd / "product_name").write_text("Fake AMD\n", encoding="utf-8")
+    monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)
+    gpus = gpu_mod._get_gpu_info_sysfs()
+    assert gpus is not None
+    assert [gpu["name"] for gpu in gpus] == ["Fake AMD"]

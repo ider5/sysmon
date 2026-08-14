@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import heapq
 import threading
 import time
 
@@ -10,6 +11,18 @@ import psutil
 _prev_cpu: dict[tuple[int, float], tuple[float, float]] = {}
 _cpu_lock = threading.Lock()
 
+# sysinfo only refreshes process CPU when elapsed > 200ms on Linux/macOS.
+NATIVE_CPU_SAMPLE_FLOOR = 0.25
+
+PROCESS_ITER_ATTRS = (
+    "pid",
+    "name",
+    "cpu_times",
+    "memory_info",
+    "create_time",
+    "memory_percent",
+)
+
 
 def clear_process_cpu_cache() -> None:
     """Drop cached CPU times (used by tests)."""
@@ -17,16 +30,22 @@ def clear_process_cpu_cache() -> None:
         _prev_cpu.clear()
 
 
-def _proc_key(proc: psutil.Process) -> tuple[int, float]:
-    return (proc.pid, float(proc.create_time()))
+def _create_time(proc: psutil.Process, info: dict) -> float:
+    value = info.get("create_time")
+    if value is not None:
+        return float(value)
+    return float(proc.create_time())
 
 
-def _cpu_percent(proc: psutil.Process) -> float:
-    """Return CPU percent from a pid-level sample cache."""
-    times = proc.cpu_times()
+def _proc_key(proc: psutil.Process, info: dict | None = None) -> tuple[int, float]:
+    payload = info if info is not None else getattr(proc, "info", {}) or {}
+    pid = payload.get("pid", proc.pid)
+    return (int(pid), _create_time(proc, payload))
+
+
+def _cpu_percent_from_times(key: tuple[int, float], times) -> float:
     proc_time = float(times.user + times.system)
     now = time.monotonic()
-    key = _proc_key(proc)
     with _cpu_lock:
         prev = _prev_cpu.get(key)
         _prev_cpu[key] = (proc_time, now)
@@ -39,8 +58,28 @@ def _cpu_percent(proc: psutil.Process) -> float:
     return max(0.0, (proc_time - prev_proc) / dt * 100.0)
 
 
+def _cpu_times(proc: psutil.Process, info: dict):
+    value = info.get("cpu_times")
+    if value is not None:
+        return value
+    return proc.cpu_times()
+
+
+def _memory_info(proc: psutil.Process, info: dict):
+    value = info.get("memory_info")
+    if value is not None:
+        return value
+    return proc.memory_info()
+
+
+def _cpu_percent(proc: psutil.Process) -> float:
+    """Return CPU percent from a pid-level sample cache."""
+    info = getattr(proc, "info", {}) or {}
+    return _cpu_percent_from_times(_proc_key(proc, info), _cpu_times(proc, info))
+
+
 def _prime_cpu_times() -> None:
-    for proc in psutil.process_iter():
+    for proc in psutil.process_iter(list(PROCESS_ITER_ATTRS)):
         try:
             _cpu_percent(proc)
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
@@ -73,27 +112,37 @@ def get_top_processes(
         List of dicts with pid, name, cpu_percent, memory_percent, memory_mb.
     """
     if sample_interval is not None and sample_interval > 0:
+        if _try_native_processes(limit, sort_by, name_filter) is not None:
+            time.sleep(max(sample_interval, NATIVE_CPU_SAMPLE_FLOOR))
+            native = _try_native_processes(limit, sort_by, name_filter)
+            if native is not None:
+                return native
         _prime_cpu_times()
         time.sleep(sample_interval)
+    else:
+        native = _try_native_processes(limit, sort_by, name_filter)
+        if native is not None:
+            return native
 
     processes: list[dict] = []
     needle = name_filter.lower() if name_filter else None
     alive: set[tuple[int, float]] = set()
 
-    for proc in psutil.process_iter(["pid", "name", "memory_percent"]):
+    for proc in psutil.process_iter(list(PROCESS_ITER_ATTRS)):
         try:
-            alive.add(_proc_key(proc))
-            info = proc.info
-            name = info["name"] or "unknown"
+            info = getattr(proc, "info", {}) or {}
+            key = _proc_key(proc, info)
+            alive.add(key)
+            name = info.get("name") or "unknown"
             if needle is not None and needle not in name.lower():
                 continue
-            mem_info = proc.memory_info()
+            mem_info = _memory_info(proc, info)
             processes.append(
                 {
-                    "pid": info["pid"],
+                    "pid": info.get("pid", proc.pid),
                     "name": name,
-                    "cpu_percent": _cpu_percent(proc),
-                    "memory_percent": info["memory_percent"] or 0.0,
+                    "cpu_percent": _cpu_percent_from_times(key, _cpu_times(proc, info)),
+                    "memory_percent": info.get("memory_percent") or 0.0,
                     "memory_mb": mem_info.rss / (1024 * 1024),
                 }
             )
@@ -102,6 +151,23 @@ def get_top_processes(
 
     _evict_stale_cpu_cache(alive)
 
-    key = "cpu_percent" if sort_by == "cpu" else "memory_percent"
-    processes.sort(key=lambda p: p[key], reverse=True)
-    return processes[:limit]
+    sort_key = "cpu_percent" if sort_by == "cpu" else "memory_percent"
+    if limit <= 0:
+        return []
+    return heapq.nlargest(limit, processes, key=lambda item: item[sort_key])
+
+
+def _try_native_processes(
+    limit: int,
+    sort_by: str,
+    name_filter: str | None,
+) -> list[dict] | None:
+    """Use the optional Rust backend; return None to fall back to psutil."""
+    try:
+        from sysmon._core import list_processes
+    except ImportError:
+        return None
+    try:
+        return list_processes(limit, sort_by, name_filter)
+    except Exception:
+        return None

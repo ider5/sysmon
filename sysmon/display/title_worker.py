@@ -7,10 +7,9 @@ import sys
 import time
 import traceback
 
-from sysmon.collectors.cpu import get_cpu_info
-from sysmon.collectors.gpu import get_gpu_info
-from sysmon.collectors.memory import bytes_to_gb, get_memory_info
-from sysmon.collectors.network import format_speed, get_network_info
+from sysmon.collectors.memory import bytes_to_gb
+from sysmon.collectors.network import format_speed
+from sysmon.collectors.registry import collect
 from sysmon.config import load_config
 from sysmon.paths import get_log_dir
 
@@ -62,9 +61,9 @@ def set_title(title: str) -> None:
 def build_title(no_gpu: bool) -> str:
     """Build plain-text title string."""
     settings = load_config()
-    cpu = get_cpu_info()
-    mem = get_memory_info()
-    net = get_network_info(settings.network_interfaces)
+    cpu = collect("cpu", settings)
+    mem = collect("memory", settings)
+    net = collect("network", settings)
 
     parts = [
         f"CPU {cpu['percent']:.0f}%",
@@ -76,7 +75,7 @@ def build_title(no_gpu: bool) -> str:
     ]
 
     if not no_gpu:
-        gpus = get_gpu_info()
+        gpus = collect("gpu", settings)
         if gpus:
             gpu = gpus[0]
             gpu_str = (
@@ -93,7 +92,7 @@ def build_title(no_gpu: bool) -> str:
 def run_loop(refresh_rate: float, no_gpu: bool) -> None:
     """Main title update loop."""
     settings = load_config()
-    get_network_info(settings.network_interfaces)
+    collect("network", settings)
     time.sleep(0.5)
 
     failures = 0

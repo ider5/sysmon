@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import Iterable
 
@@ -13,10 +14,9 @@ from rich.console import Console
 from rich.live import Live
 from rich.text import Text
 
-from sysmon.collectors.cpu import get_cpu_info
-from sysmon.collectors.gpu import get_gpu_info
-from sysmon.collectors.memory import bytes_to_gb, get_memory_info
-from sysmon.collectors.network import format_speed, get_network_info
+from sysmon.collectors.memory import bytes_to_gb
+from sysmon.collectors.network import format_speed
+from sysmon.collectors.registry import collect
 from sysmon.config import ThresholdConfig, load_config, metric_status
 from sysmon.display.title_worker import WORKER_MARKER
 
@@ -136,10 +136,14 @@ def build_brief_line(
     if thresholds is None:
         thresholds = load_config().thresholds
 
-    cpu_info = get_cpu_info()
-    mem_info = get_memory_info()
-    net_info = get_network_info(interfaces)
-    gpu_info = get_gpu_info() if not no_gpu else None
+    settings = load_config()
+    if interfaces is not None:
+        settings = replace(settings, network_interfaces=tuple(interfaces))
+
+    cpu_info = collect("cpu", settings)
+    mem_info = collect("memory", settings)
+    net_info = collect("network", settings)
+    gpu_info = None if no_gpu else collect("gpu", settings)
 
     line = Text()
     line.append_text(
@@ -166,8 +170,8 @@ def build_brief_line(
         gpu_text = _format_gpu(
             gpu_info,
             no_color,
-            warn=thresholds.cpu_warn,
-            critical=thresholds.cpu_critical,
+            warn=thresholds.gpu_warn,
+            critical=thresholds.gpu_critical,
         )
         if gpu_text:
             line.append(" │ ", style="dim")
@@ -185,7 +189,10 @@ def print_brief(
     thresholds: ThresholdConfig | None = None,
 ) -> None:
     """Print a single line of key metrics."""
-    get_network_info(interfaces)
+    settings = load_config()
+    if interfaces is not None:
+        settings = replace(settings, network_interfaces=tuple(interfaces))
+    collect("network", settings)
     time.sleep(sample_interval)
     console.print(
         build_brief_line(
@@ -203,7 +210,10 @@ def run_brief_watch(
     thresholds: ThresholdConfig | None = None,
 ) -> None:
     """Run brief display in watch mode."""
-    get_network_info(interfaces)
+    settings = load_config()
+    if interfaces is not None:
+        settings = replace(settings, network_interfaces=tuple(interfaces))
+    collect("network", settings)
     time.sleep(min(0.5, refresh_rate))
 
     with Live(

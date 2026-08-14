@@ -10,7 +10,7 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 
-from sysmon.collectors.process import get_top_processes
+from sysmon.collectors.registry import collect_processes
 from sysmon.display.panels import process_panel
 
 
@@ -78,7 +78,7 @@ def run_top_live(
     filter_buffer = current_filter or ""
 
     def render() -> Group:
-        processes = get_top_processes(
+        processes = collect_processes(
             limit=limit,
             sort_by=current_sort,
             name_filter=current_filter,

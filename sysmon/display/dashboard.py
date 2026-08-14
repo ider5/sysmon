@@ -161,7 +161,16 @@ def build_dashboard(
                 )
             )
         else:
-            active_panels.append(("gpu", gpu_panel(gpu_info)))
+            active_panels.append(
+                (
+                    "gpu",
+                    gpu_panel(
+                        gpu_info,
+                        warn=thresholds.gpu_warn,
+                        critical=thresholds.gpu_critical,
+                    ),
+                )
+            )
 
     if modules.process:
         processes = data.get("process")
@@ -218,16 +227,16 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
     cpu_history = HistoryBuffer(maxlen=60)
     net_history = HistoryBuffer(maxlen=60)
 
-    from sysmon.collectors.disk import get_disk_info
-    from sysmon.collectors.network import get_network_info
+    from sysmon.collectors.registry import collect
 
-    get_network_info(config.network_interfaces)
-    get_disk_info(config.disk_mounts)
+    collect("network", config)
+    collect("disk", config)
     time.sleep(0.5)
 
     service = CollectorService(
         interval=refresh_rate,
         include_gpu=include_gpu,
+        include_sensors=False,
         config=config,
     )
     service.start()

@@ -107,3 +107,45 @@ def test_build_dashboard_shows_collector_error(monkeypatch):
     console = Console(record=True, width=80)
     console.print(layout)
     assert "Collection error: cpu down" in console.export_text()
+
+
+def test_build_dashboard_passes_gpu_thresholds(monkeypatch):
+    captured = {}
+
+    def fake_gpu_panel(gpus, warn=80.0, critical=95.0):
+        captured["warn"] = warn
+        captured["critical"] = critical
+        captured["gpus"] = gpus
+        from rich.panel import Panel
+        from rich.text import Text
+
+        return Panel(Text("gpu"))
+
+    monkeypatch.setattr("sysmon.display.dashboard.gpu_panel", fake_gpu_panel)
+    config = SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": False,
+                "memory": False,
+                "network": False,
+                "disk": False,
+                "gpu": True,
+                "process": False,
+            },
+            "thresholds": {"gpu_warn": 12, "gpu_critical": 34},
+        }
+    )
+    gpu = [
+        {
+            "id": 0,
+            "name": "Fake",
+            "load": 15.0,
+            "memory_used": 1.0,
+            "memory_total": 2.0,
+            "temperature": 40.0,
+        }
+    ]
+    build_dashboard(include_gpu=True, config=config, snapshot={"gpu": gpu})
+    assert captured["warn"] == 12.0
+    assert captured["critical"] == 34.0
+    assert captured["gpus"] == gpu

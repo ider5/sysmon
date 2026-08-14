@@ -3,7 +3,15 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from sysmon.collectors import process as process_module
+
+
+@pytest.fixture(autouse=True)
+def _disable_native_backend(monkeypatch):
+    """Keep process_iter mocks from being skipped by an optional Rust backend."""
+    monkeypatch.setattr(process_module, "_try_native_processes", lambda *a, **k: None)
 
 
 def _proc(pid: int, cpu: float, mem: float, name: str) -> MagicMock:
@@ -18,6 +26,12 @@ def _proc(pid: int, cpu: float, mem: float, name: str) -> MagicMock:
     mock.cpu_times.return_value = SimpleNamespace(user=cpu, system=0.0)
     mock.create_time.return_value = 1000.0 + pid
     return mock
+
+
+def test_get_top_processes_requests_batch_attrs():
+    with patch("sysmon.collectors.process.psutil.process_iter", return_value=[]) as mock_iter:
+        process_module.get_top_processes(limit=2)
+    mock_iter.assert_called_with(list(process_module.PROCESS_ITER_ATTRS))
 
 
 def test_get_top_processes_sorts_by_cpu():
