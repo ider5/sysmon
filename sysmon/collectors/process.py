@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import heapq
+import os
 import threading
 import time
 
@@ -43,6 +44,11 @@ def is_idle_process(name: str, pid: int | None = None) -> bool:
     if normalized in _IDLE_NAMES:
         return True
     return normalized.startswith("swapper/")
+
+
+def is_self_process(pid: int | None) -> bool:
+    """Return True for this sysmon process (shown as python.exe when run from source)."""
+    return pid is not None and int(pid) == os.getpid()
 
 
 def clear_process_cpu_cache() -> None:
@@ -155,7 +161,8 @@ def get_top_processes(
             key = _proc_key(proc, info)
             alive.add(key)
             name = info.get("name") or "unknown"
-            if is_idle_process(name, info.get("pid", proc.pid)):
+            pid = info.get("pid", proc.pid)
+            if is_idle_process(name, pid) or is_self_process(pid):
                 continue
             if needle is not None and needle not in name.lower():
                 continue
@@ -197,6 +204,7 @@ def _try_native_processes(
             row
             for row in rows
             if not is_idle_process(str(row.get("name", "")), row.get("pid"))
+            and not is_self_process(row.get("pid"))
         ][:limit]
     except Exception:
         return None

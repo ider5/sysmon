@@ -79,6 +79,37 @@ def test_native_backend_drops_idle_before_limit(monkeypatch):
     assert [row["name"] for row in result] == ["python"]
 
 
+def test_native_backend_drops_self_before_limit(monkeypatch):
+    monkeypatch.setattr(process_module.os, "getpid", lambda: 14260)
+    captured = {}
+
+    def fake_list(limit, sort_by, name_filter):
+        captured["limit"] = limit
+        return [
+            {
+                "pid": 14260,
+                "name": "python.exe",
+                "cpu_percent": 61.8,
+                "memory_percent": 0.3,
+                "memory_mb": 45.0,
+            },
+            {
+                "pid": 8,
+                "name": "chrome",
+                "cpu_percent": 12.0,
+                "memory_percent": 1.0,
+                "memory_mb": 20.0,
+            },
+        ]
+
+    fake = ModuleType("sysmon._core")
+    fake.list_processes = fake_list
+    monkeypatch.setitem(sys.modules, "sysmon._core", fake)
+    result = process_module._try_native_processes(1, "cpu", None)
+    assert captured["limit"] > 1
+    assert [row["name"] for row in result] == ["chrome"]
+
+
 def test_try_native_calls_list_processes(monkeypatch):
     captured = {}
     fake = ModuleType("sysmon._core")
@@ -200,26 +231,22 @@ def test_native_sample_interval_sleeps_past_sysinfo_cpu_gate(monkeypatch):
 
 def test_native_two_sample_reports_cpu_when_requested_interval_is_short():
     pytest.importorskip("sysmon._core")
-    import os
-    import threading
+    import subprocess
+    import sys
     import time
 
-    stop = threading.Event()
-
-    def burn() -> None:
-        value = 0
-        while not stop.is_set():
-            value = (value + 1) % 1_000_003
-
-    worker = threading.Thread(target=burn, daemon=True)
-    worker.start()
+    child = subprocess.Popen(
+        [sys.executable, "-c", "while True: pass"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     try:
         # Expire any CPU sample taken by earlier tests in this process.
         time.sleep(process_module.NATIVE_CPU_SAMPLE_FLOOR)
         rows = process_module.get_top_processes(limit=5_000, sample_interval=0.15)
-        match = next((row for row in rows if row["pid"] == os.getpid()), None)
+        match = next((row for row in rows if row["pid"] == child.pid), None)
         assert match is not None
         assert match["cpu_percent"] > 10
     finally:
-        stop.set()
-        worker.join(timeout=1)
+        child.kill()
+        child.wait(timeout=1)
