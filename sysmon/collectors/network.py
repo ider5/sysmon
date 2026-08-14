@@ -15,6 +15,13 @@ _prev_iface_time: float | None = None
 _net_lock = threading.Lock()
 
 
+def _delta_rate(current: float, previous: float, dt: float) -> float:
+    if dt <= 0:
+        return 0.0
+    delta = current - previous
+    return delta / dt if delta >= 0 else 0.0
+
+
 def list_network_interfaces() -> list[str]:
     """Return non-loopback network interface names."""
     stats = psutil.net_if_stats()
@@ -48,11 +55,11 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
     global _prev_net_io, _prev_time, _prev_iface_io, _prev_iface_time
 
     resolved = _resolve_interfaces(interfaces)
-    per_nic = psutil.net_io_counters(pernic=True)
     now = time.time()
 
-    iface_entries: list[dict] = []
     if resolved is not None:
+        per_nic = psutil.net_io_counters(pernic=True)
+        iface_entries: list[dict] = []
         with _net_lock:
             for name in resolved:
                 counters = per_nic.get(name)
@@ -61,12 +68,8 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
                 prev = _prev_iface_io.get(name)
                 if prev is not None and _prev_iface_time is not None:
                     dt = now - _prev_iface_time
-                    if dt > 0:
-                        speed_up = (counters.bytes_sent - prev.bytes_sent) / dt
-                        speed_down = (counters.bytes_recv - prev.bytes_recv) / dt
-                    else:
-                        speed_up = 0.0
-                        speed_down = 0.0
+                    speed_up = _delta_rate(counters.bytes_sent, prev.bytes_sent, dt)
+                    speed_down = _delta_rate(counters.bytes_recv, prev.bytes_recv, dt)
                 else:
                     speed_up = 0.0
                     speed_down = 0.0
@@ -84,24 +87,32 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
                 _prev_iface_io[name] = counters
             _prev_iface_time = now
 
+        result = {
+            "bytes_sent": sum(item["bytes_sent"] for item in iface_entries),
+            "bytes_recv": sum(item["bytes_recv"] for item in iface_entries),
+            "speed_up": sum(item["speed_up"] for item in iface_entries),
+            "speed_down": sum(item["speed_down"] for item in iface_entries),
+            "packets_sent": sum(item["packets_sent"] for item in iface_entries),
+            "packets_recv": sum(item["packets_recv"] for item in iface_entries),
+        }
+        if iface_entries:
+            result["interfaces"] = iface_entries
+        return result
+
     current = psutil.net_io_counters()
     with _net_lock:
         if _prev_net_io is not None and _prev_time is not None:
             dt = now - _prev_time
-            if dt > 0:
-                speed_up = (current.bytes_sent - _prev_net_io.bytes_sent) / dt
-                speed_down = (current.bytes_recv - _prev_net_io.bytes_recv) / dt
-            else:
-                speed_up = 0
-                speed_down = 0
+            speed_up = _delta_rate(current.bytes_sent, _prev_net_io.bytes_sent, dt)
+            speed_down = _delta_rate(current.bytes_recv, _prev_net_io.bytes_recv, dt)
         else:
-            speed_up = 0
-            speed_down = 0
+            speed_up = 0.0
+            speed_down = 0.0
 
         _prev_net_io = current
         _prev_time = now
 
-    result = {
+    return {
         "bytes_sent": current.bytes_sent,
         "bytes_recv": current.bytes_recv,
         "speed_up": speed_up,
@@ -109,9 +120,6 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
         "packets_sent": current.packets_sent,
         "packets_recv": current.packets_recv,
     }
-    if iface_entries:
-        result["interfaces"] = iface_entries
-    return result
 
 
 def format_bytes(b: float) -> str:

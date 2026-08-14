@@ -99,7 +99,8 @@ def test_memory_json():
     assert "percent" in data["memory"]
 
 
-def test_top_json():
+def test_top_json(monkeypatch):
+    monkeypatch.setattr("sysmon.collectors.process.time.sleep", lambda _s: None)
     result = runner.invoke(app, ["top", "--format", "json", "--limit", "3"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
@@ -190,3 +191,38 @@ def test_config_path():
     result = runner.invoke(app, ["config", "path"])
     assert result.exit_code == 0
     assert result.stdout.strip()
+
+
+def test_bare_sysmon_launches_dashboard(monkeypatch):
+    called = {}
+
+    def fake_run_dashboard(**kwargs):
+        called["kwargs"] = kwargs
+
+    monkeypatch.setattr("sysmon.display.dashboard.run_dashboard", fake_run_dashboard)
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert "kwargs" in called
+
+
+def test_help_does_not_launch_dashboard(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.display.dashboard.run_dashboard",
+        lambda **k: (_ for _ in ()).throw(AssertionError("dashboard launched")),
+    )
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0
+    assert "dashboard" in result.stdout.lower()
+
+
+def test_top_rejects_unknown_sort():
+    result = runner.invoke(app, ["top", "--sort", "disk", "--format", "json"])
+    assert result.exit_code == 1
+    assert "Unknown sort key" in result.stdout
+
+
+def test_gpu_json_disabled_by_flag():
+    result = runner.invoke(app, ["gpu", "--format", "json", "--no-gpu"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data == {"gpu": None}

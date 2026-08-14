@@ -24,6 +24,15 @@ from sysmon.display.panels import (
 from sysmon.display.sparkline import HistoryBuffer
 
 
+def _waiting_panel(title: str, error: str | None = None) -> Panel:
+    message = f"  Collection error: {error}" if error else "  Waiting for metrics..."
+    return Panel(
+        Text(message, style="dim"),
+        title=title,
+        border_style="dim",
+    )
+
+
 def build_dashboard(
     include_gpu: bool = True,
     config: SysmonConfig | None = None,
@@ -31,11 +40,12 @@ def build_dashboard(
     net_history: HistoryBuffer | None = None,
     snapshot: dict | None = None,
 ) -> Layout:
-    """Build the full dashboard layout."""
+    """Build the full dashboard layout from a cached snapshot."""
     settings = config or load_config()
     modules = settings.modules
     thresholds = settings.thresholds
     data = snapshot or {}
+    errors = data.get("errors") if isinstance(data.get("errors"), dict) else {}
 
     os_name = _get_os_name()
     hostname = platform.node()
@@ -53,94 +63,120 @@ def build_dashboard(
     if modules.cpu:
         cpu_snapshot = data.get("cpu")
         if cpu_snapshot is None:
-            from sysmon.collectors.cpu import get_cpu_snapshot
-
-            cpu_snapshot = get_cpu_snapshot()
-        if cpu_history is not None:
-            cpu_history.add(cpu_snapshot["percent"])
-        active_panels.append(
-            (
-                "cpu",
-                cpu_panel(
-                    cpu_snapshot,
-                    cores=cpu_snapshot["cores"],
-                    compact=True,
-                    warn=thresholds.cpu_warn,
-                    critical=thresholds.cpu_critical,
-                    history=cpu_history.values() if cpu_history else None,
-                ),
+            active_panels.append(
+                ("cpu", _waiting_panel("[bold cyan]📊 CPU[/bold cyan]", errors.get("cpu")))
             )
-        )
+        else:
+            active_panels.append(
+                (
+                    "cpu",
+                    cpu_panel(
+                        cpu_snapshot,
+                        cores=cpu_snapshot["cores"],
+                        compact=True,
+                        warn=thresholds.cpu_warn,
+                        critical=thresholds.cpu_critical,
+                        history=cpu_history.values() if cpu_history else None,
+                    ),
+                )
+            )
 
     if modules.memory:
         mem_info = data.get("memory")
         if mem_info is None:
-            from sysmon.collectors.memory import get_memory_info
-
-            mem_info = get_memory_info()
-        active_panels.append(
-            (
-                "memory",
-                memory_panel(
-                    mem_info,
-                    show_available=True,
-                    warn=thresholds.memory_warn,
-                    critical=thresholds.memory_critical,
-                ),
+            active_panels.append(
+                (
+                    "memory",
+                    _waiting_panel(
+                        "[bold magenta]💾 Memory[/bold magenta]",
+                        errors.get("memory"),
+                    ),
+                )
             )
-        )
+        else:
+            active_panels.append(
+                (
+                    "memory",
+                    memory_panel(
+                        mem_info,
+                        show_available=True,
+                        warn=thresholds.memory_warn,
+                        critical=thresholds.memory_critical,
+                    ),
+                )
+            )
 
     if modules.network:
         net_info = data.get("network")
         if net_info is None:
-            from sysmon.collectors.network import get_network_info
-
-            net_info = get_network_info(settings.network_interfaces)
-        if net_history is not None:
-            net_history.add(net_info["speed_down"])
-        active_panels.append(
-            (
-                "network",
-                network_panel(
-                    net_info,
-                    show_packets=True,
-                    download_history=net_history.values() if net_history else None,
-                ),
+            active_panels.append(
+                (
+                    "network",
+                    _waiting_panel(
+                        "[bold green]🌐 Network[/bold green]",
+                        errors.get("network"),
+                    ),
+                )
             )
-        )
+        else:
+            active_panels.append(
+                (
+                    "network",
+                    network_panel(
+                        net_info,
+                        show_packets=True,
+                        download_history=net_history.values() if net_history else None,
+                    ),
+                )
+            )
 
     if modules.disk:
         disk_info = data.get("disk")
         if disk_info is None:
-            from sysmon.collectors.disk import get_disk_info
-
-            disk_info = get_disk_info(settings.disk_mounts)
-        active_panels.append(
-            (
-                "disk",
-                disk_panel(
-                    disk_info,
-                    warn=thresholds.disk_warn,
-                    critical=thresholds.disk_critical,
-                ),
+            active_panels.append(
+                ("disk", _waiting_panel("[bold blue]💽 Disk[/bold blue]", errors.get("disk")))
             )
-        )
+        else:
+            active_panels.append(
+                (
+                    "disk",
+                    disk_panel(
+                        disk_info,
+                        warn=thresholds.disk_warn,
+                        critical=thresholds.disk_critical,
+                    ),
+                )
+            )
 
     if modules.gpu and include_gpu:
         gpu_info = data.get("gpu")
-        if gpu_info is None:
-            from sysmon.collectors.gpu import get_gpu_info
-
-            gpu_info = get_gpu_info()
-        active_panels.append(("gpu", gpu_panel(gpu_info)))
+        if "gpu" not in data:
+            active_panels.append(
+                (
+                    "gpu",
+                    _waiting_panel(
+                        "[bold yellow]🎮 GPU[/bold yellow]",
+                        errors.get("gpu"),
+                    ),
+                )
+            )
+        else:
+            active_panels.append(("gpu", gpu_panel(gpu_info)))
 
     if modules.process:
         processes = data.get("process")
         if processes is None:
-            from sysmon.collectors.process import get_top_processes
-
-            processes = get_top_processes(limit=settings.process_limit)
-        active_panels.append(("process", process_panel(processes)))
+            active_panels.append(
+                (
+                    "process",
+                    _waiting_panel(
+                        "[bold white]⚙️  Processes[/bold white]",
+                        errors.get("process"),
+                    ),
+                )
+            )
+        else:
+            active_panels.append(("process", process_panel(processes)))
 
     if not active_panels:
         layout["content"].update(
@@ -206,21 +242,28 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                 snapshot=service.get_snapshot(),
             ),
             console=console,
-            refresh_per_second=1 / refresh_rate,
+            refresh_per_second=4,
             screen=True,
         ) as live:
             try:
                 while True:
-                    time.sleep(refresh_rate)
+                    snapshot = service.get_snapshot()
+                    cpu = snapshot.get("cpu")
+                    if cpu is not None:
+                        cpu_history.add(cpu["percent"])
+                    net = snapshot.get("network")
+                    if net is not None:
+                        net_history.add(net["speed_down"])
                     live.update(
                         build_dashboard(
                             include_gpu=include_gpu,
                             config=config,
                             cpu_history=cpu_history,
                             net_history=net_history,
-                            snapshot=service.get_snapshot(),
+                            snapshot=snapshot,
                         )
                     )
+                    time.sleep(refresh_rate)
             except KeyboardInterrupt:
                 pass
     finally:

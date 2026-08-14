@@ -30,3 +30,21 @@ def test_get_disk_info_speed_calculation():
 
     assert second_result["read_speed"] == 1000.0
     assert second_result["write_speed"] == 1500.0
+
+
+def test_get_disk_info_clamps_counter_reset():
+    usage = SimpleNamespace(total=100, used=50, free=50, percent=50.0)
+    first_io = SimpleNamespace(read_bytes=5000, write_bytes=4000)
+    reset_io = SimpleNamespace(read_bytes=100, write_bytes=50)
+
+    with patch("sysmon.collectors.disk.psutil.disk_usage", return_value=usage):
+        with patch("sysmon.collectors.disk.psutil.disk_io_counters", return_value=first_io):
+            with patch("sysmon.collectors.disk.time.time", return_value=0.0):
+                get_disk_info()
+
+        with patch("sysmon.collectors.disk.psutil.disk_io_counters", return_value=reset_io):
+            with patch("sysmon.collectors.disk.time.time", return_value=2.0):
+                result = get_disk_info()
+
+    assert result["read_speed"] == 0.0
+    assert result["write_speed"] == 0.0

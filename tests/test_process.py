@@ -1,57 +1,80 @@
 """Tests for process collector."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+from sysmon.collectors import process as process_module
+
+
+def _proc(pid: int, cpu: float, mem: float, name: str) -> MagicMock:
+    mock = MagicMock()
+    mock.info = {
+        "pid": pid,
+        "name": name,
+        "memory_percent": mem,
+    }
+    mock.pid = pid
+    mock.memory_info.return_value = MagicMock(rss=mem * 1024 * 1024)
+    mock.cpu_times.return_value = SimpleNamespace(user=cpu, system=0.0)
+    mock.create_time.return_value = 1000.0 + pid
+    return mock
 
 
 def test_get_top_processes_sorts_by_cpu():
-    procs = []
-    for pid, cpu, mem, name in [
-        (1, 10.0, 5.0, "a"),
-        (2, 50.0, 2.0, "b"),
-        (3, 30.0, 8.0, "c"),
-    ]:
-        mock = MagicMock()
-        mock.info = {
-            "pid": pid,
-            "name": name,
-            "cpu_percent": cpu,
-            "memory_percent": mem,
-        }
-        mock.memory_info.return_value = MagicMock(rss=mem * 1024 * 1024)
-        procs.append(mock)
+    procs = [
+        _proc(1, 0.0, 5.0, "a"),
+        _proc(2, 0.0, 2.0, "b"),
+        _proc(3, 0.0, 8.0, "c"),
+    ]
 
     with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
-        from sysmon.collectors.process import get_top_processes
+        with patch("sysmon.collectors.process.time.monotonic", return_value=1.0):
+            first = process_module.get_top_processes(limit=2, sort_by="cpu")
+        assert all(item["cpu_percent"] == 0.0 for item in first)
 
-        result = get_top_processes(limit=2, sort_by="cpu")
+        for mock, cpu in zip(procs, (0.1, 0.5, 0.3)):
+            mock.cpu_times.return_value = SimpleNamespace(user=cpu, system=0.0)
+
+        with patch("sysmon.collectors.process.time.monotonic", return_value=2.0):
+            result = process_module.get_top_processes(limit=2, sort_by="cpu")
 
     assert len(result) == 2
     assert result[0]["pid"] == 2
     assert result[1]["pid"] == 3
+    assert result[0]["cpu_percent"] == 50.0
 
 
 def test_get_top_processes_name_filter():
-    procs = []
-    for pid, cpu, mem, name in [
-        (1, 10.0, 5.0, "chrome"),
-        (2, 50.0, 2.0, "python"),
-        (3, 30.0, 8.0, "Chrome Helper"),
-    ]:
-        mock = MagicMock()
-        mock.info = {
-            "pid": pid,
-            "name": name,
-            "cpu_percent": cpu,
-            "memory_percent": mem,
-        }
-        mock.memory_info.return_value = MagicMock(rss=mem * 1024 * 1024)
-        procs.append(mock)
+    procs = [
+        _proc(1, 10.0, 5.0, "chrome"),
+        _proc(2, 50.0, 2.0, "python"),
+        _proc(3, 30.0, 8.0, "Chrome Helper"),
+    ]
 
     with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
-        from sysmon.collectors.process import get_top_processes
-
-        result = get_top_processes(limit=10, sort_by="cpu", name_filter="chrome")
+        result = process_module.get_top_processes(
+            limit=10, sort_by="cpu", name_filter="chrome"
+        )
 
     assert len(result) == 2
     names = {p["name"] for p in result}
     assert names == {"chrome", "Chrome Helper"}
+
+
+def test_get_top_processes_sample_interval_computes_cpu(monkeypatch):
+    proc = _proc(1, 0.0, 1.0, "a")
+    proc.cpu_times.side_effect = [
+        SimpleNamespace(user=0.0, system=0.0),
+        SimpleNamespace(user=0.5, system=0.0),
+    ]
+    ticks = iter([1.0, 2.0])
+    monkeypatch.setattr(process_module.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(process_module.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(
+        process_module.psutil, "process_iter", lambda *a, **k: [proc]
+    )
+
+    result = process_module.get_top_processes(sample_interval=0.15)
+
+    assert len(result) == 1
+    assert result[0]["cpu_percent"] == 50.0

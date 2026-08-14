@@ -2,6 +2,20 @@
 
 All notable changes to SysMon are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- Renamed `build.py` to `scripts/build_exe.py` so `python -m build` is not shadowed during PyPI publish
+- Title mode now writes OSC title sequences to the user terminal and verifies the worker started
+- Bare `sysmon` launches the dashboard (matching README)
+- CollectorService isolates per-module collection errors and can restart after a failed `start()`
+- Process CPU percentages use a pid-level sample cache so `sysmon top` is no longer stuck at 0%
+- Brief mode honors `network_interfaces` and `sample_interval`
+- Dashboard no longer falls back to blocking collectors on the UI thread
+- Invalid `--sort` values and unreadable config files now surface errors instead of failing silently
+- GPU NVML is initialized once per process instead of on every sample
+- Network aggregate totals follow the selected interfaces; disk/network speeds clamp counter resets to 0
+
 ## [0.3.0] - 2026-06-30
 
 ### Added

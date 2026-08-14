@@ -5,12 +5,11 @@ on:
     types: [published]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -20,16 +19,48 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]" build twine
+        run: pip install -e ".[dev]" build
 
       - name: Run tests
-        run: pytest -v
+        run: python -m pytest -v
 
       - name: Build package
         run: python -m build
 
+      - name: Assert sdist and wheel exist
+        run: |
+          set -euo pipefail
+          ls -la dist/
+          test -n "$(find dist -maxdepth 1 -name '*.whl')"
+          test -n "$(find dist -maxdepth 1 -name '*.tar.gz')"
+
+      - name: Check version matches release tag
+        if: github.event_name == 'release'
+        run: |
+          VERSION=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          TAG="${GITHUB_REF_NAME#v}"
+          test "$VERSION" = "$TAG"
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: dist/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package
+          path: dist
+
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}

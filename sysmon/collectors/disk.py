@@ -14,6 +14,13 @@ _prev_time: float | None = None
 _disk_lock = threading.Lock()
 
 
+def _delta_rate(current: float, previous: float, dt: float) -> float:
+    if dt <= 0:
+        return 0.0
+    delta = current - previous
+    return delta / dt if delta >= 0 else 0.0
+
+
 def _primary_mount() -> str:
     """Return the primary disk mount point for the current platform."""
     if platform.system() == "Windows":
@@ -108,9 +115,12 @@ def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
         with _disk_lock:
             if _prev_disk_io is not None and _prev_time is not None:
                 dt = now - _prev_time
-                if dt > 0:
-                    read_speed = (current_io.read_bytes - _prev_disk_io.read_bytes) / dt
-                    write_speed = (current_io.write_bytes - _prev_disk_io.write_bytes) / dt
+                read_speed = _delta_rate(
+                    current_io.read_bytes, _prev_disk_io.read_bytes, dt
+                )
+                write_speed = _delta_rate(
+                    current_io.write_bytes, _prev_disk_io.write_bytes, dt
+                )
 
             _prev_disk_io = current_io
             _prev_time = now

@@ -40,7 +40,8 @@ def test_metric_status():
 
     assert metric_status(50, 80, 95) == "ok"
     assert metric_status(85, 80, 95) == "warn"
-    assert metric_status(99, 80, 95) == "critical"
+    assert metric_status(80, 80, 95) == "warn"
+    assert metric_status(95, 80, 95) == "critical"
 
 
 def test_from_mapping_modules_and_thresholds():
@@ -111,7 +112,7 @@ def test_load_config_caches_by_mtime(tmp_path: Path, monkeypatch):
     assert third.refresh_interval == 3.5
 
 
-def test_load_config_invalid_toml_falls_back(tmp_path: Path, monkeypatch):
+def test_load_config_invalid_toml_falls_back(tmp_path: Path, monkeypatch, capsys):
     config_path = tmp_path / "config.toml"
     config_path.write_text("not = [valid\n", encoding="utf-8")
     monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
@@ -119,6 +120,19 @@ def test_load_config_invalid_toml_falls_back(tmp_path: Path, monkeypatch):
     config = load_config()
     assert config.refresh_interval == 1.0
     assert config.enable_gpu is True
+    err = capsys.readouterr().err
+    assert "failed to parse" in err.lower()
+
+
+def test_load_config_invalid_values_fall_back(tmp_path: Path, monkeypatch, capsys):
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('refresh_interval = "fast"\n', encoding="utf-8")
+    monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
+
+    config = load_config()
+    assert config.refresh_interval == 1.0
+    err = capsys.readouterr().err
+    assert "invalid values" in err.lower()
 
 
 def test_write_default_config(tmp_path: Path, monkeypatch):

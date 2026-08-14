@@ -51,7 +51,7 @@ Or build it yourself from the repository root:
 
 ```bash
 pip install -e ".[dev]"
-python build.py
+python scripts/build_exe.py
 ```
 
 The executable will be created as `dist/sysmon.exe` (Windows) or `dist/sysmon` (Linux/macOS).

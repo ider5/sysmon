@@ -148,7 +148,7 @@ def gpu_panel(gpus: list | None) -> Panel:
     Args:
         gpus: List of GPU info dicts, or None if no GPU
     """
-    if gpus is None:
+    if not gpus:
         text = Text("  ⚠ No GPU detected or GPUtil not available.", style="dim italic")
         return Panel(text, title="[bold yellow]🎮 GPU[/bold yellow]", border_style="yellow")
 
