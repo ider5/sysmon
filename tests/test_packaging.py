@@ -72,6 +72,18 @@ def test_maturin_targets_sysmon_core_extension():
     assert maturin["manifest-path"] == "native/sysmon-core/Cargo.toml"
 
 
+def test_setup_py_can_skip_native_compile():
+    text = (ROOT / "setup.py").read_text(encoding="utf-8")
+    assert "SYSMON_SKIP_NATIVE" in text
+
+
+def test_ci_test_job_skips_native_compile():
+    text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "SYSMON_SKIP_NATIVE" in text
+    native_job = text.split("native:")[1]
+    assert "SYSMON_SKIP_NATIVE" not in native_job
+
+
 def test_native_crate_is_present_for_optional_build():
     cargo = ROOT / "native" / "sysmon-core" / "Cargo.toml"
     assert cargo.exists()

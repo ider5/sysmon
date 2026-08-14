@@ -253,7 +253,7 @@ A background daemon thread collects this data every 1.5 seconds, ensuring the UI
 
 ### Optional native process backend
 
-When `rustc`/`cargo` are on `PATH`, `pip install` compiles `sysmon._core` (PyO3 + sysinfo). Process listing (`sysmon top`, dashboard, JSON `processes`) uses it first and falls back to psutil if the extension is missing or raises. On Linux, userland threads are omitted so rows match process PIDs. Idle placeholders (`System Idle Process`, `Idle`, `System Interrupts`, pid 0, Linux `swapper`) are dropped from top-N lists.
+When `rustc`/`cargo` are on `PATH`, `pip install` compiles `sysmon._core` (PyO3 + sysinfo). Process listing (`sysmon top`, dashboard, JSON `processes`) uses it first and falls back to psutil if the extension is missing or raises. On Linux, userland threads are omitted so rows match process PIDs. Idle placeholders (`System Idle Process`, `Idle`, `System Interrupts`, pid 0, Linux `swapper`) are dropped from top-N lists. Set `SYSMON_SKIP_NATIVE=1` to skip the compile (used by the default CI test matrix).
 
 ### Color Coding
 

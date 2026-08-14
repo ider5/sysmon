@@ -45,6 +45,7 @@ All notable changes to SysMon are documented in this file.
 - GPU NVML is initialized once per process instead of on every sample
 - Network aggregate totals follow the selected interfaces; disk/network speeds clamp counter resets to 0
 - Process lists hide OS idle placeholders (`System Idle Process`, `Idle`, `System Interrupts`, pid 0, Linux `swapper`)
+- Default CI test jobs skip the optional Rust extension via `SYSMON_SKIP_NATIVE` so Windows images with preinstalled Cargo do not compile `sysmon._core`
 
 ## [0.3.0] - 2026-06-30
 

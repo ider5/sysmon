@@ -53,11 +53,19 @@ def test_build_disk_text_includes_mount():
     assert "70.0%" in rendered
 
 
-def _render_panel(panel) -> str:
-    console = Console(width=80, force_terminal=True, color_system=None)
+def _render_panel(panel, **console_kwargs) -> str:
+    console = Console(width=80, force_terminal=True, color_system=None, **console_kwargs)
     with console.capture() as capture:
         console.print(panel)
     return capture.get()
+
+
+def _assert_process_table_frame(rendered: str) -> None:
+    assert "PID" in rendered
+    has_heavy = rendered.count("┃") >= 6 and ("┳" in rendered or "╋" in rendered)
+    has_legacy = rendered.count("│") >= 6 and ("┬" in rendered or "┼" in rendered)
+    assert has_heavy or has_legacy
+    assert "┃  1 ┃" in rendered or "│  1 │" in rendered
 
 
 def test_process_panel_renders_bordered_table():
@@ -74,7 +82,6 @@ def test_process_panel_renders_bordered_table():
         sort_by="cpu",
     )
     rendered = _render_panel(panel)
-    assert "PID" in rendered
     assert "Name" in rendered
     assert "CPU%" in rendered
     assert "MEM%" in rendered
@@ -84,14 +91,32 @@ def test_process_panel_renders_bordered_table():
     assert "12.3" in rendered
     assert "1.5%" in rendered
     assert "51M" in rendered
-    assert rendered.count("┃") >= 6
-    assert "┳" in rendered or "╋" in rendered
-    assert "┃  1 ┃" in rendered
+    _assert_process_table_frame(rendered)
     assert "━" in rendered
+
+
+def test_process_panel_legacy_windows_still_has_table_frame():
+    rendered = _render_panel(
+        process_panel(
+            [
+                {
+                    "pid": 4242,
+                    "name": "python",
+                    "cpu_percent": 12.3,
+                    "memory_percent": 1.5,
+                    "memory_mb": 50.7,
+                }
+            ]
+        ),
+        legacy_windows=True,
+    )
+    _assert_process_table_frame(rendered)
+    assert "4242" in rendered
+    assert "python" in rendered
 
 
 def test_process_panel_empty_still_has_table_frame():
     rendered = _render_panel(process_panel([]))
     assert "PID" in rendered
     assert "No matching processes" in rendered
-    assert "┳" in rendered or "╋" in rendered
+    assert ("┳" in rendered or "╋" in rendered) or ("┬" in rendered or "┼" in rendered)
