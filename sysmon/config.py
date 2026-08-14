@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -211,10 +212,18 @@ def load_config() -> SysmonConfig:
     try:
         data = _load_toml(path)
     except Exception:
+        print(
+            f"sysmon: failed to parse {path}, using defaults.",
+            file=sys.stderr,
+        )
         _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)
         return DEFAULT_CONFIG
 
     if not isinstance(data, dict):
+        print(
+            f"sysmon: invalid config in {path}, using defaults.",
+            file=sys.stderr,
+        )
         _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)
         return DEFAULT_CONFIG
 

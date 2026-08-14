@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import threading
 import time
-from typing import Any
+from typing import Any, Callable
 
 from sysmon.config import SysmonConfig, load_config
 
@@ -35,10 +35,15 @@ class CollectorService:
         """Start background collection."""
         if self._running:
             return
-        self._running = True
-        self._collect_once()
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
+        try:
+            self._collect_once()
+            self._running = True
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
+        except Exception:
+            self._running = False
+            self._thread = None
+            raise
 
     def stop(self) -> None:
         """Stop background collection."""
@@ -63,6 +68,21 @@ class CollectorService:
             if self._running:
                 self._collect_once()
 
+    def _safe_collect(
+        self,
+        data: dict[str, Any],
+        prev: dict[str, Any],
+        key: str,
+        collector: Callable[[], Any],
+    ) -> None:
+        try:
+            data[key] = collector()
+        except Exception as exc:
+            errors = data.setdefault("errors", {})
+            errors[key] = str(exc)
+            if key in prev:
+                data[key] = prev[key]
+
     def _collect_once(self) -> None:
         from sysmon.collectors.cpu import get_cpu_snapshot
         from sysmon.collectors.disk import get_disk_info
@@ -72,20 +92,38 @@ class CollectorService:
         from sysmon.collectors.process import get_top_processes
 
         modules = self._config.modules
+        with self._lock:
+            prev = dict(self._snapshot)
+
         data: dict[str, Any] = {"timestamp": time.time()}
 
         if modules.cpu:
-            data["cpu"] = get_cpu_snapshot()
+            self._safe_collect(data, prev, "cpu", get_cpu_snapshot)
         if modules.memory:
-            data["memory"] = get_memory_info()
+            self._safe_collect(data, prev, "memory", get_memory_info)
         if modules.network:
-            data["network"] = get_network_info(self._config.network_interfaces)
+            self._safe_collect(
+                data,
+                prev,
+                "network",
+                lambda: get_network_info(self._config.network_interfaces),
+            )
         if modules.disk:
-            data["disk"] = get_disk_info(self._config.disk_mounts)
-        if modules.gpu and self._include_gpu:
-            data["gpu"] = get_gpu_info()
+            self._safe_collect(
+                data,
+                prev,
+                "disk",
+                lambda: get_disk_info(self._config.disk_mounts),
+            )
+        if modules.gpu and self._include_gpu and self._config.enable_gpu:
+            self._safe_collect(data, prev, "gpu", get_gpu_info)
         if modules.process:
-            data["process"] = get_top_processes(limit=self._config.process_limit)
+            self._safe_collect(
+                data,
+                prev,
+                "process",
+                lambda: get_top_processes(limit=self._config.process_limit),
+            )
 
         with self._lock:
             self._snapshot = data

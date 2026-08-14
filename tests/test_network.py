@@ -41,3 +41,23 @@ def test_get_network_info_speed_calculation():
 
     assert second_result["speed_up"] == 500.0
     assert second_result["speed_down"] == 1000.0
+
+
+def test_get_network_info_clamps_counter_reset():
+    first = SimpleNamespace(
+        bytes_sent=5000, bytes_recv=8000, packets_sent=10, packets_recv=20,
+    )
+    reset = SimpleNamespace(
+        bytes_sent=10, bytes_recv=20, packets_sent=1, packets_recv=2,
+    )
+
+    with patch("sysmon.collectors.network.psutil.net_io_counters", return_value=first):
+        with patch("sysmon.collectors.network.time.time", return_value=0.0):
+            get_network_info()
+
+    with patch("sysmon.collectors.network.psutil.net_io_counters", return_value=reset):
+        with patch("sysmon.collectors.network.time.time", return_value=2.0):
+            result = get_network_info()
+
+    assert result["speed_up"] == 0.0
+    assert result["speed_down"] == 0.0

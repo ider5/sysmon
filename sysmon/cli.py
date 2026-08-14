@@ -62,16 +62,29 @@ def _emit_json(data: dict[str, Any]) -> None:
     print(to_json(data))
 
 
+def _launch_dashboard(refresh: float | None, no_gpu: bool) -> None:
+    from sysmon.display.dashboard import run_dashboard
+
+    settings = load_config()
+    refresh_rate = refresh if refresh is not None else settings.refresh_interval
+    run_dashboard(
+        refresh_rate=refresh_rate,
+        include_gpu=_resolve_gpu_enabled(no_gpu, settings),
+    )
+
+
 def _wait_for_rate_sampling(
     sample_interval: float,
     settings: SysmonConfig | None = None,
 ) -> None:
     from sysmon.collectors.disk import get_disk_info
     from sysmon.collectors.network import get_network_info
+    from sysmon.collectors.process import get_top_processes
 
     cfg = settings if settings is not None else load_config()
     get_network_info(cfg.network_interfaces)
     get_disk_info(cfg.disk_mounts)
+    get_top_processes(limit=1)
     time.sleep(sample_interval)
 
 
@@ -99,8 +112,9 @@ def config_path() -> None:
     print(get_config_path())
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         False, "--version", "-v", callback=version_callback, is_eager=True,
         help="Show version and exit.",
@@ -123,6 +137,9 @@ def main(
             raise typer.Exit(code=1) from None
         raise typer.Exit()
 
+    if ctx.invoked_subcommand is None:
+        _launch_dashboard(refresh=None, no_gpu=False)
+
 
 @app.command()
 def dashboard(
@@ -138,14 +155,7 @@ def dashboard(
     ),
 ) -> None:
     """Launch the real-time monitoring dashboard."""
-    from sysmon.display.dashboard import run_dashboard
-
-    settings = load_config()
-    refresh_rate = refresh if refresh is not None else settings.refresh_interval
-    run_dashboard(
-        refresh_rate=refresh_rate,
-        include_gpu=_resolve_gpu_enabled(no_gpu, settings),
-    )
+    _launch_dashboard(refresh=refresh, no_gpu=no_gpu)
 
 
 @app.command()
@@ -233,7 +243,11 @@ def top(
     settings = load_config()
     fmt = _validate_format(_resolve_format(output_format, settings))
     count = limit if limit is not None else settings.process_limit
-    sort_key = sort_by if sort_by in ("cpu", "memory") else "cpu"
+    if sort_by not in ("cpu", "memory"):
+        console.print(f"[red]Unknown sort key: {sort_by}[/red]")
+        console.print("Valid sort keys: cpu, memory")
+        raise typer.Exit(code=1)
+    sort_key = sort_by
     refresh_rate = refresh if refresh is not None else settings.refresh_interval
 
     if watch:
@@ -256,6 +270,7 @@ def top(
         limit=count,
         sort_by=sort_key,
         name_filter=filter_name,
+        sample_interval=min(settings.sample_interval, 0.2),
     )
 
     if fmt == "json":
@@ -407,10 +422,22 @@ def gpu(
         None, "--format", "-f",
         help="Output format: rich or json.",
     ),
+    no_gpu: bool = typer.Option(
+        False, "--no-gpu",
+        help="Hide GPU information.",
+    ),
 ) -> None:
     """Show GPU information."""
     settings = load_config()
     fmt = _validate_format(_resolve_format(output_format, settings))
+    include_gpu = _resolve_gpu_enabled(no_gpu, settings)
+
+    if not include_gpu:
+        if fmt == "json":
+            _emit_json({"gpu": None})
+            return
+        console.print("[dim]GPU monitoring is disabled.[/dim]")
+        return
 
     if fmt == "json":
         from sysmon.export import collect_section
@@ -499,9 +526,16 @@ def brief(
             refresh_rate=refresh_rate,
             no_color=no_color,
             no_gpu=not include_gpu,
+            interfaces=settings.network_interfaces,
         )
     else:
-        print_brief(console, no_color=no_color, no_gpu=not include_gpu)
+        print_brief(
+            console,
+            no_color=no_color,
+            no_gpu=not include_gpu,
+            sample_interval=settings.sample_interval,
+            interfaces=settings.network_interfaces,
+        )
 
 
 if __name__ == "__main__":

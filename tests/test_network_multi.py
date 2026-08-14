@@ -60,6 +60,9 @@ def test_get_network_info_per_interface():
     assert "interfaces" in second
     assert second["interfaces"][0]["name"] == "eth0"
     assert second["interfaces"][0]["speed_down"] == 1000.0
+    assert second["bytes_sent"] == 1500
+    assert second["bytes_recv"] == 3000
+    assert second["speed_down"] == 1000.0
 
 
 def test_list_network_interfaces_excludes_loopback():
