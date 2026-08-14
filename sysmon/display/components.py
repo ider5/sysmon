@@ -53,8 +53,6 @@ def gradient_color(percent: float, warn: float = 80.0, critical: float = 95.0) -
         return "red"
     if percent >= warn:
         return "yellow"
-    if percent >= 60:
-        return "yellow"
     return "green"
 
 
@@ -116,11 +114,17 @@ def ascii_logo() -> Text:
     return text
 
 
-def gpu_panel(gpus: list | None) -> Panel:
+def gpu_panel(
+    gpus: list | None,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Panel:
     """Create GPU metrics panel.
 
     Args:
         gpus: List of GPU info dicts, or None if no GPU
+        warn: Load/VRAM warn threshold percent
+        critical: Load/VRAM critical threshold percent
     """
     if not gpus:
         text = Text("  ⚠ No GPU detected or GPUtil not available.", style="dim italic")
@@ -134,13 +138,13 @@ def gpu_panel(gpus: list | None) -> Panel:
 
         # Utilization bar
         text.append(f"  {'Utilization':<14}", style="bold")
-        text.append_text(progress_bar(gpu["load"], width=20))
+        text.append_text(progress_bar(gpu["load"], width=20, warn=warn, critical=critical))
         text.append("\n")
 
         # VRAM
         mem_pct = (gpu["memory_used"] / gpu["memory_total"] * 100) if gpu["memory_total"] > 0 else 0
         text.append(f"  {'VRAM':<14}", style="bold")
-        text.append_text(progress_bar(mem_pct, width=20))
+        text.append_text(progress_bar(mem_pct, width=20, warn=warn, critical=critical))
         text.append(f"\n  {'':14}{gpu['memory_used']:.0f} / {gpu['memory_total']:.0f} MB\n", style="dim")
 
         # Temperature

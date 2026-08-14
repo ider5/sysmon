@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import copy
 import threading
 import time
-from typing import Any, Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 
 from sysmon.config import SysmonConfig, load_config
 
@@ -53,14 +53,14 @@ class CollectorService:
             self._thread = None
 
     def get_snapshot(self) -> dict[str, Any]:
-        """Return a copy of the latest cached snapshot."""
+        """Return a shallow copy of the latest cached snapshot."""
         with self._lock:
-            return copy.deepcopy(self._snapshot)
+            return dict(self._snapshot)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Return a single cached metric by key."""
         with self._lock:
-            return copy.deepcopy(self._snapshot.get(key, default))
+            return self._snapshot.get(key, default)
 
     def _loop(self) -> None:
         while self._running:
@@ -68,30 +68,8 @@ class CollectorService:
             if self._running:
                 self._collect_once()
 
-    def _safe_collect(
-        self,
-        data: dict[str, Any],
-        prev: dict[str, Any],
-        key: str,
-        collector: Callable[[], Any],
-    ) -> None:
-        try:
-            data[key] = collector()
-        except Exception as exc:
-            errors = data.setdefault("errors", {})
-            errors[key] = str(exc)
-            if key in prev:
-                data[key] = prev[key]
-
-    def _collect_once(self) -> None:
-        from sysmon.collectors.registry import collect
-
+    def _enabled_keys(self) -> list[str]:
         modules = self._config.modules
-        with self._lock:
-            prev = dict(self._snapshot)
-
-        data: dict[str, Any] = {"timestamp": time.time()}
-
         keys: list[str] = []
         if modules.cpu:
             keys.append("cpu")
@@ -105,9 +83,38 @@ class CollectorService:
             keys.append("gpu")
         if modules.process:
             keys.append("process")
+        if getattr(modules, "sensors", False):
+            keys.append("sensors")
+        return keys
 
-        for key in keys:
-            self._safe_collect(data, prev, key, lambda n=key: collect(n, self._config))
+    def _collect_once(self) -> None:
+        from sysmon.collectors.registry import collect
+
+        with self._lock:
+            prev = dict(self._snapshot)
+
+        data: dict[str, Any] = {"timestamp": time.time()}
+        keys = self._enabled_keys()
+        if not keys:
+            with self._lock:
+                self._snapshot = data
+            return
+
+        def _run(key: str) -> tuple[str, Any]:
+            return key, collect(key, self._config)
+
+        with ThreadPoolExecutor(max_workers=len(keys)) as pool:
+            futures = {pool.submit(_run, key): key for key in keys}
+            for fut in as_completed(futures):
+                key = futures[fut]
+                try:
+                    name, value = fut.result()
+                    data[name] = value
+                except Exception as exc:
+                    errors = data.setdefault("errors", {})
+                    errors[key] = str(exc)
+                    if key in prev:
+                        data[key] = prev[key]
 
         with self._lock:
             self._snapshot = data

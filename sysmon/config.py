@@ -40,6 +40,8 @@ class ThresholdConfig:
     memory_critical: float = 95.0
     disk_warn: float = 80.0
     disk_critical: float = 95.0
+    gpu_warn: float = 80.0
+    gpu_critical: float = 95.0
 
 
 @dataclass(frozen=True)
@@ -79,6 +81,8 @@ class SysmonConfig:
             memory_critical=float(thresholds_data.get("memory_critical", 95.0)),
             disk_warn=float(thresholds_data.get("disk_warn", 80.0)),
             disk_critical=float(thresholds_data.get("disk_critical", 95.0)),
+            gpu_warn=float(thresholds_data.get("gpu_warn", 80.0)),
+            gpu_critical=float(thresholds_data.get("gpu_critical", 95.0)),
         )
 
         disk_mounts_raw = data.get("disk_mounts")
@@ -153,6 +157,8 @@ memory_warn = 80
 memory_critical = 95
 disk_warn = 80
 disk_critical = 95
+gpu_warn = 80
+gpu_critical = 95
 """
 
 

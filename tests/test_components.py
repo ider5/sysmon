@@ -8,9 +8,31 @@ from sysmon.display.components import gpu_panel, gradient_color, progress_bar
 
 def test_gradient_color_thresholds():
     assert gradient_color(30) == "green"
-    assert gradient_color(70) == "yellow"
+    assert gradient_color(70) == "green"
     assert gradient_color(90) == "yellow"
     assert gradient_color(98, critical=95) == "red"
+
+
+def test_gpu_panel_uses_warn_critical_for_load():
+    gpus = [
+        {
+            "id": 0,
+            "name": "Fake",
+            "load": 15.0,
+            "memory_used": 100.0,
+            "memory_total": 1000.0,
+            "temperature": 40.0,
+        }
+    ]
+    panel = gpu_panel(gpus, warn=10.0, critical=20.0)
+    text = str(panel.renderable)
+    assert "15.0%" in text or "15.0" in text
+    styles = [
+        str(span.style)
+        for span in panel.renderable.spans
+        if span.start < span.end
+    ]
+    assert any("yellow" in style for style in styles)
 
 
 def test_progress_bar_contains_percentage():

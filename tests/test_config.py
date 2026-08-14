@@ -58,6 +58,22 @@ def test_from_mapping_modules_and_thresholds():
     assert config.process_limit == 5
 
 
+def test_default_gpu_thresholds():
+    config = SysmonConfig()
+    assert config.thresholds.gpu_warn == 80.0
+    assert config.thresholds.gpu_critical == 95.0
+
+
+def test_from_mapping_gpu_thresholds():
+    config = SysmonConfig.from_mapping(
+        {
+            "thresholds": {"gpu_warn": 70, "gpu_critical": 90},
+        }
+    )
+    assert config.thresholds.gpu_warn == 70.0
+    assert config.thresholds.gpu_critical == 90.0
+
+
 def test_from_mapping_disk_and_network_selection():
     config = SysmonConfig.from_mapping(
         {
@@ -143,4 +159,7 @@ def test_write_default_config(tmp_path: Path, monkeypatch):
 
     assert written == config_path
     assert config_path.exists()
-    assert "refresh_interval" in config_path.read_text(encoding="utf-8")
+    text = config_path.read_text(encoding="utf-8")
+    assert "refresh_interval" in text
+    assert "gpu_warn" in text
+    assert "gpu_critical" in text

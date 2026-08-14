@@ -139,7 +139,39 @@ def test_collector_service_calls_registry_collect_not_cpu_snapshot(monkeypatch):
     service = CollectorService(interval=10, include_gpu=False, config=config)
     service.start()
     try:
-        assert calls == [("cpu", config), ("memory", config)]
+        assert {(name, settings) for name, settings in calls} == {
+            ("cpu", config),
+            ("memory", config),
+        }
+        assert len(calls) == 2
         assert cpu_direct_calls == []
+    finally:
+        service.stop()
+
+
+def test_get_snapshot_is_a_shallow_copy():
+    service = CollectorService(
+        interval=10,
+        include_gpu=False,
+        config=SysmonConfig.from_mapping(
+            {
+                "modules": {
+                    "cpu": True,
+                    "memory": False,
+                    "network": False,
+                    "disk": False,
+                    "gpu": False,
+                    "process": False,
+                }
+            }
+        ),
+    )
+    service.start()
+    try:
+        first = service.get_snapshot()
+        second = service.get_snapshot()
+        assert first is not second
+        first["marker"] = True
+        assert "marker" not in service.get_snapshot()
     finally:
         service.stop()

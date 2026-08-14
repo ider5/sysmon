@@ -105,7 +105,7 @@ def test_build_brief_line_memory_color_uses_memory_thresholds(monkeypatch):
     assert any("yellow" in style for style in styles)
 
 
-def test_build_brief_line_gpu_load_uses_cpu_thresholds(monkeypatch):
+def test_build_brief_line_gpu_load_uses_gpu_thresholds(monkeypatch):
     gpu = [
         {
             "load": 15.0,
@@ -116,7 +116,7 @@ def test_build_brief_line_gpu_load_uses_cpu_thresholds(monkeypatch):
     ]
     _stub_brief_collectors(monkeypatch, gpu=gpu)
     line = brief_mod.build_brief_line(
-        thresholds=ThresholdConfig(cpu_warn=10, cpu_critical=20),
+        thresholds=ThresholdConfig(gpu_warn=10, gpu_critical=20),
     )
     styles = _span_styles_for(line, "GPU 15%")
     assert any("yellow" in style for style in styles)

@@ -41,6 +41,26 @@ def collect_named(name: str) -> Any:
     return collect(name)
 
 
+def collect_processes(
+    settings: SysmonConfig | None = None,
+    *,
+    limit: int | None = None,
+    sort_by: str = "cpu",
+    name_filter: str | None = None,
+    sample_interval: float | None = None,
+) -> Any:
+    """Collect top processes, honoring extra sort/filter arguments."""
+    cfg = settings if settings is not None else load_config()
+    from sysmon.collectors.process import get_top_processes
+
+    return get_top_processes(
+        limit=cfg.process_limit if limit is None else limit,
+        sort_by=sort_by,
+        name_filter=name_filter,
+        sample_interval=sample_interval,
+    )
+
+
 def _collect_cpu(settings: SysmonConfig) -> Any:
     from sysmon.collectors.cpu import get_cpu_snapshot
 
@@ -72,9 +92,7 @@ def _collect_gpu(settings: SysmonConfig) -> Any:
 
 
 def _collect_process(settings: SysmonConfig) -> Any:
-    from sysmon.collectors.process import get_top_processes
-
-    return get_top_processes(limit=settings.process_limit)
+    return collect_processes(settings)
 
 
 def _register_builtins() -> None:

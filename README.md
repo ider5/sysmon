@@ -13,7 +13,7 @@ A beautiful system monitoring CLI tool built with Python.
 - **Brief Mode** - Single-line status display, perfect for terminal prompts
 - **JSON Output** - Machine-readable output for scripts and automation
 - **Disk Monitoring** - Disk usage and read/write I/O speeds
-- **Configuration File** - Persistent defaults via `~/.config/sysmon/config.toml`
+- **Configuration File** - Persistent defaults via a platform config file (`sysmon config path`)
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
 - **GPU Monitoring** - NVIDIA GPU utilization, VRAM, and temperature
 - **Gradient Progress Bars** - Color-coded bars (green → yellow → red)
@@ -114,10 +114,16 @@ Requires `pip install shtab` or `pip install -e ".[dev]"`.
 ### Configuration
 
 ```bash
-sysmon config init      # Create ~/.config/sysmon/config.toml
+sysmon config init      # Create the platform config file
 sysmon config init --force  # Overwrite an existing config
 sysmon config path      # Show config file location
 ```
+
+Config directory (first existing `config.toml` wins on Windows/macOS):
+
+- Linux: `$XDG_CONFIG_HOME/sysmon` or `~/.config/sysmon`
+- macOS: `~/Library/Application Support/sysmon` (falls back to `~/.config/sysmon`)
+- Windows: `%APPDATA%\sysmon` (falls back to `~/.config/sysmon`)
 
 Example `config.toml`:
 
@@ -147,6 +153,8 @@ memory_warn = 80
 memory_critical = 95
 disk_warn = 80
 disk_critical = 95
+gpu_warn = 80
+gpu_critical = 95
 ```
 
 CLI flags override config values.

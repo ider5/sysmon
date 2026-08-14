@@ -85,6 +85,68 @@ def test_snapshot_unknown_format(monkeypatch):
     assert "Unknown format" in result.stdout
 
 
+def test_cpu_rich_uses_registry_collect(monkeypatch):
+    calls = []
+
+    def fake_collect(name, settings=None):
+        calls.append(name)
+        return {
+            "percent": 1.0,
+            "cores": [1.0, 2.0],
+            "count_logical": 2,
+            "count_physical": 1,
+            "freq_current": 0,
+            "freq_max": 0,
+        }
+
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    monkeypatch.setattr("sysmon.collectors.registry.collect", fake_collect)
+    monkeypatch.setattr("sysmon.display.snapshot._print_cpu", lambda *a, **k: None)
+    result = runner.invoke(app, ["cpu"])
+    assert result.exit_code == 0
+    assert "cpu" in calls
+
+
+def test_wait_for_rate_sampling_uses_registry_collect(monkeypatch):
+    calls = []
+    monkeypatch.setattr("sysmon.cli.time.sleep", lambda _s: None)
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect",
+        lambda name, settings=None: calls.append(name),
+    )
+    from sysmon.cli import _wait_for_rate_sampling
+
+    _wait_for_rate_sampling(0.1, DEFAULT_CONFIG)
+    assert calls == ["network", "disk", "process"]
+
+
+def test_top_json_uses_collect_processes(monkeypatch):
+    captured = {}
+
+    def fake_collect_processes(*_args, **kwargs):
+        captured.update(kwargs)
+        return [
+            {
+                "pid": 1,
+                "name": "a",
+                "cpu_percent": 1.0,
+                "memory_percent": 1.0,
+                "memory_mb": 1.0,
+            }
+        ]
+
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect_processes", fake_collect_processes
+    )
+    result = runner.invoke(
+        app, ["top", "--format", "json", "--limit", "3", "--sort", "memory"]
+    )
+    assert result.exit_code == 0
+    assert captured["limit"] == 3
+    assert captured["sort_by"] == "memory"
+
+
 def test_cpu_json():
     result = runner.invoke(app, ["cpu", "--format", "json"])
     assert result.exit_code == 0

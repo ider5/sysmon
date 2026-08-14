@@ -166,8 +166,8 @@ def build_brief_line(
         gpu_text = _format_gpu(
             gpu_info,
             no_color,
-            warn=thresholds.cpu_warn,
-            critical=thresholds.cpu_critical,
+            warn=thresholds.gpu_warn,
+            critical=thresholds.gpu_critical,
         )
         if gpu_text:
             line.append(" │ ", style="dim")

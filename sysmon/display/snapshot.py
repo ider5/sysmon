@@ -9,12 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from sysmon.collectors.cpu import get_cpu_info
-from sysmon.collectors.disk import get_disk_info
-from sysmon.collectors.gpu import get_gpu_info
-from sysmon.collectors.memory import get_memory_info
-from sysmon.collectors.network import get_network_info
-from sysmon.collectors.process import get_top_processes
+from sysmon.collectors.registry import collect
 from sysmon.config import load_config
 from sysmon.display.components import _get_os_name, _get_uptime, ascii_logo, gpu_panel
 from sysmon.display.panels import (
@@ -24,6 +19,8 @@ from sysmon.display.panels import (
     network_panel,
     process_panel,
 )
+
+_UNSET = object()
 
 
 def print_snapshot(
@@ -77,15 +74,15 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
     console.print(Panel(info_table, style="on grey11", padding=(1, 2)))
 
     if settings.modules.cpu:
-        _print_cpu(console, get_cpu_info())
+        _print_cpu(console, collect("cpu", settings))
     if settings.modules.memory:
-        _print_memory(console, get_memory_info())
+        _print_memory(console, collect("memory", settings))
     if settings.modules.network:
-        _print_network(console, get_network_info(settings.network_interfaces))
+        _print_network(console, collect("network", settings))
     if settings.modules.disk:
-        _print_disk(console, get_disk_info(settings.disk_mounts))
+        _print_disk(console, collect("disk", settings))
     if include_gpu and settings.modules.gpu:
-        _print_gpu(console, get_gpu_info())
+        _print_gpu(console, collect("gpu", settings))
     if settings.modules.process:
         _print_process(console)
 
@@ -94,7 +91,7 @@ def _print_cpu(console: Console, info: dict | None = None) -> None:
     """Print CPU information."""
     settings = load_config()
     if info is None:
-        info = get_cpu_info()
+        info = collect("cpu", settings)
     console.print(
         cpu_panel(
             info,
@@ -108,7 +105,7 @@ def _print_memory(console: Console, info: dict | None = None) -> None:
     """Print Memory information."""
     settings = load_config()
     if info is None:
-        info = get_memory_info()
+        info = collect("memory", settings)
     console.print(
         memory_panel(
             info,
@@ -122,7 +119,7 @@ def _print_network(console: Console, info: dict | None = None) -> None:
     """Print Network information."""
     settings = load_config()
     if info is None:
-        info = get_network_info(settings.network_interfaces)
+        info = collect("network", settings)
     console.print(network_panel(info))
 
 
@@ -130,7 +127,7 @@ def _print_disk(console: Console, info: dict | None = None) -> None:
     """Print Disk information."""
     settings = load_config()
     if info is None:
-        info = get_disk_info(settings.disk_mounts)
+        info = collect("disk", settings)
     console.print(
         disk_panel(
             info,
@@ -140,15 +137,22 @@ def _print_disk(console: Console, info: dict | None = None) -> None:
     )
 
 
-def _print_gpu(console: Console, info: list | None = None) -> None:
+def _print_gpu(console: Console, info: list | None | object = _UNSET) -> None:
     """Print GPU information."""
-    if info is None:
-        info = get_gpu_info()
-    console.print(gpu_panel(info))
+    settings = load_config()
+    if info is _UNSET:
+        info = collect("gpu", settings)
+    console.print(
+        gpu_panel(
+            info,
+            warn=settings.thresholds.gpu_warn,
+            critical=settings.thresholds.gpu_critical,
+        )
+    )
 
 
 def _print_process(console: Console) -> None:
     """Print top processes."""
     settings = load_config()
-    processes = get_top_processes(limit=settings.process_limit)
+    processes = collect("process", settings)
     console.print(process_panel(processes))

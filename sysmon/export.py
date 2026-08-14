@@ -136,12 +136,9 @@ def _process_payload(
 ) -> list[dict[str, Any]]:
     cfg = _resolve_settings(settings)
     if name_filter is not None:
-        from sysmon.collectors.process import get_top_processes
+        from sysmon.collectors.registry import collect_processes
 
-        return get_top_processes(
-            limit=cfg.process_limit,
-            name_filter=name_filter,
-        )
+        return collect_processes(cfg, name_filter=name_filter)
     return collect("process", cfg)
 
 
