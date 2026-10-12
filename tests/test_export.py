@@ -1,6 +1,7 @@
 """Tests for structured JSON export."""
 
 import json
+import time
 
 import pytest
 
@@ -191,6 +192,12 @@ def test_collect_all_isolates_section_errors(monkeypatch):
     assert "cpu" not in data
     assert data["errors"]["cpu"] == "cpu down"
     assert "percent" in data["memory"]
+
+
+def test_collect_all_includes_collected_at():
+    before = time.time()
+    data = collect_all(include_gpu=False)
+    assert before <= data["collected_at"] <= time.time()
 
 
 def test_collect_all_respects_disabled_modules(monkeypatch):

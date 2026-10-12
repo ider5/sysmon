@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import platform
+import time
 from typing import Any, Optional
 
 from sysmon import __version__
@@ -214,6 +215,7 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
         "os": _get_os_name(),
         "arch": platform.machine(),
         "uptime": _get_uptime(),
+        "collected_at": time.time(),
     }
 
     if settings.modules.cpu:
@@ -248,6 +250,7 @@ def collect_all_from_snapshot(
         "os": _get_os_name(),
         "arch": platform.machine(),
         "uptime": _get_uptime(),
+        "collected_at": time.time(),
     }
     if cfg.modules.cpu and snapshot.get("cpu") is not None:
         _store(data, "cpu", lambda: _cpu_payload(cfg, info=snapshot["cpu"]))
