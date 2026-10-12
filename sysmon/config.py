@@ -194,9 +194,17 @@ def _string_tuple(value: object) -> tuple[str, ...] | None:
     if value is None:
         return None
     if isinstance(value, str):
-        return (value,)
+        text = value.strip()
+        return (text,) if text else None
     if isinstance(value, (list, tuple)):
-        return tuple(str(item) for item in value)
+        names: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            text = item.strip()
+            if text:
+                names.append(text)
+        return tuple(names)
     return None
 
 

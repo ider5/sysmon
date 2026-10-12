@@ -111,6 +111,18 @@ def test_from_mapping_clamps_unsafe_numbers():
     assert config.network_interfaces == ("eth0",)
 
 
+def test_from_mapping_drops_blank_mount_and_interface_names():
+    config = SysmonConfig.from_mapping(
+        {
+            "disk_mounts": [" /data ", "", None, "  "],
+            "network_interfaces": "  eth0  ",
+        }
+    )
+    assert config.disk_mounts == ("/data",)
+    assert config.network_interfaces == ("eth0",)
+    assert SysmonConfig.from_mapping({"disk_mounts": []}).disk_mounts == ()
+
+
 def test_from_mapping_ignores_non_dict_sections():
     config = SysmonConfig.from_mapping(
         {

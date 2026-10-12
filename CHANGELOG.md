@@ -26,6 +26,7 @@ All notable changes to SysMon are documented in this file.
 - Disk collection reports inode usage on platforms with `statvfs`, and the panel, JSON, and Prometheus include it per mount as well as for the primary disk
 - Listing disk mounts returns an empty list when the OS partition call fails, instead of failing the caller
 - Blank disk mount and network interface names are ignored instead of being queried as real devices
+- Config lists drop blank entries and non-strings, and a blank single string is treated as unset
 - Inode usage is omitted when the OS counters are not finite numbers, instead of failing the disk sample
 - Disk mounts include the filesystem type, shown next to the mount point and as `sysmon_disk_mount_info`, when the OS reports it
 - Filesystem type still matches when the configured mount and the OS path differ by a trailing slash
