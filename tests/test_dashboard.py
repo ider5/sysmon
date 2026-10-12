@@ -3,7 +3,7 @@
 from rich.console import Console
 
 from sysmon.config import SysmonConfig
-from sysmon.display.dashboard import build_dashboard
+from sysmon.display.dashboard import build_dashboard, run_dashboard
 
 
 def _cpu_only_config() -> SysmonConfig:
@@ -204,3 +204,141 @@ def test_build_dashboard_process_row_is_full_width():
     assert "4242" in text
     assert "python" in text
     assert "PID" in text
+
+
+def _sensors_only_config() -> SysmonConfig:
+    return SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": False,
+                "memory": False,
+                "network": False,
+                "disk": False,
+                "gpu": False,
+                "process": False,
+                "sensors": True,
+            }
+        }
+    )
+
+
+def test_build_dashboard_omits_sensors_when_module_disabled():
+    layout = build_dashboard(
+        include_gpu=False,
+        config=_cpu_only_config(),
+        snapshot={
+            "sensors": {
+                "battery": {"percent": 80.0, "secsleft": None, "power_plugged": True},
+                "temperatures": {},
+            }
+        },
+    )
+    console = Console(record=True, width=80)
+    console.print(layout)
+    text = console.export_text()
+    assert "Sensors" not in text
+    assert "80.0%" not in text
+
+
+def test_build_dashboard_shows_enabled_sensors():
+    layout = build_dashboard(
+        include_gpu=False,
+        config=_sensors_only_config(),
+        snapshot={
+            "sensors": {
+                "battery": {
+                    "percent": 80.0,
+                    "secsleft": 3700,
+                    "power_plugged": False,
+                },
+                "temperatures": {
+                    "coretemp": [
+                        {
+                            "label": "Package",
+                            "current": 62.0,
+                            "high": 80.0,
+                            "critical": 100.0,
+                        }
+                    ]
+                },
+            }
+        },
+    )
+    console = Console(record=True, width=80)
+    console.print(layout)
+    text = console.export_text()
+    assert "Sensors" in text
+    assert "80.0%" in text
+    assert "on battery" in text
+    assert "Package" in text
+    assert "62.0°C" in text
+
+
+def test_build_dashboard_sensors_waiting_and_error():
+    waiting = build_dashboard(
+        include_gpu=False,
+        config=_sensors_only_config(),
+        snapshot={},
+    )
+    console = Console(record=True, width=80)
+    console.print(waiting)
+    assert "Waiting for metrics" in console.export_text()
+
+    failed = build_dashboard(
+        include_gpu=False,
+        config=_sensors_only_config(),
+        snapshot={"errors": {"sensors": "sensor read failed"}},
+    )
+    console = Console(record=True, width=80)
+    console.print(failed)
+    assert "Collection error: sensor read failed" in console.export_text()
+
+
+def test_run_dashboard_follows_sensor_module_config(monkeypatch):
+    captured = {}
+
+    class FakeService:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+        def get_snapshot(self) -> dict:
+            return {}
+
+    sleeps = {"n": 0}
+
+    def fake_sleep(_seconds: float) -> None:
+        sleeps["n"] += 1
+        if sleeps["n"] >= 2:
+            raise KeyboardInterrupt
+
+    class FakeLive:
+        def __init__(self, renderable, **kwargs):
+            self.renderable = renderable
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def update(self, renderable) -> None:
+            self.renderable = renderable
+
+    monkeypatch.setattr("sysmon.display.dashboard.CollectorService", FakeService)
+    monkeypatch.setattr("sysmon.display.dashboard.Live", FakeLive)
+    monkeypatch.setattr("sysmon.display.dashboard.time.sleep", fake_sleep)
+    monkeypatch.setattr("sysmon.collectors.registry.collect", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        "sysmon.display.dashboard.load_config", lambda: _sensors_only_config()
+    )
+
+    run_dashboard(refresh_rate=1.0, include_gpu=False)
+    assert captured["include_sensors"] is None
+    assert captured["include_gpu"] is False
+    assert captured["config"].modules.sensors is True

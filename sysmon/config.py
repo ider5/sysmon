@@ -151,6 +151,7 @@ network = true
 disk = true
 gpu = true
 process = true
+# Battery and temperatures. Shown on the dashboard when true.
 sensors = false
 
 [thresholds]

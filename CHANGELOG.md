@@ -4,6 +4,9 @@ All notable changes to SysMon are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Dashboard shows battery charge, power state, and temperatures when `[modules] sensors = true`
+
 ## [0.4.0] - 2026-08-14
 
 ### Added

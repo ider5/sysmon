@@ -17,7 +17,7 @@ A beautiful system monitoring CLI tool built with Python.
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
 - **GPU Monitoring** - NVIDIA via pynvml/GPUtil, merged with Linux DRM sysfs (AMD and other cards that expose `gpu_busy_percent`)
 - **Local metrics server** - `sysmon serve` exposes JSON and Prometheus text on loopback (`/json`, `/metrics`, `/health`)
-- **Optional sensors** - Battery and temperatures when `[modules] sensors = true` (default off; not shown on the dashboard yet)
+- **Optional sensors** - Battery and temperatures when `[modules] sensors = true` (default off; shown on the dashboard when enabled)
 - **Gradient Progress Bars** - Color-coded bars from config warn/critical thresholds
 - **Per-core CPU View** - Individual core usage visualization
 - **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats
@@ -165,7 +165,7 @@ network = true
 disk = true
 gpu = true
 process = true
-sensors = false           # battery/temperatures; default off, not on the dashboard yet
+sensors = false           # battery/temperatures; dashboard panel when true
 
 [thresholds]
 cpu_warn = 80

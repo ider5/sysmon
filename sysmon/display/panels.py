@@ -307,3 +307,79 @@ def process_panel(
         border_style="bright_cyan",
         padding=(0, 1),
     )
+
+
+def _format_remaining(seconds: int) -> str:
+    hours, rem = divmod(seconds, 3600)
+    minutes = rem // 60
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
+
+
+def _temperature_style(current: float, entry: dict) -> str:
+    critical = entry.get("critical")
+    high = entry.get("high")
+    if isinstance(critical, (int, float)) and current >= critical:
+        return "bold red"
+    if isinstance(high, (int, float)) and current >= high:
+        return "bold yellow"
+    return "bold white"
+
+
+def build_sensors_text(info: dict) -> Text:
+    """Build battery and temperature text."""
+    text = Text()
+    battery = info.get("battery") if isinstance(info.get("battery"), dict) else None
+    temperatures = info.get("temperatures") if isinstance(info.get("temperatures"), dict) else {}
+
+    if battery is None and not temperatures:
+        text.append("  No battery or temperature sensors\n", style="dim")
+        return text
+
+    if battery is not None:
+        percent = float(battery.get("percent") or 0.0)
+        text.append(f"  {'Battery':<14}", style="bold")
+        text.append_text(progress_bar(percent, width=25))
+        plugged = "plugged in" if battery.get("power_plugged") else "on battery"
+        text.append(f"\n  {'Power':<14}", style="bold")
+        text.append(plugged + "\n", style="bold white")
+        secsleft = battery.get("secsleft")
+        if isinstance(secsleft, (int, float)) and secsleft >= 0:
+            text.append(f"  {'Remaining':<14}", style="bold")
+            text.append(_format_remaining(int(secsleft)) + "\n", style="bold white")
+
+    readings: list[tuple[str, dict]] = []
+    for group, entries in temperatures.items():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict):
+                label = str(entry.get("label") or group or "temp")
+                readings.append((label, entry))
+
+    if readings:
+        if battery is not None:
+            text.append("  " + "─" * 30 + "\n", style="dim")
+        shown = readings[:8]
+        for label, entry in shown:
+            current = entry.get("current")
+            text.append(f"  {label[:14]:<14}", style="bold")
+            if isinstance(current, (int, float)):
+                text.append(f"{float(current):.1f}°C\n", style=_temperature_style(float(current), entry))
+            else:
+                text.append("n/a\n", style="dim")
+        extra = len(readings) - len(shown)
+        if extra > 0:
+            text.append(f"  +{extra} more\n", style="dim")
+
+    return text
+
+
+def sensors_panel(info: dict) -> Panel:
+    """Build battery and temperature panel."""
+    return Panel(
+        build_sensors_text(info),
+        title="[bold bright_white]🌡 Sensors[/bold bright_white]",
+        border_style="bright_white",
+    )

@@ -20,6 +20,7 @@ from sysmon.display.panels import (
     memory_panel,
     network_panel,
     process_panel,
+    sensors_panel,
 )
 from sysmon.display.sparkline import HistoryBuffer
 
@@ -173,6 +174,21 @@ def build_dashboard(
                 )
             )
 
+    if modules.sensors:
+        sensors_info = data.get("sensors")
+        if sensors_info is None:
+            metric_panels.append(
+                (
+                    "sensors",
+                    _waiting_panel(
+                        "[bold bright_white]🌡 Sensors[/bold bright_white]",
+                        errors.get("sensors"),
+                    ),
+                )
+            )
+        else:
+            metric_panels.append(("sensors", sensors_panel(sensors_info)))
+
     if modules.process:
         processes = data.get("process")
         if processes is None:
@@ -250,7 +266,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
     service = CollectorService(
         interval=refresh_rate,
         include_gpu=include_gpu,
-        include_sensors=False,
+        include_sensors=None,
         config=config,
     )
     service.start()

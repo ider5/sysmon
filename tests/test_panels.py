@@ -6,6 +6,7 @@ from sysmon.display.panels import (
     build_cpu_text,
     build_disk_text,
     build_memory_text,
+    build_sensors_text,
     process_panel,
 )
 
@@ -120,3 +121,42 @@ def test_process_panel_empty_still_has_table_frame():
     assert "PID" in rendered
     assert "No matching processes" in rendered
     assert ("┳" in rendered or "╋" in rendered) or ("┬" in rendered or "┼" in rendered)
+
+
+def test_build_sensors_text_battery_and_temperature():
+    text = build_sensors_text(
+        {
+            "battery": {
+                "percent": 80.0,
+                "secsleft": 3700,
+                "power_plugged": False,
+            },
+            "temperatures": {
+                "coretemp": [
+                    {
+                        "label": "Package",
+                        "current": 105.0,
+                        "high": 80.0,
+                        "critical": 100.0,
+                    }
+                ]
+            },
+        }
+    )
+    plain = text.plain
+    assert "80.0%" in plain
+    assert "on battery" in plain
+    assert "1h 1m" in plain
+    assert "Package" in plain
+    assert "105.0°C" in plain
+    temp_at = plain.index("105.0°C")
+    covering = [
+        span for span in text.spans if span.start <= temp_at < span.end
+    ]
+    assert covering
+    assert "red" in str(covering[-1].style)
+
+
+def test_build_sensors_text_empty_readings():
+    text = build_sensors_text({"battery": None, "temperatures": {}})
+    assert "No battery or temperature sensors" in text.plain
