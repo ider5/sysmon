@@ -8,7 +8,7 @@ class HistoryBuffer:
     """Fixed-length history buffer for sparklines."""
 
     def __init__(self, maxlen: int = 60) -> None:
-        self._data: deque[float] = deque(maxlen=maxlen)
+        self._data: deque[float] = deque(maxlen=max(1, maxlen))
 
     def add(self, value: float) -> None:
         if isinstance(value, bool) or not isinstance(value, (int, float)):

@@ -35,6 +35,7 @@ All notable changes to SysMon are documented in this file.
 - Sparklines fill missing history with the first real sample, so a short trail does not look like a jump up from zero
 - Sparklines keep the newest sample on the right edge when the history is longer than the trail
 - A sparkline with zero width returns an empty string instead of raising
+- A history buffer with a non-positive length keeps one sample instead of raising
 - Sparkline history drops NaN and infinite samples instead of crashing the dashboard
 - Progress bars render `n/a` for NaN or infinite percentages instead of crashing the dashboard
 - JSON metric status is `unknown` for a NaN or infinite percentage instead of `ok`

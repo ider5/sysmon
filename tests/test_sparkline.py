@@ -3,6 +3,15 @@
 from sysmon.display.sparkline import HistoryBuffer, render_sparkline
 
 
+def test_history_buffer_rejects_non_positive_maxlen():
+    buf = HistoryBuffer(maxlen=0)
+    buf.add(1.0)
+    assert buf.values() == [1.0]
+    buf = HistoryBuffer(maxlen=-3)
+    buf.add(2.0)
+    assert buf.values() == [2.0]
+
+
 def test_history_buffer_maxlen():
     buf = HistoryBuffer(maxlen=3)
     for v in [1, 2, 3, 4]:
