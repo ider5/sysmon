@@ -23,6 +23,8 @@ class HistoryBuffer:
 
 def render_sparkline(values: list[float], width: int = 30) -> str:
     """Render a sparkline string from numeric values."""
+    if width <= 0:
+        return ""
     finite = [
         float(value)
         for value in values

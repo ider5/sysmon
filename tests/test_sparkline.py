@@ -28,6 +28,11 @@ def test_render_sparkline_ignores_non_finite_values():
     assert "█" in line
 
 
+def test_render_sparkline_zero_width():
+    assert render_sparkline([1.0, 2.0, 3.0], width=0) == ""
+    assert render_sparkline([], width=0) == ""
+
+
 def test_render_sparkline_empty():
     assert render_sparkline([], width=10) == " " * 10
 
