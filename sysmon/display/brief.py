@@ -15,7 +15,7 @@ from rich.live import Live
 from rich.text import Text
 
 from sysmon.collectors.memory import bytes_to_gb
-from sysmon.collectors.network import format_speed
+from sysmon.collectors.network import down_interface_names, format_speed
 from sysmon.collectors.registry import collect
 from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import ThresholdConfig, load_config, metric_status
@@ -138,6 +138,21 @@ def _format_network(info: dict, no_color: bool = False) -> Text:
         text.append(up, style="green")
         text.append(" ↓", style="cyan")
         text.append(down, style="cyan")
+    return text
+
+
+def _format_link_down(info: dict) -> Text | None:
+    """Show interface names when their link is down."""
+    names = down_interface_names(info)
+    if not names:
+        return None
+    shown = names[:3]
+    extra = len(names) - len(shown)
+    label = "DOWN " + ",".join(shown)
+    if extra:
+        label += f" +{extra}"
+    text = Text()
+    text.append(label)
     return text
 
 
@@ -303,6 +318,9 @@ def build_brief_line(
         error_text = _format_network_errors(network_info)
         if error_text is not None:
             parts.append(error_text)
+        down_text = _format_link_down(network_info)
+        if down_text is not None:
+            parts.append(down_text)
     if settings.modules.disk:
         disk_text = _format_disk_pressure(
             collect("disk", settings),

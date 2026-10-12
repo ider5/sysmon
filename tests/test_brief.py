@@ -202,6 +202,40 @@ def test_build_brief_line_ignores_non_numeric_swap_and_battery(monkeypatch):
     assert line.plain == "RAM 1.0/1.0G (10%)"
 
 
+def test_build_brief_line_shows_down_interfaces(monkeypatch):
+    def fake_collect(name, settings=None):
+        assert name == "network"
+        return {
+            "speed_up": 0,
+            "speed_down": 0,
+            "interfaces": [
+                {"name": "eth0", "isup": False},
+                {"name": "wlan0", "isup": True},
+                "bad",
+            ],
+        }
+
+    monkeypatch.setattr(brief_mod, "collect", fake_collect)
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=True,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    line = brief_mod.build_brief_line(no_color=True)
+    assert "DOWN eth0" in line.plain
+    assert "wlan0" not in line.plain
+
+
 def test_build_brief_line_memory_color_uses_memory_thresholds(monkeypatch):
     _stub_brief_collectors(monkeypatch, cpu_percent=1.0, memory_percent=15.0)
     line = brief_mod.build_brief_line(

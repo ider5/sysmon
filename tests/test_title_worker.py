@@ -165,6 +165,34 @@ def test_build_title_ignores_non_numeric_swap_and_battery(monkeypatch):
     assert title_worker.build_title(no_gpu=True) == "RAM 1.0/1.0G (10%)"
 
 
+def test_build_title_shows_down_interfaces(monkeypatch):
+    def fake_collect(name, settings=None):
+        assert name == "network"
+        return {
+            "speed_up": 0,
+            "speed_down": 0,
+            "interfaces": [{"name": "eth0", "isup": False}, {"name": "wlan0", "isup": True}],
+        }
+
+    monkeypatch.setattr(title_worker, "collect", fake_collect)
+    monkeypatch.setattr(
+        title_worker,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=True,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    assert title_worker.build_title(no_gpu=True) == "↑0.0 B/s ↓0.0 B/s │ DOWN eth0"
+
+
 def test_build_title_follows_modules_and_battery(monkeypatch):
     def fake_collect(name, settings=None):
         assert name == "sensors"

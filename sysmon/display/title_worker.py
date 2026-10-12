@@ -8,7 +8,7 @@ import time
 import traceback
 
 from sysmon.collectors.memory import bytes_to_gb
-from sysmon.collectors.network import format_speed
+from sysmon.collectors.network import down_interface_names, format_speed
 from sysmon.collectors.registry import collect
 from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import load_config
@@ -103,6 +103,14 @@ def build_title(no_gpu: bool) -> str:
         dropout = int(_num(net, "dropout"))
         if errin or errout or dropin or dropout:
             parts.append(f"ERR {errin}/{errout} DROP {dropin}/{dropout}")
+        down_names = down_interface_names(net)
+        if down_names:
+            shown = down_names[:3]
+            extra = len(down_names) - len(shown)
+            label = "DOWN " + ",".join(shown)
+            if extra:
+                label += f" +{extra}"
+            parts.append(label)
     if settings.modules.disk:
         disk = collect("disk", settings)
         percent = disk.get("percent") if isinstance(disk, dict) else None

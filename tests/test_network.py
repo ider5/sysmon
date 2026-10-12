@@ -20,6 +20,13 @@ def test_format_bytes():
     assert format_bytes(1024 ** 3) == "1.0 GB"
 
 
+def test_down_interface_names():
+    assert network_module.down_interface_names(
+        {"interfaces": [{"name": "eth0", "isup": False}, {"name": "up0", "isup": True}, None]}
+    ) == ["eth0"]
+    assert network_module.down_interface_names({"speed_up": 0}) == []
+
+
 def test_format_speed():
     assert format_speed(1024) == "1.0 KB/s"
 

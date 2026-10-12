@@ -207,6 +207,21 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
     }
 
 
+def down_interface_names(info: object) -> list[str]:
+    """Return names of interfaces whose link is explicitly down."""
+    if not isinstance(info, dict):
+        return []
+    interfaces = info.get("interfaces")
+    if not isinstance(interfaces, list):
+        return []
+    names: list[str] = []
+    for iface in interfaces:
+        if not isinstance(iface, dict) or iface.get("isup") is not False:
+            continue
+        names.append(str(iface.get("name") or "unknown"))
+    return names
+
+
 def format_bytes(b: float) -> str:
     """Format bytes to human-readable string."""
     for unit in ["B", "KB", "MB", "GB", "TB"]:
