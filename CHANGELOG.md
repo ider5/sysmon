@@ -31,6 +31,7 @@ All notable changes to SysMon are documented in this file.
 - The network panel ignores a non-finite or absurd link speed instead of failing the frame
 - Network collection ignores a non-finite link speed instead of failing the sample
 - CPU and memory panels tolerate a partial record instead of raising
+- CPU, memory, and network panels still draw when the section is not a record
 - Brief mode and the terminal title tolerate a partial CPU, memory, network, or GPU record instead of raising
 - GPU panels tolerate a partial record instead of raising
 - `sysmon network` and the network snapshot show packet counts, matching the dashboard

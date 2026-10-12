@@ -25,6 +25,8 @@ def build_cpu_text(
     history: list[float] | None = None,
 ) -> Text:
     """Build CPU metrics text."""
+    if not isinstance(info, dict):
+        info = {}
     text = Text()
     usage_label = "Overall" if compact else "Usage"
     text.append(f"  {usage_label:<14}", style="bold")
@@ -101,6 +103,8 @@ def build_memory_text(
     history: list[float] | None = None,
 ) -> Text:
     """Build memory metrics text."""
+    if not isinstance(info, dict):
+        info = {}
     text = Text()
     text.append(f"  {'RAM':<14}", style="bold")
     text.append_text(progress_bar(_as_number(info.get("percent")), width=25, warn=warn, critical=critical))
@@ -168,6 +172,8 @@ def build_network_text(
     upload_history: list[float] | None = None,
 ) -> Text:
     """Build network metrics text."""
+    if not isinstance(info, dict):
+        info = {}
     text = Text()
     interfaces = info.get("interfaces")
 

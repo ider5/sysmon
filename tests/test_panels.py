@@ -92,6 +92,12 @@ def test_build_memory_text_includes_ram():
     assert "Available" in rendered
 
 
+def test_cpu_memory_network_panels_tolerate_non_record():
+    assert "0.0%" in build_cpu_text(None).plain  # type: ignore[arg-type]
+    assert "0.0 / 0.0 GB" in build_memory_text(None).plain  # type: ignore[arg-type]
+    assert "0.0 B/s" in build_network_text(None).plain  # type: ignore[arg-type]
+
+
 def test_build_network_text_shows_link_speed():
     text = build_network_text(
         {
