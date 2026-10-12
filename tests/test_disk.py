@@ -13,6 +13,12 @@ def test_inode_percent_from_statvfs(monkeypatch):
     assert disk_module._inode_percent("/data") == 75.0
 
 
+def test_inode_percent_ignores_non_numeric_counters(monkeypatch):
+    stats = SimpleNamespace(f_files="bad", f_ffree=1)
+    monkeypatch.setattr(disk_module.os, "statvfs", lambda _mount: stats, raising=False)
+    assert disk_module._inode_percent("/data") is None
+
+
 def test_inode_percent_missing_without_statvfs(monkeypatch):
     monkeypatch.delattr(disk_module.os, "statvfs", raising=False)
     assert disk_module._inode_percent("/") is None

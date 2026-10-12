@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import platform
 import threading
@@ -109,10 +110,21 @@ def _inode_percent(mount: str) -> float | None:
     except OSError:
         return None
     files = getattr(stats, "f_files", 0) or 0
-    if files <= 0:
-        return None
     free = getattr(stats, "f_ffree", 0) or 0
-    return max(0.0, min(100.0, (files - free) / files * 100.0))
+    if (
+        isinstance(files, bool)
+        or isinstance(free, bool)
+        or not isinstance(files, (int, float))
+        or not isinstance(free, (int, float))
+        or not math.isfinite(files)
+        or not math.isfinite(free)
+        or files <= 0
+    ):
+        return None
+    percent = (files - free) / files * 100.0
+    if not math.isfinite(percent):
+        return None
+    return max(0.0, min(100.0, float(percent)))
 
 
 def _mount_usage(mount: str) -> dict | None:
