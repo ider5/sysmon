@@ -153,33 +153,36 @@ def build_network_text(
     text = Text()
     interfaces = info.get("interfaces")
 
-    if interfaces:
+    if isinstance(interfaces, list) and interfaces:
         for idx, iface in enumerate(interfaces):
+            if not isinstance(iface, dict):
+                continue
             if idx > 0:
                 text.append("  " + "─" * 30 + "\n", style="dim")
-            text.append(f"  {iface['name']:<14}", style="bold underline white")
+            name = str(iface.get("name") or "unknown")
+            text.append(f"  {name:<14}", style="bold underline white")
             text.append("\n")
             text.append(f"  {'↑ Upload':<14}", style="bold")
-            text.append(format_speed(iface["speed_up"]) + "\n", style="green")
+            text.append(format_speed(_as_number(iface.get("speed_up"))) + "\n", style="green")
             text.append(f"  {'↓ Download':<14}", style="bold")
-            text.append(format_speed(iface["speed_down"]) + "\n", style="cyan")
+            text.append(format_speed(_as_number(iface.get("speed_down"))) + "\n", style="cyan")
         text.append("  " + "─" * 30 + "\n", style="dim")
         text.append(f"  {'Total ↑':<14}", style="bold")
-        text.append(format_speed(info["speed_up"]) + "\n", style="green")
+        text.append(format_speed(_as_number(info.get("speed_up"))) + "\n", style="green")
         if upload_history:
             text.append(f"  {'':14}")
             text.append(render_sparkline(upload_history, width=25) + "\n", style="green")
         text.append(f"  {'Total ↓':<14}", style="bold")
-        text.append(format_speed(info["speed_down"]) + "\n", style="cyan")
+        text.append(format_speed(_as_number(info.get("speed_down"))) + "\n", style="cyan")
     else:
         text.append(f"  {'↑ Upload':<14}", style="bold")
-        text.append(format_speed(info["speed_up"]) + "\n", style="green")
+        text.append(format_speed(_as_number(info.get("speed_up"))) + "\n", style="green")
         if upload_history:
             text.append(f"  {'':14}")
             text.append(render_sparkline(upload_history, width=25) + "\n", style="green")
 
         text.append(f"  {'↓ Download':<14}", style="bold")
-        text.append(format_speed(info["speed_down"]) + "\n", style="cyan")
+        text.append(format_speed(_as_number(info.get("speed_down"))) + "\n", style="cyan")
 
     if download_history:
         text.append(f"  {'History':<14}", style="bold")
@@ -188,15 +191,16 @@ def build_network_text(
     text.append("  " + "─" * 30 + "\n", style="dim")
 
     text.append(f"  {'Sent':<14}", style="bold")
-    text.append(format_bytes(info["bytes_sent"]) + "\n", style="dim")
+    text.append(format_bytes(_as_number(info.get("bytes_sent"))) + "\n", style="dim")
 
     text.append(f"  {'Received':<14}", style="bold")
-    text.append(format_bytes(info["bytes_recv"]) + "\n", style="dim")
+    text.append(format_bytes(_as_number(info.get("bytes_recv"))) + "\n", style="dim")
 
     if show_packets:
         text.append(f"  {'Packets':<14}", style="bold")
         text.append(
-            f"↑{info['packets_sent']:,} ↓{info['packets_recv']:,}\n",
+            f"↑{int(_as_number(info.get('packets_sent'))):,} "
+            f"↓{int(_as_number(info.get('packets_recv'))):,}\n",
             style="dim",
         )
 
@@ -300,7 +304,7 @@ def disk_panel(
     )
 
 
-def _as_percent(value: object) -> float:
+def _as_number(value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return 0.0
     number = float(value)
@@ -349,9 +353,9 @@ def process_panel(
         table.add_row("—", "—", "No matching processes", "—", "—", "—")
     else:
         for index, proc in enumerate(processes, start=1):
-            cpu = _as_percent(proc.get("cpu_percent"))
-            mem = _as_percent(proc.get("memory_percent"))
-            rss = _as_percent(proc.get("memory_mb"))
+            cpu = _as_number(proc.get("cpu_percent"))
+            mem = _as_number(proc.get("memory_percent"))
+            rss = _as_number(proc.get("memory_mb"))
             mem_color = gradient_color(mem, warn=memory_warn, critical=memory_critical)
             table.add_row(
                 str(index),

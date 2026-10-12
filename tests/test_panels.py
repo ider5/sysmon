@@ -70,6 +70,14 @@ def test_build_memory_text_includes_ram():
     assert "Available" in rendered
 
 
+def test_build_network_text_tolerates_partial_record():
+    text = build_network_text({"interfaces": [{"name": "eth0"}]}, show_packets=True)
+    rendered = text.plain
+    assert "eth0" in rendered
+    assert "0.0 B/s" in rendered
+    assert "Packets" in rendered
+
+
 def test_build_network_text_includes_upload_history():
     info = {
         "speed_up": 2048,
