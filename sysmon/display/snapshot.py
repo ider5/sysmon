@@ -99,6 +99,7 @@ def _print_cpu(console: Console, info: dict | None = None) -> None:
     console.print(
         cpu_panel(
             info,
+            cores=info.get("cores"),
             warn=settings.thresholds.cpu_warn,
             critical=settings.thresholds.cpu_critical,
         )

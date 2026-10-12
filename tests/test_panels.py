@@ -24,6 +24,20 @@ def test_build_cpu_text_includes_usage():
     assert "8 cores / 16 threads" in str(text)
 
 
+def test_build_cpu_text_shows_per_core_outside_compact_mode():
+    info = {
+        "percent": 42.0,
+        "count_physical": 2,
+        "count_logical": 2,
+        "freq_current": 3200,
+    }
+    text = build_cpu_text(info, cores=[10.0, 90.0], compact=False)
+    rendered = text.plain
+    assert "Per-core Usage" in rendered
+    assert "10.0%" in rendered
+    assert "90.0%" in rendered
+
+
 def test_build_memory_text_includes_history():
     info = {
         "percent": 50.0,

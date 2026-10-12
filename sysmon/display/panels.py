@@ -45,7 +45,7 @@ def build_cpu_text(
         text.append(f"  {'Frequency':<14}", style="bold")
         text.append(f"{info['freq_current']:.0f} MHz\n", style="bold white")
 
-    if cores and compact:
+    if cores:
         text.append("\n  ", style="bold")
         text.append("Per-core Usage\n", style="bold underline")
         for i in range(0, len(cores), 2):
