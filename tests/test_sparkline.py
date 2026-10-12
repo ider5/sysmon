@@ -10,8 +10,31 @@ def test_history_buffer_maxlen():
     assert buf.values() == [2, 3, 4]
 
 
+def test_history_buffer_ignores_non_finite_values():
+    buf = HistoryBuffer(maxlen=4)
+    buf.add(1.0)
+    buf.add(float("nan"))
+    buf.add(float("inf"))
+    buf.add(True)  # type: ignore[arg-type]
+    buf.add(2.0)
+    assert buf.values() == [1.0, 2.0]
+
+
+def test_render_sparkline_ignores_non_finite_values():
+    assert render_sparkline([float("nan"), float("inf")], width=4) == " " * 4
+    line = render_sparkline([float("nan"), 0.0, 100.0], width=4)
+    assert len(line) == 4
+    assert "▁" in line
+    assert "█" in line
+
+
 def test_render_sparkline_empty():
     assert render_sparkline([], width=10) == " " * 10
+
+
+def test_render_sparkline_pads_with_the_first_sample():
+    line = render_sparkline([80.0], width=5)
+    assert line == "▁" * 5
 
 
 def test_render_sparkline_with_values():
