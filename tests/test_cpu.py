@@ -23,6 +23,25 @@ def test_get_cpu_snapshot_overall_from_cores():
     assert snapshot["count_physical"] == 2
 
 
+def test_get_cpu_snapshot_when_percent_unavailable():
+    with patch(
+        "sysmon.collectors.cpu.psutil.cpu_percent",
+        side_effect=NotImplementedError("cpu"),
+    ):
+        with patch("sysmon.collectors.cpu.psutil.cpu_count", return_value=2):
+            with patch("sysmon.collectors.cpu.platform.system", return_value="Linux"):
+                with patch(
+                    "sysmon.collectors.cpu.psutil.cpu_freq",
+                    return_value=None,
+                    create=True,
+                ):
+                    snapshot = get_cpu_snapshot(interval=0)
+
+    assert snapshot["percent"] == 0.0
+    assert snapshot["cores"] == []
+    assert snapshot["count_logical"] == 2
+
+
 def test_get_cpu_snapshot_physical_count_falls_back_to_logical():
     with patch("sysmon.collectors.cpu.psutil.cpu_percent", return_value=[10.0]):
         with patch("sysmon.collectors.cpu.psutil.cpu_count", side_effect=[4, None]):

@@ -145,7 +145,10 @@ def get_cpu_snapshot(interval: float = 0.1) -> dict:
         freq_current, freq_max
     """
     _ensure_freq_collector()
-    cores = psutil.cpu_percent(interval=interval, percpu=True) or []
+    try:
+        cores = psutil.cpu_percent(interval=interval, percpu=True) or []
+    except (OSError, RuntimeError, NotImplementedError):
+        cores = []
     overall = sum(cores) / len(cores) if cores else 0.0
     freq_current, freq_max = _get_freq_fields()
     logical = psutil.cpu_count(logical=True) or 0

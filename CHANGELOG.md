@@ -34,6 +34,7 @@ All notable changes to SysMon are documented in this file.
 ### Fixed
 - Aggregate network collection returns zero counters instead of crashing when the OS exposes no I/O counters or the call raises. Disk I/O uses the same fallback, and usage for selected mounts is still reported
 - CPU physical core count falls back to the logical count when the OS does not report it, instead of rendering "None cores"
+- CPU collection returns a zero snapshot instead of crashing when percent sampling is not implemented
 - The native process scanner drops idle placeholders and the current process before applying the top-N limit, so the list is not shortened by those rows
 - Linux DRM GPUs are ordered by card number, so `card10` no longer sorts before `card2`
 - Config intervals are clamped to 0.1–10 seconds, `process_limit` to 1–50, and a warn threshold above critical is swapped so the warning band still exists. A single string for `disk_mounts` or `network_interfaces` is kept as one entry instead of being split into characters. A non-table `modules` or `thresholds` value is ignored instead of discarding the rest of the file
