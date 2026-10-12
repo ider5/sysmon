@@ -66,6 +66,10 @@ class SysmonConfig:
         """Build config from a parsed TOML mapping."""
         modules_data = data.get("modules", {})
         thresholds_data = data.get("thresholds", {})
+        if not isinstance(modules_data, dict):
+            modules_data = {}
+        if not isinstance(thresholds_data, dict):
+            thresholds_data = {}
 
         modules = ModuleConfig(
             cpu=bool(modules_data.get("cpu", True)),

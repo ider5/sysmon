@@ -109,6 +109,19 @@ def test_from_mapping_clamps_unsafe_numbers():
     assert config.network_interfaces == ("eth0",)
 
 
+def test_from_mapping_ignores_non_dict_sections():
+    config = SysmonConfig.from_mapping(
+        {
+            "refresh_interval": 2.5,
+            "modules": "cpu",
+            "thresholds": 80,
+        }
+    )
+    assert config.refresh_interval == 2.5
+    assert config.modules.cpu is True
+    assert config.thresholds.cpu_warn == 80.0
+
+
 def test_from_mapping_invalid_default_format_falls_back():
     config = SysmonConfig.from_mapping({"default_format": "yaml"})
     assert config.default_format == "rich"
