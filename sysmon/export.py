@@ -274,7 +274,7 @@ def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
     if include_gpu and settings.modules.gpu and settings.enable_gpu:
         data["gpu"] = _gpu_payload(settings)
     if settings.modules.sensors:
-        data["sensors"] = collect("sensors", settings)
+        data["sensors"] = _sensors_payload(settings)
     data["collected_at"] = time.time()
     return data
 

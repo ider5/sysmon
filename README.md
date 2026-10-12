@@ -194,7 +194,7 @@ sysmon brief -t         # Title mode (background, updates window title)
 sysmon brief --stop     # Stop title mode
 sysmon brief --no-color # No colors (for copy-paste)
 sysmon brief --no-gpu   # Hide GPU info
-sysmon brief --format json  # One-shot JSON (not with -w / -t); honors [modules]
+sysmon brief --format json  # One-shot JSON (not with -w / -t); honors [modules]; sensors include hottest_c
 ```
 
 Example output:

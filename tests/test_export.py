@@ -107,6 +107,32 @@ def test_collect_brief_respects_modules(monkeypatch):
     assert data["sensors"]["battery"]["percent"] == 12.0
 
 
+def test_collect_brief_sensors_include_hottest_temperature(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=False,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=True,
+        )
+    )
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "battery": None,
+            "temperatures": {"cpu": [{"label": "pkg", "current": 62.0}]},
+        },
+    )
+    data = collect_brief(include_gpu=False)
+    assert data["sensors"]["hottest_c"] == 62.0
+
+
 def test_gpu_payload_tolerates_partial_record(monkeypatch):
     monkeypatch.setattr(
         "sysmon.export.collect",
