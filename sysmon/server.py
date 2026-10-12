@@ -39,9 +39,15 @@ def _prime_rate_collectors(settings: SysmonConfig) -> None:
     """Take a first network/disk sample so the next collect has speeds."""
     from sysmon.collectors.registry import collect
 
-    collect("network", settings)
-    collect("disk", settings)
-    time.sleep(min(_RATE_PRIME_SLEEP, settings.refresh_interval))
+    primed = False
+    if settings.modules.network:
+        collect("network", settings)
+        primed = True
+    if settings.modules.disk:
+        collect("disk", settings)
+        primed = True
+    if primed:
+        time.sleep(min(_RATE_PRIME_SLEEP, settings.refresh_interval))
 
 
 def _fmt(value: float) -> str:

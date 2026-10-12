@@ -226,6 +226,27 @@ def test_prime_rate_collectors_samples_network_and_disk(monkeypatch):
     assert slept == [0.5]
 
 
+def test_prime_rate_collectors_skips_disabled_modules(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+    from sysmon.server import _prime_rate_collectors
+
+    names = []
+    slept = []
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect",
+        lambda name, settings=None: names.append(name),
+    )
+    monkeypatch.setattr("sysmon.server.time.sleep", lambda seconds: slept.append(seconds))
+    _prime_rate_collectors(
+        SysmonConfig(
+            modules=ModuleConfig(network=False, disk=False),
+            refresh_interval=2.0,
+        )
+    )
+    assert names == []
+    assert slept == []
+
+
 def test_serve_forever_primes_before_starting_service(monkeypatch):
     from sysmon.server import serve_forever
 

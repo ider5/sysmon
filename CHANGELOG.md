@@ -15,7 +15,7 @@ All notable changes to SysMon are documented in this file.
 
 ### Changed
 - The dashboard keeps a memory sparkline next to the existing CPU and download history
-- `sysmon snapshot` only waits to sample network, disk, or process counters when that section is requested and enabled
+- `sysmon snapshot` and `sysmon serve` only sample network and disk counters when those modules are enabled. Snapshot also skips that wait for sections that do not need it
 - Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled
 - `sysmon brief --format json` uses those same module switches and includes `sensors` when the module is enabled
 
