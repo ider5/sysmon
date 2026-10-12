@@ -86,6 +86,30 @@ def test_snapshot_sensors_json(monkeypatch):
     assert data["sensors"]["battery"]["percent"] == 55.0
 
 
+def test_snapshot_section_is_case_insensitive(monkeypatch):
+    monkeypatch.setattr("sysmon.cli._wait_for_rate_sampling", lambda *a, **k: None)
+    result = runner.invoke(app, ["snapshot", "CPU", "--format", "json", "--sample-interval", "0.1"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "percent" in data["cpu"]
+
+
+def test_top_sort_is_case_insensitive(monkeypatch):
+    captured = {}
+
+    def fake_collect_processes(*_args, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect_processes", fake_collect_processes
+    )
+    result = runner.invoke(app, ["top", "--format", "json", "--sort", "MEMORY"])
+    assert result.exit_code == 0
+    assert captured["sort_by"] == "memory"
+
+
 def test_snapshot_unknown_section(monkeypatch):
     monkeypatch.setattr("sysmon.cli._wait_for_rate_sampling", lambda *a, **k: None)
     result = runner.invoke(app, ["snapshot", "bogus", "--format", "json"])

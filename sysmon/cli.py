@@ -235,6 +235,7 @@ def snapshot(
     )
     include_gpu = _resolve_gpu_enabled(no_gpu, settings)
 
+    section = section.lower()
     if section not in VALID_SECTIONS:
         console.print(f"[red]Unknown section: {section}[/red]")
         console.print(f"Valid sections: {', '.join(VALID_SECTIONS)}")
@@ -291,6 +292,7 @@ def top(
     settings = load_config()
     fmt = _validate_format(_resolve_format(output_format, settings))
     count = limit if limit is not None else settings.process_limit
+    sort_by = sort_by.lower()
     if sort_by not in ("cpu", "memory"):
         console.print(f"[red]Unknown sort key: {sort_by}[/red]")
         console.print("Valid sort keys: cpu, memory")
