@@ -114,6 +114,11 @@ def format_prometheus(data: dict[str, Any]) -> str:
             collected_at,
             "Unix time when this sample was taken",
         )
+        gauge(
+            "sysmon_sample_age_seconds",
+            max(0.0, time.time() - collected_at),
+            "Seconds since this sample was taken",
+        )
     cpu = data.get("cpu")
     if isinstance(cpu, dict) and "percent" in cpu:
         gauge("sysmon_cpu_percent", cpu["percent"], "CPU utilization percent")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from http.client import HTTPConnection
 
 from sysmon.server import format_prometheus, start_server
@@ -30,6 +31,17 @@ def test_format_prometheus_counts_section_errors():
     text = format_prometheus({"errors": {"cpu": "down", "disk": "down"}})
     assert "sysmon_section_errors 2.0" in text
     assert "sysmon_section_errors" not in format_prometheus({})
+
+
+def test_format_prometheus_includes_sample_age():
+    text = format_prometheus({"collected_at": time.time() - 5})
+    ages = [
+        float(line.split()[-1])
+        for line in text.splitlines()
+        if line.startswith("sysmon_sample_age_seconds ")
+    ]
+    assert ages
+    assert ages[0] >= 4.0
 
 
 def test_format_prometheus_includes_collected_at():
