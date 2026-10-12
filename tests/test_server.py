@@ -265,6 +265,11 @@ def test_format_prometheus_includes_battery_time_remaining():
     assert "sysmon_battery_secsleft" not in absent
 
 
+def test_format_prometheus_includes_hottest_temperature():
+    text = format_prometheus({"sensors": {"hottest_c": 61.0, "temperatures": {}}})
+    assert "sysmon_temperature_hottest_celsius 61.0" in text
+
+
 def test_format_prometheus_includes_sensors():
     text = format_prometheus(
         {

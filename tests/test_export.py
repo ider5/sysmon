@@ -351,6 +351,21 @@ def test_collect_section_unknown_raises():
         collect_section("invalid")
 
 
+def test_snapshot_sensors_include_hottest_temperature():
+    settings = SysmonConfig(modules=ModuleConfig(sensors=True))
+    data = collect_all_from_snapshot(
+        {
+            "sensors": {
+                "battery": None,
+                "temperatures": {"cpu": [{"label": "pkg", "current": 61.0}]},
+            }
+        },
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["sensors"]["hottest_c"] == 61.0
+
+
 def test_sensors_payload_includes_hottest_temperature(monkeypatch):
     monkeypatch.setattr(
         "sysmon.export.collect",

@@ -388,7 +388,13 @@ def collect_all_from_snapshot(
     if cfg.modules.process and processes is not None:
         data["processes"] = processes
     if cfg.modules.sensors and "sensors" in snapshot:
-        data["sensors"] = snapshot["sensors"]
+        sensors = snapshot["sensors"]
+        if isinstance(sensors, dict):
+            sensors = dict(sensors)
+            hottest = hottest_temperature(sensors)
+            if hottest is not None:
+                sensors["hottest_c"] = hottest[0]
+        data["sensors"] = sensors
     return data
 
 

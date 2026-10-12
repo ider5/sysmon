@@ -468,6 +468,13 @@ def format_prometheus(data: dict[str, Any]) -> str:
                     temp_samples.append(
                         (str(group), str(entry.get("label") or ""), float(current))
                     )
+        hottest = _first_number(sensors, "hottest_c")
+        if hottest is not None:
+            gauge(
+                "sysmon_temperature_hottest_celsius",
+                hottest,
+                "Highest sensor temperature in Celsius",
+            )
         if temp_samples:
             lines.append("# HELP sysmon_temperature_celsius Sensor temperature in Celsius")
             lines.append("# TYPE sysmon_temperature_celsius gauge")

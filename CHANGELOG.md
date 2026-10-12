@@ -29,7 +29,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon network` and the network snapshot show packet counts, matching the dashboard
 - `sysmon snapshot sensors` prints that same panel; the full snapshot includes it when the module is enabled
 - `sysmon sensors` prints battery and temperatures, with the same JSON section as the other metric commands
-- Sensor JSON includes `hottest_c`, the highest numeric temperature in the sample
+- Sensor JSON includes `hottest_c`, the highest numeric temperature in the sample, including snapshots from the background collector. Prometheus exports it as `sysmon_temperature_hottest_celsius`
 - `sysmon config show` prints the resolved configuration as JSON
 - Prometheus `/metrics` exports battery charge, remaining time when known, and sensor temperatures when they are present in the payload
 - Prometheus `/metrics` exports per-mount disk utilization and per-interface network speeds when those lists are present
