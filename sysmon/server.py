@@ -640,6 +640,7 @@ def serve_forever(
         include_gpu=True,
         config=settings,
         reload_config=True,
+        follow_config_interval=True,
     )
     service.start()
 

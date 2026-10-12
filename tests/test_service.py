@@ -182,6 +182,43 @@ def test_module_failure_keeps_other_metrics(monkeypatch):
         service.stop()
 
 
+def test_service_follows_config_interval(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.collectors.service.load_config",
+        lambda: SysmonConfig(
+            refresh_interval=2.5,
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            ),
+        ),
+    )
+    service = CollectorService(
+        interval=1.0,
+        include_gpu=False,
+        reload_config=True,
+        follow_config_interval=True,
+        config=SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    service._collect_once()
+    assert service._interval == 2.5
+
+
 def test_module_failure_does_not_reuse_previous_sample(monkeypatch):
     calls = {"n": 0}
 
