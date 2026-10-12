@@ -440,6 +440,22 @@ def test_collect_section_sensors(monkeypatch):
     assert isinstance(data["collected_at"], float)
 
 
+def test_to_json_replaces_non_finite_numbers():
+    parsed = json.loads(
+        to_json(
+            {
+                "cpu": {"percent": float("nan"), "load_avg": (1.0, float("inf"), 0.25)},
+                "ok": 1,
+                "flag": True,
+            }
+        )
+    )
+    assert parsed["cpu"]["percent"] is None
+    assert parsed["cpu"]["load_avg"] == [1.0, None, 0.25]
+    assert parsed["ok"] == 1
+    assert parsed["flag"] is True
+
+
 def test_to_json_roundtrip():
     data = collect_brief(include_gpu=False)
     parsed = json.loads(to_json(data))

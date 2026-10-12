@@ -52,6 +52,7 @@ All notable changes to SysMon are documented in this file.
 - Sparkline history drops NaN and infinite samples instead of crashing the dashboard
 - Progress bars render `n/a` for NaN or infinite percentages instead of crashing the dashboard
 - JSON metric status is `unknown` for a NaN or infinite percentage instead of `ok`
+- JSON output replaces NaN and infinite numbers with null so one bad sample does not reject the whole document
 - `sysmon serve` returns HTTP 500 JSON when a scrape fails, and later requests still succeed
 - `sysmon serve` accepts a trailing slash on `/json`, `/metrics`, and `/health`
 - `sysmon serve` answers HEAD with the same status and content length as GET, without a body

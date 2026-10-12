@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import platform
 import time
 from typing import Any, Optional
@@ -403,6 +404,21 @@ def collect_all_from_snapshot(
     return data
 
 
+def _json_ready(value: Any) -> Any:
+    """Replace NaN and infinity so the document is valid JSON."""
+    if isinstance(value, bool) or value is None or isinstance(value, str):
+        return value
+    if isinstance(value, (int, float)):
+        if not math.isfinite(value):
+            return None
+        return value
+    if isinstance(value, dict):
+        return {key: _json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_ready(item) for item in value]
+    return value
+
+
 def to_json(data: dict[str, Any]) -> str:
     """Serialize metrics to pretty-printed JSON."""
-    return json.dumps(data, ensure_ascii=False, indent=2)
+    return json.dumps(_json_ready(data), ensure_ascii=False, indent=2)
