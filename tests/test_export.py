@@ -388,6 +388,27 @@ def test_collect_all_from_snapshot_uses_collector_timestamp():
     assert data["collected_at"] == 123.5
 
 
+def test_snapshot_collected_at_ignores_non_finite(monkeypatch):
+    monkeypatch.setattr("sysmon.export.time.time", lambda: 1000.0)
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=False,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    data = collect_all_from_snapshot(
+        {"timestamp": float("inf")},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["collected_at"] == 1000.0
+
+
 def test_collect_all_includes_boot_time(monkeypatch):
     boot = time.time() - 125
     monkeypatch.setattr("psutil.boot_time", lambda: boot)

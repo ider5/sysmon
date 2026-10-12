@@ -335,7 +335,11 @@ def _uptime_seconds() -> float | None:
 def _snapshot_collected_at(snapshot: dict[str, Any]) -> float:
     """Use the collector timestamp when the snapshot has one."""
     timestamp = snapshot.get("timestamp")
-    if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)):
+    if (
+        isinstance(timestamp, bool)
+        or not isinstance(timestamp, (int, float))
+        or not math.isfinite(timestamp)
+    ):
         return time.time()
     return float(timestamp)
 
