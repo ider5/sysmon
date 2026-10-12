@@ -28,6 +28,8 @@ def _cpu_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     snapshot = info if info is not None else collect("cpu", cfg)
+    if not isinstance(snapshot, dict):
+        snapshot = {}
 
     def _number(key: str, default: float = 0.0) -> float:
         value = snapshot.get(key, default)
@@ -63,6 +65,8 @@ def _memory_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     info = info if info is not None else collect("memory", cfg)
+    if not isinstance(info, dict):
+        info = {}
 
     def _number(key: str, default: float = 0.0) -> float:
         value = info.get(key, default)
@@ -93,6 +97,8 @@ def _network_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     info = info if info is not None else collect("network", cfg)
+    if not isinstance(info, dict):
+        info = {}
 
     def _count(key: str) -> int:
         value = info.get(key, 0)

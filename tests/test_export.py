@@ -182,6 +182,18 @@ def test_cpu_payload_includes_load_average(monkeypatch):
     assert data["cpu"]["load_avg"] == [0.1, 0.2, 0.3]
 
 
+def test_metric_sections_tolerate_non_record(monkeypatch):
+    monkeypatch.setattr("sysmon.export.collect", lambda *_a, **_k: "bad")
+    cpu = collect_section("cpu")
+    memory = collect_section("memory")
+    network = collect_section("network")
+    assert cpu["cpu"]["percent"] == 0.0
+    assert cpu["cpu"]["cores"] == []
+    assert memory["memory"]["percent"] == 0.0
+    assert network["network"]["bytes_sent"] == 0
+    assert "errors" not in cpu
+
+
 def test_collect_section_cpu():
     data = collect_section("cpu")
     assert "cpu" in data
