@@ -34,6 +34,38 @@ def _waiting_panel(title: str, error: str | None = None) -> Panel:
     )
 
 
+def _record_number(history: HistoryBuffer, value: object) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return
+    history.add(value)
+
+
+def record_dashboard_history(
+    snapshot: dict,
+    cpu_history: HistoryBuffer,
+    mem_history: HistoryBuffer,
+    net_history: HistoryBuffer,
+    net_up_history: HistoryBuffer,
+    disk_read_history: HistoryBuffer,
+    disk_write_history: HistoryBuffer,
+) -> None:
+    """Append one sample to each trail when the field is a real number."""
+    cpu = snapshot.get("cpu")
+    if isinstance(cpu, dict):
+        _record_number(cpu_history, cpu.get("percent"))
+    mem = snapshot.get("memory")
+    if isinstance(mem, dict):
+        _record_number(mem_history, mem.get("percent"))
+    net = snapshot.get("network")
+    if isinstance(net, dict):
+        _record_number(net_history, net.get("speed_down"))
+        _record_number(net_up_history, net.get("speed_up"))
+    disk = snapshot.get("disk")
+    if isinstance(disk, dict):
+        _record_number(disk_read_history, disk.get("read_speed"))
+        _record_number(disk_write_history, disk.get("write_speed"))
+
+
 def snapshot_is_stale(snapshot: dict | None, refresh_rate: float, now: float | None = None) -> bool:
     """Return True when the cached sample is older than a few refresh intervals."""
     if not isinstance(snapshot, dict):
@@ -321,20 +353,15 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                         config = load_config()
                         snapshot = service.get_snapshot()
                         notice = "stale" if snapshot_is_stale(snapshot, refresh_rate) else None
-                        cpu = snapshot.get("cpu")
-                        if cpu is not None:
-                            cpu_history.add(cpu["percent"])
-                        mem = snapshot.get("memory")
-                        if mem is not None:
-                            mem_history.add(mem["percent"])
-                        net = snapshot.get("network")
-                        if net is not None:
-                            net_history.add(net["speed_down"])
-                            net_up_history.add(net["speed_up"])
-                        disk = snapshot.get("disk")
-                        if disk is not None:
-                            disk_read_history.add(float(disk.get("read_speed") or 0))
-                            disk_write_history.add(float(disk.get("write_speed") or 0))
+                        record_dashboard_history(
+                            snapshot,
+                            cpu_history,
+                            mem_history,
+                            net_history,
+                            net_up_history,
+                            disk_read_history,
+                            disk_write_history,
+                        )
                         live.update(
                             build_dashboard(
                                 include_gpu=include_gpu,

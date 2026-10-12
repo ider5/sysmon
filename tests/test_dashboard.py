@@ -24,6 +24,31 @@ def _cpu_only_config() -> SysmonConfig:
     )
 
 
+def test_record_dashboard_history_skips_missing_numbers():
+    from sysmon.display.dashboard import record_dashboard_history
+    from sysmon.display.sparkline import HistoryBuffer
+
+    cpu = HistoryBuffer()
+    mem = HistoryBuffer()
+    down = HistoryBuffer()
+    up = HistoryBuffer()
+    read = HistoryBuffer()
+    write = HistoryBuffer()
+    record_dashboard_history(
+        {"cpu": {}, "memory": {"percent": 12.0}, "network": {"speed_down": True}, "disk": None},
+        cpu,
+        mem,
+        down,
+        up,
+        read,
+        write,
+    )
+    assert cpu.values() == []
+    assert mem.values() == [12.0]
+    assert down.values() == []
+    assert read.values() == []
+
+
 def test_snapshot_is_stale_after_several_refreshes():
     from sysmon.display.dashboard import snapshot_is_stale
 
