@@ -108,6 +108,30 @@ def test_pynvml_init_once_and_maps_fields(monkeypatch):
     assert second == first
 
 
+def test_pynvml_skips_one_failing_device(monkeypatch):
+    def utilization(handle):
+        if handle == "bad":
+            raise RuntimeError("gone")
+        return SimpleNamespace(gpu=10)
+
+    fake = SimpleNamespace(
+        NVML_TEMPERATURE_GPU=0,
+        nvmlInit=lambda: None,
+        nvmlShutdown=lambda: None,
+        nvmlDeviceGetCount=lambda: 2,
+        nvmlDeviceGetHandleByIndex=lambda index: "bad" if index == 0 else "ok",
+        nvmlDeviceGetName=lambda handle: "Bad" if handle == "bad" else "Ok",
+        nvmlDeviceGetUtilizationRates=utilization,
+        nvmlDeviceGetMemoryInfo=lambda _handle: SimpleNamespace(total=1024 * 1024, used=0),
+        nvmlDeviceGetTemperature=lambda _handle, _kind: 40,
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    monkeypatch.setattr(gpu_mod, "_nvml_state", True)
+    gpus = gpu_mod._get_gpu_info_pynvml()
+    assert gpus is not None
+    assert [gpu["name"] for gpu in gpus] == ["Ok"]
+
+
 def _write_amd_sysfs(root):
     card = root / "card0" / "device"
     hwmon = card / "hwmon" / "hwmon1"

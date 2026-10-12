@@ -77,32 +77,35 @@ def _get_gpu_info_pynvml() -> Optional[list[GpuInfo]]:
 
         gpus: list[GpuInfo] = []
         for i in range(count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-            name = pynvml.nvmlDeviceGetName(handle)
-            if isinstance(name, bytes):
-                name = name.decode("utf-8", errors="replace")
-
-            util = pynvml.nvmlDeviceGetUtilizationRates(handle)
-            mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
             try:
-                temp = pynvml.nvmlDeviceGetTemperature(
-                    handle, pynvml.NVML_TEMPERATURE_GPU
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                name = pynvml.nvmlDeviceGetName(handle)
+                if isinstance(name, bytes):
+                    name = name.decode("utf-8", errors="replace")
+
+                util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                try:
+                    temp = pynvml.nvmlDeviceGetTemperature(
+                        handle, pynvml.NVML_TEMPERATURE_GPU
+                    )
+                except Exception:
+                    temp = None
+
+                gpus.append(
+                    {
+                        "id": i,
+                        "name": name,
+                        "load": float(util.gpu),
+                        "memory_total": mem.total / (1024 * 1024),
+                        "memory_used": mem.used / (1024 * 1024),
+                        "temperature": temp,
+                        "backend": "pynvml",
+                    }
                 )
             except Exception:
-                temp = None
-
-            gpus.append(
-                {
-                    "id": i,
-                    "name": name,
-                    "load": float(util.gpu),
-                    "memory_total": mem.total / (1024 * 1024),
-                    "memory_used": mem.used / (1024 * 1024),
-                    "temperature": temp,
-                    "backend": "pynvml",
-                }
-            )
-        return gpus
+                continue
+        return gpus or None
     except Exception:
         return None
 
