@@ -391,7 +391,7 @@ def run_brief_watch(
         settings = replace(settings, network_interfaces=tuple(interfaces))
     if settings.modules.network:
         collect("network", settings)
-    time.sleep(min(0.5, refresh_rate))
+        time.sleep(min(0.5, refresh_rate))
 
     with Live(
         build_brief_line(

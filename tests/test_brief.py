@@ -449,6 +449,50 @@ def test_run_brief_watch_passes_thresholds(monkeypatch):
     assert captured["kwargs"]["thresholds"] is thresholds
 
 
+def test_run_brief_watch_skips_startup_wait_when_network_disabled(monkeypatch):
+    slept: list[float] = []
+
+    class _Live:
+        def __init__(self, renderable, *a, **k):
+            self.renderable = renderable
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def update(self, _line):
+            return None
+
+    monkeypatch.setattr(brief_mod, "collect", lambda *a, **k: None)
+    monkeypatch.setattr(brief_mod, "build_brief_line", lambda *a, **k: "line")
+    monkeypatch.setattr(brief_mod, "Live", _Live)
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+
+    def fake_sleep(seconds: float) -> None:
+        slept.append(seconds)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(brief_mod.time, "sleep", fake_sleep)
+    brief_mod.run_brief_watch(Console(), refresh_rate=2.0, no_gpu=True)
+    assert slept == [2.0]
+
+
 def test_run_brief_watch_survives_a_bad_refresh(monkeypatch):
     calls = {"n": 0}
     sleeps = {"n": 0}
