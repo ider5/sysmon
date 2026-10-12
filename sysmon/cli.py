@@ -40,7 +40,7 @@ config_app = typer.Typer(help="Manage sysmon configuration.")
 app.add_typer(config_app, name="config")
 console = Console()
 
-VALID_SECTIONS = ["all", "cpu", "memory", "network", "disk", "gpu", "process"]
+VALID_SECTIONS = ["all", "cpu", "memory", "network", "disk", "gpu", "process", "sensors"]
 OutputFormat = Literal["rich", "json"]
 
 
@@ -195,7 +195,7 @@ def dashboard(
 def snapshot(
     section: str = typer.Argument(
         "all",
-        help="Section to show: all, cpu, memory, network, disk, gpu, process.",
+        help="Section to show: all, cpu, memory, network, disk, gpu, process, sensors.",
     ),
     sample_interval: Optional[float] = typer.Option(
         None, "--sample-interval", "-s",

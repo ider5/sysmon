@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import io
+
 from rich.console import Console
 
-from sysmon.config import SysmonConfig, ThresholdConfig
+from sysmon.config import ModuleConfig, SysmonConfig, ThresholdConfig
 from sysmon.display import snapshot as snapshot_mod
 from sysmon.display import top_live as top_live_mod
 
@@ -92,6 +94,59 @@ def test_print_snapshot_all_uses_registry_collect(monkeypatch):
     monkeypatch.setattr(snapshot_mod, "load_config", lambda: SysmonConfig())
     snapshot_mod.print_snapshot(Console(record=True), section="all", include_gpu=True)
     assert calls == ["cpu", "memory", "network", "disk", "gpu", "process"]
+
+
+def test_print_snapshot_all_includes_sensors_when_enabled(monkeypatch):
+    calls = []
+    payload = {
+        "battery": {"percent": 41.0, "secsleft": 90, "power_plugged": True},
+        "temperatures": {},
+    }
+
+    def fake_collect(name, settings=None):
+        calls.append(name)
+        if name == "sensors":
+            return payload
+        raise AssertionError(name)
+
+    monkeypatch.setattr(snapshot_mod, "collect", fake_collect)
+    monkeypatch.setattr(
+        snapshot_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=True,
+            )
+        ),
+    )
+    buffer = io.StringIO()
+    console = Console(file=buffer, force_terminal=True, width=80)
+    snapshot_mod.print_snapshot(console, section="all", include_gpu=False)
+    rendered = buffer.getvalue()
+    assert calls == ["sensors"]
+    assert "41.0%" in rendered
+    assert "plugged in" in rendered
+
+
+def test_print_snapshot_sensors_section(monkeypatch):
+    payload = {
+        "battery": {"percent": 41.0, "secsleft": None, "power_plugged": False},
+        "temperatures": {},
+    }
+    monkeypatch.setattr(snapshot_mod, "collect", lambda name, settings=None: payload)
+    monkeypatch.setattr(snapshot_mod, "load_config", lambda: SysmonConfig())
+    buffer = io.StringIO()
+    console = Console(file=buffer, force_terminal=True, width=80)
+    snapshot_mod.print_snapshot(console, section="sensors")
+    text = buffer.getvalue()
+    assert "41.0%" in text
+    assert "on battery" in text
 
 
 def test_top_live_render_uses_collect_processes(monkeypatch):

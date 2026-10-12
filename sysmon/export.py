@@ -172,6 +172,8 @@ def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
         return {"gpu": _gpu_payload() if include_gpu else None}
     if section == "process":
         return {"processes": _process_payload()}
+    if section == "sensors":
+        return {"sensors": collect("sensors", _resolve_settings(None))}
     raise ValueError(f"Unknown section: {section}")
 
 

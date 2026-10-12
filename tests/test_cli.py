@@ -71,6 +71,21 @@ def test_snapshot_json_cpu_section(monkeypatch):
     assert "status" in data["cpu"]
 
 
+def test_snapshot_sensors_json(monkeypatch):
+    monkeypatch.setattr("sysmon.cli._wait_for_rate_sampling", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda name, settings=None: {
+            "battery": {"percent": 55.0, "secsleft": None, "power_plugged": True},
+            "temperatures": {},
+        },
+    )
+    result = runner.invoke(app, ["snapshot", "sensors", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["sensors"]["battery"]["percent"] == 55.0
+
+
 def test_snapshot_unknown_section(monkeypatch):
     monkeypatch.setattr("sysmon.cli._wait_for_rate_sampling", lambda *a, **k: None)
     result = runner.invoke(app, ["snapshot", "bogus", "--format", "json"])

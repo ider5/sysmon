@@ -84,6 +84,7 @@ sysmon snapshot network # Show only network info
 sysmon snapshot disk    # Show only disk info
 sysmon snapshot gpu     # Show only GPU info
 sysmon snapshot process # Show only top processes
+sysmon snapshot sensors # Battery and temperatures (`[modules] sensors` for the all view)
 sysmon snapshot --format json   # JSON output for scripting (schema_version 3)
 sysmon snapshot -s 0.5          # Faster network/disk speed sampling
 sysmon snapshot --no-gpu        # Hide GPU section

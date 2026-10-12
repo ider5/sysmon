@@ -18,6 +18,7 @@ from sysmon.display.panels import (
     memory_panel,
     network_panel,
     process_panel,
+    sensors_panel,
 )
 
 _UNSET = object()
@@ -37,6 +38,7 @@ def print_snapshot(
         "disk": _print_disk,
         "gpu": _print_gpu,
         "process": _print_process,
+        "sensors": _print_sensors,
     }
 
     handler = sections.get(section, sections["all"])
@@ -85,6 +87,8 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
         _print_gpu(console, collect("gpu", settings))
     if settings.modules.process:
         _print_process(console)
+    if settings.modules.sensors:
+        _print_sensors(console, collect("sensors", settings))
 
 
 def _print_cpu(console: Console, info: dict | None = None) -> None:
@@ -149,6 +153,14 @@ def _print_gpu(console: Console, info: list | None | object = _UNSET) -> None:
             critical=settings.thresholds.gpu_critical,
         )
     )
+
+
+def _print_sensors(console: Console, info: dict | None = None) -> None:
+    """Print battery and temperature sensors."""
+    settings = load_config()
+    if info is None:
+        info = collect("sensors", settings)
+    console.print(sensors_panel(info))
 
 
 def _print_process(console: Console) -> None:
