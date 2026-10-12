@@ -256,10 +256,10 @@ def build_disk_text(
         if idx > 0:
             text.append("  " + "─" * 30 + "\n", style="dim")
         text.append(f"  {'Mount':<14}", style="bold")
-        text.append(f"{mount_info['mount']}\n", style="bold white")
+        text.append(f"{str(mount_info.get('mount') or '?')}\n", style="bold white")
         text.append(f"  {'Usage':<14}", style="bold")
         text.append_text(
-            progress_bar(mount_info["percent"], width=25, warn=warn, critical=critical)
+            progress_bar(_as_number(mount_info.get("percent")), width=25, warn=warn, critical=critical)
         )
         used = mount_info.get("used", 0)
         total = mount_info.get("total", 0)
@@ -276,12 +276,12 @@ def build_disk_text(
 
     text.append("  " + "─" * 30 + "\n", style="dim")
     text.append(f"  {'Read':<14}", style="bold")
-    text.append(format_speed(info["read_speed"]) + "\n", style="cyan")
+    text.append(format_speed(_as_number(info.get("read_speed"))) + "\n", style="cyan")
     if read_history:
         text.append(f"  {'':14}")
         text.append(render_sparkline(read_history, width=25) + "\n", style="cyan")
     text.append(f"  {'Write':<14}", style="bold")
-    text.append(format_speed(info["write_speed"]) + "\n", style="magenta")
+    text.append(format_speed(_as_number(info.get("write_speed"))) + "\n", style="magenta")
     if write_history:
         text.append(f"  {'':14}")
         text.append(render_sparkline(write_history, width=25) + "\n", style="magenta")
