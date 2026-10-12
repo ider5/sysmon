@@ -49,6 +49,11 @@ def test_format_prometheus_includes_collected_at():
     assert "sysmon_collected_at_seconds 100.5" in text
 
 
+def test_format_prometheus_includes_boot_time():
+    text = format_prometheus({"boot_time": 1700000000})
+    assert "sysmon_boot_time_seconds 1700000000.0" in text
+
+
 def test_format_prometheus_includes_uptime():
     text = format_prometheus({"uptime_seconds": 125})
     assert "sysmon_uptime_seconds 125.0" in text

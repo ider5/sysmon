@@ -63,7 +63,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon snapshot` section names and `sysmon top --sort` accept any letter case
 - JSON snapshots keep the sections that succeeded when one section raises, and record the failure under `errors`
 - JSON snapshots, brief output, top output, and single-section JSON include `collected_at` as a Unix timestamp without changing `schema_version`. A snapshot built from the background collector uses that collector's timestamp, not the time the JSON was formatted
-- JSON snapshots include `uptime_seconds`, and Prometheus exports `sysmon_uptime_seconds`, when the boot time can be read
+- JSON snapshots include `uptime_seconds` and `boot_time`, and Prometheus exports `sysmon_uptime_seconds` and `sysmon_boot_time_seconds`, when the boot time can be read
 - Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled. Swap usage is appended only while swap is actually in use, and disk usage is appended only at or above the disk warn threshold
 - Process memory percentages use the memory warn/critical thresholds. CPU bars still use the CPU thresholds
 - The process table ignores rows that are not records instead of raising, and shows the empty state when none remain

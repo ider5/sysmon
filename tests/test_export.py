@@ -303,6 +303,14 @@ def test_collect_all_from_snapshot_uses_collector_timestamp():
     assert data["collected_at"] == 123.5
 
 
+def test_collect_all_includes_boot_time(monkeypatch):
+    boot = time.time() - 125
+    monkeypatch.setattr("psutil.boot_time", lambda: boot)
+    data = collect_all(include_gpu=False)
+    assert data["boot_time"] == pytest.approx(boot)
+    assert 120 <= data["uptime_seconds"] <= 130
+
+
 def test_collect_all_includes_uptime_seconds(monkeypatch):
     monkeypatch.setattr("psutil.boot_time", lambda: time.time() - 125)
     data = collect_all(include_gpu=False)

@@ -267,15 +267,22 @@ def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
     return data
 
 
-def _uptime_seconds() -> float | None:
-    """Return uptime in seconds, or None when the boot time cannot be read."""
+def _boot_time() -> float | None:
+    """Return the Unix boot time, or None when it cannot be read."""
     try:
         import psutil
 
-        boot_time = psutil.boot_time()
-    except (OSError, RuntimeError, NotImplementedError, ImportError, AttributeError):
+        return float(psutil.boot_time())
+    except (OSError, RuntimeError, NotImplementedError, ImportError, AttributeError, ValueError, TypeError):
         return None
-    return max(0.0, time.time() - float(boot_time))
+
+
+def _uptime_seconds() -> float | None:
+    """Return uptime in seconds, or None when the boot time cannot be read."""
+    boot_time = _boot_time()
+    if boot_time is None:
+        return None
+    return max(0.0, time.time() - boot_time)
 
 
 def _snapshot_collected_at(snapshot: dict[str, Any]) -> float:
@@ -311,6 +318,9 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     uptime_seconds = _uptime_seconds()
     if uptime_seconds is not None:
         data["uptime_seconds"] = uptime_seconds
+    boot_time = _boot_time()
+    if boot_time is not None:
+        data["boot_time"] = boot_time
 
     if settings.modules.cpu:
         _store(data, "cpu", lambda: _cpu_payload(settings))
@@ -349,6 +359,9 @@ def collect_all_from_snapshot(
     uptime_seconds = _uptime_seconds()
     if uptime_seconds is not None:
         data["uptime_seconds"] = uptime_seconds
+    boot_time = _boot_time()
+    if boot_time is not None:
+        data["boot_time"] = boot_time
     if cfg.modules.cpu and snapshot.get("cpu") is not None:
         _store(data, "cpu", lambda: _cpu_payload(cfg, info=snapshot["cpu"]))
     if cfg.modules.memory and snapshot.get("memory") is not None:
