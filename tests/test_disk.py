@@ -29,6 +29,7 @@ def test_resolve_mounts_ignores_blank_names():
         assert disk_module._resolve_mounts(["", "  "]) == ["/data"]
         assert disk_module._resolve_mounts([" /data "]) == ["/data"]
         assert disk_module._resolve_mounts(["/data", "/data/", " /data "]) == ["/data"]
+        assert disk_module._resolve_mounts("/data") == ["/data"]
 
 
 def test_filesystem_type_matches_mount_with_trailing_slash():

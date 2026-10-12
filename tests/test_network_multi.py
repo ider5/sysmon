@@ -152,6 +152,7 @@ def test_resolve_interfaces_ignores_blank_names():
         assert network_module._resolve_interfaces(["", " "]) == ["eth0"]
         assert network_module._resolve_interfaces([" eth0 "]) == ["eth0"]
         assert network_module._resolve_interfaces(["eth0", "eth0", " eth0 "]) == ["eth0"]
+        assert network_module._resolve_interfaces("eth0") == ["eth0"]
 
 
 def test_list_network_interfaces_when_stats_unavailable():

@@ -106,6 +106,8 @@ def _resolve_interfaces(selected: Iterable[str] | None) -> list[str] | None:
     """Resolve interface filter; None = aggregate all, empty = all non-loopback."""
     if selected is None:
         return None
+    if isinstance(selected, str):
+        selected = [selected]
     names: list[str] = []
     seen: set[str] = set()
     for item in selected:
