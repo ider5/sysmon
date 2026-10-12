@@ -316,22 +316,26 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
-        if path == "/json":
-            body = to_json(self.payload_fn()).encode("utf-8")
-            self._send(200, "application/json; charset=utf-8", body)
-            return
-        if path == "/metrics":
-            body = format_prometheus(self.payload_fn()).encode("utf-8")
-            self._send(200, "text/plain; version=0.0.4; charset=utf-8", body)
-            return
-        if path in ("/", "/health"):
-            self._send(
-                200,
-                "text/plain; charset=utf-8",
-                b"sysmon serve\nGET /json\nGET /metrics\n",
-            )
-            return
-        self._send(404, "text/plain; charset=utf-8", b"not found\n")
+        try:
+            if path == "/json":
+                body = to_json(self.payload_fn()).encode("utf-8")
+                self._send(200, "application/json; charset=utf-8", body)
+                return
+            if path == "/metrics":
+                body = format_prometheus(self.payload_fn()).encode("utf-8")
+                self._send(200, "text/plain; version=0.0.4; charset=utf-8", body)
+                return
+            if path in ("/", "/health"):
+                self._send(
+                    200,
+                    "text/plain; charset=utf-8",
+                    b"sysmon serve\nGET /json\nGET /metrics\n",
+                )
+                return
+            self._send(404, "text/plain; charset=utf-8", b"not found\n")
+        except Exception as exc:
+            body = to_json({"error": str(exc)}).encode("utf-8")
+            self._send(500, "application/json; charset=utf-8", body)
 
     def log_message(self, format: str, *args: object) -> None:
         return
