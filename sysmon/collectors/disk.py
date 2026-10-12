@@ -42,6 +42,13 @@ _SKIP_FSTYPES = frozenset(
 )
 
 
+def _counter(value: object) -> float:
+    """Return a finite byte counter, or zero when the sample is unusable."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return 0.0
+    return float(value)
+
+
 def _delta_rate(current: float, previous: float, dt: float) -> float:
     if dt <= 0:
         return 0.0
@@ -198,20 +205,21 @@ def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
     write_bytes = 0
 
     if current_io is not None:
-        read_bytes = current_io.read_bytes
-        write_bytes = current_io.write_bytes
+        read_bytes = _counter(getattr(current_io, "read_bytes", 0))
+        write_bytes = _counter(getattr(current_io, "write_bytes", 0))
 
         with _disk_lock:
             if _prev_disk_io is not None and _prev_time is not None:
                 dt = now - _prev_time
-                read_speed = _delta_rate(
-                    current_io.read_bytes, _prev_disk_io.read_bytes, dt
-                )
-                write_speed = _delta_rate(
-                    current_io.write_bytes, _prev_disk_io.write_bytes, dt
-                )
+                if isinstance(_prev_disk_io, tuple):
+                    prev_read, prev_write = _prev_disk_io
+                else:
+                    prev_read = _counter(getattr(_prev_disk_io, "read_bytes", 0))
+                    prev_write = _counter(getattr(_prev_disk_io, "write_bytes", 0))
+                read_speed = _delta_rate(read_bytes, prev_read, dt)
+                write_speed = _delta_rate(write_bytes, prev_write, dt)
 
-            _prev_disk_io = current_io
+            _prev_disk_io = (read_bytes, write_bytes)
             _prev_time = now
 
     primary = mount_entries[0]

@@ -24,6 +24,21 @@ def test_inode_percent_missing_without_statvfs(monkeypatch):
     assert disk_module._inode_percent("/") is None
 
 
+def test_get_disk_info_ignores_non_numeric_io_counters():
+    usage = SimpleNamespace(total=100, used=40, free=60, percent=40.0)
+    bad_io = SimpleNamespace(read_bytes="bad", write_bytes=float("inf"))
+    disk_module._prev_disk_io = None
+    disk_module._prev_time = None
+    with patch("sysmon.collectors.disk.psutil.disk_usage", return_value=usage):
+        with patch("sysmon.collectors.disk.psutil.disk_io_counters", return_value=bad_io):
+            with patch("sysmon.collectors.disk.time.time", return_value=1.0):
+                result = get_disk_info()
+    assert result["percent"] == 40.0
+    assert result["read_bytes"] == 0.0
+    assert result["write_bytes"] == 0.0
+    assert result["read_speed"] == 0.0
+
+
 def test_get_disk_info_speed_calculation():
     usage = SimpleNamespace(total=100, used=50, free=50, percent=50.0)
     first_io = SimpleNamespace(read_bytes=1000, write_bytes=2000)
