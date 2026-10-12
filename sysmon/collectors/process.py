@@ -199,7 +199,17 @@ def get_top_processes(
     sort_key = "memory_percent" if sort_by == "memory" else "cpu_percent"
     if limit <= 0:
         return []
-    return heapq.nlargest(limit, processes, key=lambda item: item[sort_key])
+
+    def _sort_value(value: object) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            return 0.0
+        return float(value)
+
+    return heapq.nlargest(
+        limit,
+        processes,
+        key=lambda item: (_sort_value(item.get(sort_key)), -_sort_value(item.get("pid"))),
+    )
 
 
 def _try_native_processes(

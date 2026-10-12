@@ -117,6 +117,18 @@ def test_get_top_processes_name_filter():
     assert names == {"chrome", "Chrome Helper"}
 
 
+def test_get_top_processes_tie_breaks_by_pid():
+    procs = [
+        _proc(5, 0.0, 1.0, "b"),
+        _proc(2, 0.0, 1.0, "a"),
+        _proc(9, 0.0, 1.0, "c"),
+    ]
+    procs[0].info["cpu_percent"] = "bad"
+    with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
+        result = process_module.get_top_processes(limit=3, sort_by="cpu")
+    assert [row["pid"] for row in result] == [2, 5, 9]
+
+
 def test_get_top_processes_strips_name_filter():
     procs = [
         _proc(1, 0.0, 1.0, "chrome"),

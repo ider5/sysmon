@@ -132,6 +132,7 @@ All notable changes to SysMon are documented in this file.
 - An unrecognized process sort key orders by CPU, matching the native scanner. It previously fell back to memory on the psutil path
 - `get_top_processes(limit=None)` uses the default of 10
 - Process name filters ignore surrounding spaces, and a blank filter matches every process
+- Processes with the same CPU or memory stay ordered by pid, and a non-numeric sort value does not fail the list
 - Linux DRM GPUs are ordered by card number, so `card10` no longer sorts before `card2`
 - Config intervals are clamped to 0.1–10 seconds, `process_limit` to 1–50, and a warn threshold above critical is swapped so the warning band still exists. A single string for `disk_mounts` or `network_interfaces` is kept as one entry instead of being split into characters. A non-table `modules` or `thresholds` value is ignored instead of discarding the rest of the file
 - CI runs on `master` only
