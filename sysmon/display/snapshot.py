@@ -126,7 +126,7 @@ def _print_network(console: Console, info: dict | None = None) -> None:
     settings = load_config()
     if info is None:
         info = collect("network", settings)
-    console.print(network_panel(info))
+    console.print(network_panel(info, show_packets=True))
 
 
 def _print_disk(console: Console, info: dict | None = None) -> None:

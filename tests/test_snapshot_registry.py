@@ -11,6 +11,24 @@ from sysmon.display import snapshot as snapshot_mod
 from sysmon.display import top_live as top_live_mod
 
 
+def test_print_network_shows_packet_counts():
+    info = {
+        "speed_up": 0,
+        "speed_down": 0,
+        "bytes_sent": 10,
+        "bytes_recv": 20,
+        "packets_sent": 3,
+        "packets_recv": 4,
+    }
+    buffer = io.StringIO()
+    console = Console(file=buffer, force_terminal=True, width=80)
+    snapshot_mod._print_network(console, info)
+    rendered = buffer.getvalue()
+    assert "Packets" in rendered
+    assert "3" in rendered
+    assert "4" in rendered
+
+
 def test_print_memory_shows_available():
     info = {
         "percent": 50.0,
