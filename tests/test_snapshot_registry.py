@@ -11,6 +11,22 @@ from sysmon.display import snapshot as snapshot_mod
 from sysmon.display import top_live as top_live_mod
 
 
+def test_print_memory_shows_available():
+    info = {
+        "percent": 50.0,
+        "used": 8 * 1024 ** 3,
+        "total": 16 * 1024 ** 3,
+        "available": 7 * 1024 ** 3,
+        "swap_total": 0,
+        "swap_used": 0,
+        "swap_percent": 0.0,
+    }
+    buffer = io.StringIO()
+    console = Console(file=buffer, force_terminal=True, width=80)
+    snapshot_mod._print_memory(console, info)
+    assert "Available" in buffer.getvalue()
+
+
 def test_print_snapshot_cpu_uses_registry_collect(monkeypatch):
     calls = []
 

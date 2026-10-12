@@ -114,6 +114,7 @@ def _print_memory(console: Console, info: dict | None = None) -> None:
     console.print(
         memory_panel(
             info,
+            show_available=True,
             warn=settings.thresholds.memory_warn,
             critical=settings.thresholds.memory_critical,
         )
