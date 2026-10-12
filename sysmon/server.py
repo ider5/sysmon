@@ -111,6 +111,9 @@ def format_prometheus(data: dict[str, Any]) -> str:
         _emit(name, value, help_text, "counter")
 
     gauge("sysmon_up", 1, "1 when the sysmon metrics endpoint is serving")
+    uptime_seconds = _first_number(data, "uptime_seconds")
+    if uptime_seconds is not None:
+        gauge("sysmon_uptime_seconds", uptime_seconds, "Time since boot in seconds")
     errors = data.get("errors")
     if isinstance(errors, dict) and errors:
         gauge(
