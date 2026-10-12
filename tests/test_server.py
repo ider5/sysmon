@@ -213,6 +213,30 @@ def test_server_json_and_metrics_endpoints(monkeypatch):
         thread.join(timeout=2)
 
 
+def test_server_accepts_trailing_slash():
+    httpd = start_server("127.0.0.1", 0, payload_fn=lambda: _FAKE_ALL)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = httpd.server_address[1]
+        conn = HTTPConnection("127.0.0.1", port, timeout=2)
+        conn.request("GET", "/json/")
+        response = conn.getresponse()
+        payload = json.loads(response.read().decode("utf-8"))
+        assert response.status == 200
+        assert payload["schema_version"] == 3
+        conn.request("GET", "/metrics/")
+        metrics = conn.getresponse()
+        body = metrics.read().decode("utf-8")
+        assert metrics.status == 200
+        assert "sysmon_cpu_percent" in body
+        conn.close()
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=2)
+
+
 def test_server_payload_error_is_json_500():
     def boom() -> dict:
         raise RuntimeError("collect failed")

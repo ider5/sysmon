@@ -27,6 +27,7 @@ All notable changes to SysMon are documented in this file.
 - Progress bars render `n/a` for NaN or infinite percentages instead of crashing the dashboard
 - JSON metric status is `unknown` for a NaN or infinite percentage instead of `ok`
 - `sysmon serve` returns HTTP 500 JSON when a scrape fails, and later requests still succeed
+- `sysmon serve` accepts a trailing slash on `/json`, `/metrics`, and `/health`
 - The dashboard stays open when one frame fails to render and shows that error until the next successful frame
 - `sysmon brief --watch` and `sysmon top --watch` stay open when one refresh fails and show that error
 - The dashboard and `sysmon serve` reload `config.toml` when the file changes, without a restart

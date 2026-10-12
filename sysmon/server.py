@@ -315,7 +315,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
     payload_fn: PayloadFn = staticmethod(collect_all)  # type: ignore[assignment]
 
     def do_GET(self) -> None:  # noqa: N802
-        path = urlparse(self.path).path
+        path = urlparse(self.path).path.rstrip("/") or "/"
         try:
             if path == "/json":
                 body = to_json(self.payload_fn()).encode("utf-8")
