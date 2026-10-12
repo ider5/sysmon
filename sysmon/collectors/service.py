@@ -69,8 +69,12 @@ class CollectorService:
     def _loop(self) -> None:
         while self._running:
             time.sleep(self._interval)
-            if self._running:
+            if not self._running:
+                return
+            try:
                 self._collect_once()
+            except Exception:
+                continue
 
     def _enabled_keys(self) -> list[str]:
         modules = self._config.modules

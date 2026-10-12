@@ -40,6 +40,7 @@ All notable changes to SysMon are documented in this file.
 - The dashboard stays open when one frame fails to render and shows that error until the next successful frame
 - `sysmon brief --watch` and `sysmon top --watch` stay open when one refresh fails and show that error
 - The dashboard and `sysmon serve` reload `config.toml` when the file changes, without a restart
+- The background collector keeps sampling after an unexpected collection error instead of stopping the thread
 - `sysmon snapshot` and `sysmon serve` only sample network and disk counters when those modules are enabled. Snapshot also skips that wait for sections that do not need it
 - `sysmon snapshot` section names and `sysmon top --sort` accept any letter case
 - JSON snapshots keep the sections that succeeded when one section raises, and record the failure under `errors`

@@ -86,6 +86,32 @@ def test_collector_service_reloads_config_between_samples(monkeypatch):
         service.stop()
 
 
+def test_collector_loop_stays_alive_after_collect_error():
+    service = CollectorService(
+        interval=0.05,
+        include_gpu=False,
+        config=SysmonConfig(),
+    )
+    service.start()
+    original = service._collect_once
+    state = {"fail": True}
+
+    def flaky() -> None:
+        if state["fail"]:
+            raise RuntimeError("boom")
+        original()
+
+    service._collect_once = flaky
+    try:
+        time.sleep(0.2)
+        assert service.running
+        assert service._thread is not None
+        assert service._thread.is_alive()
+        state["fail"] = False
+    finally:
+        service.stop()
+
+
 def test_collector_service_respects_disabled_modules():
     config = SysmonConfig.from_mapping(
         {
