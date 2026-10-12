@@ -83,6 +83,15 @@ def build_title(no_gpu: bool) -> str:
         parts.append(
             f"↑{format_speed(net['speed_up'])} ↓{format_speed(net['speed_down'])}"
         )
+    if settings.modules.disk:
+        disk = collect("disk", settings)
+        percent = disk.get("percent") if isinstance(disk, dict) else None
+        if (
+            isinstance(percent, (int, float))
+            and not isinstance(percent, bool)
+            and float(percent) >= settings.thresholds.disk_warn
+        ):
+            parts.append(f"DISK {float(percent):.0f}%")
     if settings.modules.gpu and settings.enable_gpu and not no_gpu:
         gpus = collect("gpu", settings)
         if gpus:

@@ -147,6 +147,30 @@ def _temperature_color(current: float, entry: dict) -> str:
     return "bold"
 
 
+def _format_disk_pressure(
+    info: dict,
+    no_color: bool = False,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Text | None:
+    """Show disk usage on the compact line only once it reaches the warn threshold."""
+    if not isinstance(info, dict):
+        return None
+    percent = info.get("percent")
+    if isinstance(percent, bool) or not isinstance(percent, (int, float)):
+        return None
+    if float(percent) < warn:
+        return None
+    text = Text()
+    text.append("DISK ")
+    label = f"{float(percent):.0f}%"
+    if no_color:
+        text.append(label)
+    else:
+        text.append(label, style=_threshold_color(float(percent), warn, critical))
+    return text
+
+
 def _format_sensors(info: dict, no_color: bool = False) -> Text | None:
     """Format battery charge and the hottest temperature for the compact line."""
     pieces: list[Text] = []
@@ -220,6 +244,15 @@ def build_brief_line(
         )
     if settings.modules.network:
         parts.append(_format_network(collect("network", settings), no_color))
+    if settings.modules.disk:
+        disk_text = _format_disk_pressure(
+            collect("disk", settings),
+            no_color,
+            warn=thresholds.disk_warn,
+            critical=thresholds.disk_critical,
+        )
+        if disk_text is not None:
+            parts.append(disk_text)
     if settings.modules.gpu and settings.enable_gpu and not no_gpu:
         gpu_text = _format_gpu(
             collect("gpu", settings),

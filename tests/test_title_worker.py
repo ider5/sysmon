@@ -52,6 +52,34 @@ def test_build_title_shows_zero_gpu_temperature(monkeypatch):
     assert "0°C" in title_worker.build_title(no_gpu=False)
 
 
+def test_build_title_shows_disk_only_under_pressure(monkeypatch):
+    seen = {"percent": 10.0}
+
+    def fake_collect(name, settings=None):
+        assert name == "disk"
+        return {"percent": seen["percent"]}
+
+    monkeypatch.setattr(title_worker, "collect", fake_collect)
+    monkeypatch.setattr(
+        title_worker,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=True,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    assert title_worker.build_title(no_gpu=True) == "sysmon"
+    seen["percent"] = 90.0
+    assert title_worker.build_title(no_gpu=True) == "DISK 90%"
+
+
 def test_build_title_includes_swap_when_in_use(monkeypatch):
     def fake_collect(name, settings=None):
         assert name == "memory"

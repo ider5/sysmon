@@ -44,7 +44,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon snapshot` section names and `sysmon top --sort` accept any letter case
 - JSON snapshots keep the sections that succeeded when one section raises, and record the failure under `errors`
 - JSON snapshots, brief output, top output, and single-section JSON include `collected_at` as a Unix timestamp without changing `schema_version`
-- Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled. Swap usage is appended only while swap is actually in use
+- Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled. Swap usage is appended only while swap is actually in use, and disk usage is appended only at or above the disk warn threshold
 - Process memory percentages use the memory warn/critical thresholds. CPU bars still use the CPU thresholds
 - `sysmon brief --format json` uses those same module switches and includes `sensors` when the module is enabled
 

@@ -35,6 +35,8 @@ def _stub_brief_collectors(
             return {"percent": cpu_percent, "freq_current": 0, "cores": []}
         if name == "memory":
             return {"used": 1, "total": 2, "percent": memory_percent}
+        if name == "disk":
+            return {"percent": 10.0, "read_speed": 0, "write_speed": 0}
         if name == "network":
             if settings is not None:
                 seen["interfaces"] = settings.network_interfaces
@@ -82,6 +84,36 @@ def test_build_brief_line_cpu_color_uses_config_thresholds(monkeypatch):
     )
     styles = _span_styles_for(line, "15%")
     assert any("yellow" in style for style in styles)
+
+
+def test_build_brief_line_shows_disk_only_under_pressure(monkeypatch):
+    seen = {}
+
+    def fake_collect(name, settings=None):
+        assert name == "disk"
+        return {"percent": seen.get("percent", 10.0)}
+
+    monkeypatch.setattr(brief_mod, "collect", fake_collect)
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=True,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    quiet = brief_mod.build_brief_line(no_color=True)
+    assert quiet.plain == "modules disabled"
+    seen["percent"] = 91.0
+    busy = brief_mod.build_brief_line(no_color=True)
+    assert busy.plain == "DISK 91%"
 
 
 def test_build_brief_line_includes_swap_when_in_use(monkeypatch):
