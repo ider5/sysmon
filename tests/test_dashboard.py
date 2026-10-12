@@ -59,14 +59,18 @@ def test_snapshot_is_stale_after_several_refreshes():
     assert snapshot_is_stale({"timestamp": float("nan")}, 1.0, now=110.0) is True
 
 
-def test_build_dashboard_shows_stale_notice():
+def test_build_dashboard_shows_stale_notice(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.display.dashboard.platform.node",
+        lambda: "iad20-eo1213-0df56047-e05f-4ebf-b5ef-ab6fc73694f2-FEF1F0270E10.local",
+    )
     layout = build_dashboard(
         include_gpu=False,
         config=_cpu_only_config(),
         snapshot={"timestamp": 1.0},
         notice="stale",
     )
-    console = Console(record=True, width=120)
+    console = Console(record=True, width=100, height=40, force_terminal=True)
     console.print(layout)
     assert "stale" in console.export_text()
 

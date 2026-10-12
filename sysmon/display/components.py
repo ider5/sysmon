@@ -93,6 +93,15 @@ def progress_bar(
     return text
 
 
+def _clip_label(value: str, limit: int) -> str:
+    """Keep a header field short enough that later fields stay visible."""
+    if len(value) <= limit:
+        return value
+    if limit <= 1:
+        return value[:limit]
+    return value[: limit - 1] + "…"
+
+
 def header_bar(hostname: str, os_name: str, uptime: str, notice: str | None = None) -> Panel:
     """Create the dashboard header bar with system info.
 
@@ -101,8 +110,8 @@ def header_bar(hostname: str, os_name: str, uptime: str, notice: str | None = No
         os_name: Operating system name
         uptime: System uptime string
     """
-    hostname = one_line(hostname, "unknown")
-    os_name = one_line(os_name, "unknown")
+    hostname = _clip_label(one_line(hostname, "unknown"), 24)
+    os_name = _clip_label(one_line(os_name, "unknown"), 18)
     uptime = one_line(uptime, "unknown")
     text = Text()
     text.append("⚡ ", style="bold yellow")

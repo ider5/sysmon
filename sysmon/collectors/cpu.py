@@ -1,5 +1,7 @@
 """CPU metrics collector."""
 
+from __future__ import annotations
+
 import math
 import platform
 import re
