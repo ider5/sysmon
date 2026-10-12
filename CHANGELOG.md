@@ -110,6 +110,7 @@ All notable changes to SysMon are documented in this file.
 - Process memory percentages use the memory warn/critical thresholds. CPU bars still use the CPU thresholds
 - The process table ignores rows that are not records instead of raising, and shows the empty state when none remain
 - Process names and the active filter are shown as plain text, so markup or a newline in a name does not change the table
+- Mount points, interface names, sensor labels, and GPU names are drawn on one line
 - Process collection skips one unreadable process instead of failing the whole top list
 - The native process list keeps the rows that are records when another row is not
 - JSON process lists drop entries that are not records, including `sysmon top --format json` and snapshots from the background collector

@@ -3,7 +3,19 @@
 from pathlib import Path
 
 from sysmon.display import components
-from sysmon.display.components import celsius, gpu_panel, gradient_color, progress_bar
+from sysmon.display.components import (
+    celsius,
+    gpu_panel,
+    gradient_color,
+    one_line,
+    progress_bar,
+)
+
+
+def test_one_line_collapses_whitespace():
+    assert one_line("eth0\nextra", "unknown") == "eth0 extra"
+    assert one_line("   ", "unknown") == "unknown"
+    assert one_line(None, "?") == "?"
 
 
 def test_celsius_rejects_non_finite():

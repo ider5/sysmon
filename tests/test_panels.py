@@ -339,6 +339,18 @@ def test_build_disk_text_skips_non_record_mounts():
     assert "nan" not in plain
 
 
+def test_build_disk_text_keeps_mount_on_one_line():
+    text = build_disk_text(
+        {
+            "read_speed": 0,
+            "write_speed": 0,
+            "mounts": [{"mount": "/data\nsecret", "percent": 10.0, "used": 1, "total": 2}],
+        }
+    )
+    assert "/data secret" in text.plain
+    assert "/data\nsecret" not in text.plain
+
+
 def test_build_disk_text_includes_mount():
     info = {
         "mount": "C:\\",

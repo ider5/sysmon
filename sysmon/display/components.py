@@ -136,6 +136,12 @@ def ascii_logo() -> Text:
     return text
 
 
+def one_line(value: object, fallback: str = "") -> str:
+    """Collapse whitespace so an OS label cannot break a panel row."""
+    text = " ".join(str("" if value is None else value).split())
+    return text or fallback
+
+
 def celsius(value: object) -> float | None:
     """Return a temperature in Celsius, keeping 0 and rejecting missing values."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -166,7 +172,7 @@ def gpu_panel(
         if not isinstance(gpu, dict):
             continue
         gpu_id = gpu.get("id", "?")
-        name = str(gpu.get("name") or "GPU")
+        name = one_line(gpu.get("name"), "GPU")
         text.append(f"  🎮 GPU {gpu_id}: ", style="bold")
         text.append(f"{name}\n", style="bold white")
 

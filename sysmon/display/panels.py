@@ -12,7 +12,12 @@ from rich.text import Text
 
 from sysmon.collectors.memory import bytes_to_gb
 from sysmon.collectors.network import format_bytes, format_speed
-from sysmon.display.components import _finite_number, gradient_color, progress_bar
+from sysmon.display.components import (
+    _finite_number,
+    gradient_color,
+    one_line,
+    progress_bar,
+)
 from sysmon.display.sparkline import render_sparkline
 
 
@@ -186,7 +191,7 @@ def build_network_text(
             if shown > 0:
                 text.append("  " + "─" * 30 + "\n", style="dim")
             shown += 1
-            name = str(iface.get("name") or "unknown")
+            name = one_line(iface.get("name"), "unknown")
             text.append(f"  {name:<14}", style="bold underline white")
             text.append("\n")
             text.append(f"  {'↑ Upload':<14}", style="bold")
@@ -311,7 +316,7 @@ def build_disk_text(
             text.append("  " + "─" * 30 + "\n", style="dim")
         shown += 1
         text.append(f"  {'Mount':<14}", style="bold")
-        mount_name = str(mount_info.get("mount") or "?")
+        mount_name = one_line(mount_info.get("mount"), "?")
         fstype = mount_info.get("fstype")
         if isinstance(fstype, str) and fstype:
             mount_name = f"{mount_name} ({fstype})"
@@ -502,7 +507,7 @@ def build_sensors_text(info: dict) -> Text:
             continue
         for entry in entries:
             if isinstance(entry, dict):
-                label = str(entry.get("label") or group or "temp")
+                label = one_line(entry.get("label") or group, "temp")
                 readings.append((label, entry))
     readings.sort(key=_temperature_rank)
 
