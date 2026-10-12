@@ -95,13 +95,23 @@ def _launch_dashboard(refresh: float | None, no_gpu: bool) -> None:
 def _wait_for_rate_sampling(
     sample_interval: float,
     settings: SysmonConfig | None = None,
+    section: str = "all",
 ) -> None:
+    """Prime counters that need two samples. Other sections return immediately."""
     from sysmon.collectors.registry import collect
 
     cfg = settings if settings is not None else load_config()
-    collect("network", cfg)
-    collect("disk", cfg)
-    collect("process", cfg)
+    names: list[str] = []
+    if section in ("all", "network") and cfg.modules.network:
+        names.append("network")
+    if section in ("all", "disk") and cfg.modules.disk:
+        names.append("disk")
+    if section in ("all", "process") and cfg.modules.process:
+        names.append("process")
+    if not names:
+        return
+    for name in names:
+        collect(name, cfg)
     time.sleep(sample_interval)
 
 
@@ -225,7 +235,7 @@ def snapshot(
         console.print(f"Valid sections: {', '.join(VALID_SECTIONS)}")
         raise typer.Exit(code=1)
 
-    _wait_for_rate_sampling(interval, settings)
+    _wait_for_rate_sampling(interval, settings, section)
 
     if fmt == "json":
         from sysmon.export import collect_all, collect_section

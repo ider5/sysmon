@@ -135,6 +135,37 @@ def test_wait_for_rate_sampling_uses_registry_collect(monkeypatch):
     assert calls == ["network", "disk", "process"]
 
 
+def test_wait_for_rate_sampling_skips_unrelated_sections(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    calls = []
+    slept = []
+    monkeypatch.setattr("sysmon.cli.time.sleep", lambda seconds: slept.append(seconds))
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect",
+        lambda name, settings=None: calls.append(name),
+    )
+    from sysmon.cli import _wait_for_rate_sampling
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(network=False, disk=True, process=True)
+    )
+    _wait_for_rate_sampling(0.4, settings, "cpu")
+    assert calls == []
+    assert slept == []
+
+    _wait_for_rate_sampling(0.4, settings, "network")
+    assert calls == []
+    assert slept == []
+
+    _wait_for_rate_sampling(0.4, DEFAULT_CONFIG, "sensors")
+    assert calls == []
+
+    _wait_for_rate_sampling(0.4, DEFAULT_CONFIG, "disk")
+    assert calls == ["disk"]
+    assert slept == [0.4]
+
+
 def test_top_json_uses_collect_processes(monkeypatch):
     captured = {}
 
