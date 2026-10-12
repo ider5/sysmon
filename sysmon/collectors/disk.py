@@ -98,6 +98,14 @@ def _resolve_mounts(selected: Iterable[str] | None) -> list[str]:
     return mounts
 
 
+def _mount_key(mount: str) -> str:
+    """Normalize a mount path so trailing slashes still match."""
+    normalized = os.path.normpath(mount)
+    if platform.system() == "Windows":
+        return normalized.replace("/", "\\").lower()
+    return normalized
+
+
 def _filesystem_types() -> dict[str, str]:
     """Map mount points to filesystem types. Empty when the OS call fails."""
     try:
@@ -108,8 +116,8 @@ def _filesystem_types() -> dict[str, str]:
     for part in parts:
         mount = getattr(part, "mountpoint", "") or ""
         fstype = getattr(part, "fstype", "") or ""
-        if mount and fstype:
-            types[mount] = fstype
+        if isinstance(mount, str) and mount and isinstance(fstype, str) and fstype:
+            types[_mount_key(mount)] = fstype
     return types
 
 
@@ -183,7 +191,7 @@ def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
                 "free": 0,
                 "percent": 0.0,
             }
-        fstype = fstypes.get(mount)
+        fstype = fstypes.get(_mount_key(mount))
         if fstype:
             entry["fstype"] = fstype
         mount_entries.append(entry)

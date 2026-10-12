@@ -24,6 +24,19 @@ def test_inode_percent_missing_without_statvfs(monkeypatch):
     assert disk_module._inode_percent("/") is None
 
 
+def test_filesystem_type_matches_mount_with_trailing_slash():
+    parts = [SimpleNamespace(mountpoint="/data/", fstype="ext4")]
+    usage = SimpleNamespace(total=10, used=1, free=9, percent=10.0)
+    disk_module._prev_disk_io = None
+    disk_module._prev_time = None
+    with patch("sysmon.collectors.disk.psutil.disk_partitions", return_value=parts):
+        with patch("sysmon.collectors.disk.psutil.disk_usage", return_value=usage):
+            with patch("sysmon.collectors.disk.psutil.disk_io_counters", return_value=None):
+                with patch("sysmon.collectors.disk.platform.system", return_value="Linux"):
+                    result = get_disk_info(mounts=["/data"])
+    assert result["mounts"][0]["fstype"] == "ext4"
+
+
 def test_get_disk_info_ignores_non_numeric_usage():
     usage = SimpleNamespace(total=100, used=float("inf"), free="bad")
     disk_module._prev_disk_io = None

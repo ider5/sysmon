@@ -26,6 +26,7 @@ All notable changes to SysMon are documented in this file.
 - Listing disk mounts returns an empty list when the OS partition call fails, instead of failing the caller
 - Inode usage is omitted when the OS counters are not finite numbers, instead of failing the disk sample
 - Disk mounts include the filesystem type, shown next to the mount point and as `sysmon_disk_mount_info`, when the OS reports it
+- Filesystem type still matches when the configured mount and the OS path differ by a trailing slash
 - JSON disk mounts tolerate a record that omits used, free, or total instead of dropping the disk section
 - JSON disk section stays present when the primary record omits sizes or speeds, and a mount entry that is not a record is skipped
 - JSON network totals tolerate a record that omits speeds, packets, or error counts instead of dropping the network section
