@@ -26,6 +26,9 @@ def test_down_interface_names():
     assert network_module.down_interface_names(
         {"interfaces": [{"name": "eth0", "isup": False}, {"name": "up0", "isup": True}, None]}
     ) == ["eth0"]
+    assert network_module.down_interface_names(
+        {"interfaces": [{"name": "eth0\nbad", "isup": False}]}
+    ) == ["eth0 bad"]
     assert network_module.down_interface_names({"speed_up": 0}) == []
 
 

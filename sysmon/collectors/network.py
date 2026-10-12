@@ -257,7 +257,8 @@ def down_interface_names(info: object) -> list[str]:
     for iface in interfaces:
         if not isinstance(iface, dict) or iface.get("isup") is not False:
             continue
-        names.append(str(iface.get("name") or "unknown"))
+        text = " ".join(str(iface.get("name") or "unknown").split()) or "unknown"
+        names.append(text)
     return names
 
 
