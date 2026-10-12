@@ -108,6 +108,8 @@ def test_top_sort_is_case_insensitive(monkeypatch):
     result = runner.invoke(app, ["top", "--format", "json", "--sort", "MEMORY"])
     assert result.exit_code == 0
     assert captured["sort_by"] == "memory"
+    payload = json.loads(result.stdout)
+    assert isinstance(payload["collected_at"], float)
 
 
 def test_snapshot_unknown_section(monkeypatch):

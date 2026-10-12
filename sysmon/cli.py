@@ -334,6 +334,7 @@ def top(
             "processes": processes,
             "sort_by": sort_key,
             "filter": filter_name,
+            "collected_at": time.time(),
         })
         return
 
