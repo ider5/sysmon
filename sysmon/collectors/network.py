@@ -24,20 +24,30 @@ def _interface_link() -> dict[str, dict[str, int | bool]]:
         return {}
     links: dict[str, dict[str, int | bool]] = {}
     for name, info in stats.items():
+        link: dict[str, int | bool] = {"isup": bool(getattr(info, "isup", False))}
         speed = getattr(info, "speed", 0) or 0
         if (
-            isinstance(speed, bool)
-            or not isinstance(speed, (int, float))
-            or not math.isfinite(speed)
-            or speed <= 0
-            or speed > 1_000_000_000
+            not isinstance(speed, bool)
+            and isinstance(speed, (int, float))
+            and math.isfinite(speed)
+            and 0 < speed <= 1_000_000_000
         ):
-            continue
-        links[name] = {
-            "speed_mbps": int(speed),
-            "isup": bool(getattr(info, "isup", False)),
-        }
+            link["speed_mbps"] = int(speed)
+        links[name] = link
     return links
+
+
+def _link_fields(name: str, links: dict[str, dict[str, int | bool]]) -> dict[str, int | bool]:
+    """Copy link speed and up/down state onto one interface record."""
+    link = links.get(name)
+    if not isinstance(link, dict):
+        return {}
+    fields: dict[str, int | bool] = {}
+    if "speed_mbps" in link:
+        fields["speed_mbps"] = link["speed_mbps"]
+    if "isup" in link:
+        fields["isup"] = bool(link["isup"])
+    return fields
 
 
 def _error_counts(obj: object) -> dict[str, int]:
@@ -115,11 +125,7 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
                             "packets_sent": 0,
                             "packets_recv": 0,
                             **_error_counts(None),
-                            **(
-                                {"speed_mbps": links[name]["speed_mbps"]}
-                                if name in links
-                                else {}
-                            ),
+                            **_link_fields(name, links),
                         }
                     )
                     continue
@@ -141,11 +147,7 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
                         "packets_sent": counters.packets_sent,
                         "packets_recv": counters.packets_recv,
                         **_error_counts(counters),
-                        **(
-                            {"speed_mbps": links[name]["speed_mbps"]}
-                            if name in links
-                            else {}
-                        ),
+                        **_link_fields(name, links),
                     }
                 )
                 _prev_iface_io[name] = counters

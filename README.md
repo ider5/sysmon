@@ -21,7 +21,7 @@ A beautiful system monitoring CLI tool built with Python.
 - **Optional sensors** - Battery and temperatures when `[modules] sensors = true` (default off; shown on the dashboard when enabled)
 - **Gradient Progress Bars** - Color-coded bars from config warn/critical thresholds
 - **Per-core CPU View** - Individual core usage visualization
-- **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats, including link speed and packet errors and drops when they are non-zero
+- **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats, including link speed, a down link, and packet errors and drops when they are non-zero
 - **Interactive Top** - Live process view with runtime sort and name filter; hides OS idle processes and the sysmon process itself
 - **Background Collection** - Parallel cached snapshots for smooth dashboard updates
 - **Optional native process scanner** - Compiles `sysmon._core` when Rust is available; otherwise uses psutil

@@ -111,6 +111,18 @@ def test_build_network_text_skips_divider_before_first_interface():
     assert plain.index("eth0") < plain.index("─")
 
 
+def test_build_network_text_shows_link_down():
+    text = build_network_text(
+        {"interfaces": [{"name": "eth0", "speed_up": 0, "speed_down": 0, "isup": False}]}
+    )
+    assert "State" in text.plain
+    assert "down" in text.plain.split("State", 1)[1]
+    up = build_network_text(
+        {"interfaces": [{"name": "eth0", "speed_up": 0, "speed_down": 0, "isup": True}]}
+    )
+    assert "State" not in up.plain
+
+
 def test_build_network_text_shows_link_speed():
     text = build_network_text(
         {

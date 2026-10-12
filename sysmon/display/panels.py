@@ -196,6 +196,9 @@ def build_network_text(
             if speed_mbps is not None and 0 < speed_mbps <= 1_000_000_000:
                 text.append(f"  {'Link':<14}", style="bold")
                 text.append(f"{int(speed_mbps)} Mb/s\n", style="dim")
+            if iface.get("isup") is False:
+                text.append(f"  {'State':<14}", style="bold")
+                text.append("down\n", style="yellow")
             iface_errin = int(_as_number(iface.get("errin")))
             iface_errout = int(_as_number(iface.get("errout")))
             iface_dropin = int(_as_number(iface.get("dropin")))
