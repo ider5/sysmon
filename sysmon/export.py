@@ -223,6 +223,13 @@ def _sensors_payload(settings: SysmonConfig) -> Any:
     return payload
 
 
+def _process_rows(rows: Any) -> list[dict[str, Any]]:
+    """Keep process records and drop anything else, including a non-list."""
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
 def _process_payload(
     name_filter: str | None = None,
     settings: SysmonConfig | None = None,
@@ -234,9 +241,7 @@ def _process_payload(
         rows = collect_processes(cfg, name_filter=name_filter)
     else:
         rows = collect("process", cfg)
-    if not isinstance(rows, list):
-        return []
-    return [row for row in rows if isinstance(row, dict)]
+    return _process_rows(rows)
 
 
 def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
@@ -386,7 +391,7 @@ def collect_all_from_snapshot(
         _store(data, "gpu", lambda: _gpu_payload(cfg, info=snapshot["gpu"]))
     processes = snapshot.get("process", snapshot.get("processes"))
     if cfg.modules.process and processes is not None:
-        data["processes"] = processes
+        data["processes"] = _process_rows(processes)
     if cfg.modules.sensors and "sensors" in snapshot:
         sensors = snapshot["sensors"]
         if isinstance(sensors, dict):

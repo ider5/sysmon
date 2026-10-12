@@ -250,6 +250,24 @@ def test_process_payload_drops_non_records(monkeypatch):
     assert data["processes"] == [{"pid": 1, "name": "a"}]
 
 
+def test_snapshot_processes_drop_non_records():
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(modules=ModuleConfig(process=True, sensors=False))
+    data = collect_all_from_snapshot(
+        {"process": [None, {"pid": 4, "name": "ok"}, "bad"]},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["processes"] == [{"pid": 4, "name": "ok"}]
+    missing = collect_all_from_snapshot(
+        {"process": "unavailable"},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert missing["processes"] == []
+
+
 def test_collect_section_process():
     data = collect_section("process")
     assert "processes" in data

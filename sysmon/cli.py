@@ -328,6 +328,10 @@ def top(
         name_filter=filter_name,
         sample_interval=min(settings.sample_interval, NATIVE_CPU_SAMPLE_FLOOR),
     )
+    if not isinstance(processes, list):
+        processes = []
+    else:
+        processes = [row for row in processes if isinstance(row, dict)]
 
     if fmt == "json":
         _emit_json({

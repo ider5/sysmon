@@ -235,6 +235,18 @@ def test_memory_json():
     assert "percent" in data["memory"]
 
 
+def test_top_json_drops_non_records(monkeypatch):
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect_processes",
+        lambda *_a, **_k: [None, {"pid": 7, "name": "ok"}, "bad"],
+    )
+    result = runner.invoke(app, ["top", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["processes"] == [{"pid": 7, "name": "ok"}]
+
+
 def test_top_json(monkeypatch):
     monkeypatch.setattr("sysmon.collectors.process.time.sleep", lambda _s: None)
     result = runner.invoke(app, ["top", "--format", "json", "--limit", "3"])
