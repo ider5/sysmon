@@ -123,6 +123,7 @@ All notable changes to SysMon are documented in this file.
 - Process names and the active filter are shown as plain text, so markup or a newline in a name does not change the table
 - Mount points, interface names, sensor labels, and GPU names are drawn on one line
 - The dashboard header keeps the hostname, OS name, and uptime on one line
+- The snapshot system block does the same for hostname, OS, architecture, processor, and uptime
 - A down interface name on the brief line and title stays on one line
 - Process collection skips one unreadable process instead of failing the whole top list
 - The native process list keeps the rows that are records when another row is not

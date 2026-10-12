@@ -11,6 +11,27 @@ from sysmon.display import snapshot as snapshot_mod
 from sysmon.display import top_live as top_live_mod
 
 
+def test_snapshot_header_keeps_hostname_on_one_line(monkeypatch):
+    monkeypatch.setattr(snapshot_mod.platform, "node", lambda: "box\nname")
+    monkeypatch.setattr(snapshot_mod, "load_config", lambda: SysmonConfig(
+        modules=ModuleConfig(
+            cpu=False,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    ))
+    buffer = io.StringIO()
+    console = Console(file=buffer, force_terminal=True, width=120)
+    snapshot_mod.print_snapshot(console, section="all", include_gpu=False)
+    text = buffer.getvalue()
+    assert "box name" in text
+    assert "box\nname" not in text
+
+
 def test_print_all_continues_after_section_error(monkeypatch):
     def fake_collect(name, settings=None):
         if name == "cpu":

@@ -12,7 +12,13 @@ from rich.text import Text
 from sysmon import __version__
 from sysmon.collectors.registry import collect
 from sysmon.config import load_config
-from sysmon.display.components import _get_os_name, _get_uptime, ascii_logo, gpu_panel
+from sysmon.display.components import (
+    _get_os_name,
+    _get_uptime,
+    ascii_logo,
+    gpu_panel,
+    one_line,
+)
 from sysmon.display.panels import (
     cpu_panel,
     disk_panel,
@@ -76,15 +82,15 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
     sys_text.append(f"  {'Version':<12}", style="bold")
     sys_text.append(f"{__version__}\n", style="dim")
     sys_text.append(f"  {'Host':<12}", style="bold")
-    sys_text.append(f"{hostname}\n", style="bold white")
+    sys_text.append(f"{one_line(hostname, 'unknown')}\n", style="bold white")
     sys_text.append(f"  {'OS':<12}", style="bold")
-    sys_text.append(f"{os_name}\n", style="bold blue")
+    sys_text.append(f"{one_line(os_name, 'unknown')}\n", style="bold blue")
     sys_text.append(f"  {'Arch':<12}", style="bold")
-    sys_text.append(f"{arch}\n", style="bold white")
+    sys_text.append(f"{one_line(arch, 'unknown')}\n", style="bold white")
     sys_text.append(f"  {'CPU':<12}", style="bold")
-    sys_text.append(f"{processor}\n", style="dim")
+    sys_text.append(f"{one_line(processor, 'Unknown')}\n", style="dim")
     sys_text.append(f"  {'Uptime':<12}", style="bold")
-    sys_text.append(f"{uptime}\n", style="bold green")
+    sys_text.append(f"{one_line(uptime, 'unknown')}\n", style="bold green")
 
     info_table = Table(show_header=False, box=None, padding=0)
     info_table.add_column("logo", ratio=2)
