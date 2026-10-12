@@ -276,7 +276,7 @@ def test_brief_json(monkeypatch):
     result = runner.invoke(app, ["brief", "--format", "json", "--no-gpu"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert set(data.keys()) == {"cpu", "memory", "network"}
+    assert set(data.keys()) == {"cpu", "memory", "network", "collected_at"}
 
 
 def test_brief_json_skips_network_sample_when_module_disabled(monkeypatch):
@@ -300,7 +300,7 @@ def test_brief_json_skips_network_sample_when_module_disabled(monkeypatch):
     result = runner.invoke(app, ["brief", "--format", "json"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert set(data.keys()) == {"cpu"}
+    assert set(data.keys()) == {"cpu", "collected_at"}
     assert settings.sample_interval not in slept
 
 

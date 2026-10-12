@@ -76,7 +76,7 @@ def test_collect_brief_loads_config_once(monkeypatch):
 
 def test_collect_brief_keys():
     data = collect_brief(include_gpu=False)
-    assert set(data.keys()) == {"cpu", "memory", "network"}
+    assert set(data.keys()) == {"cpu", "memory", "network", "collected_at"}
 
 
 def test_collect_brief_respects_modules(monkeypatch):
@@ -103,7 +103,7 @@ def test_collect_brief_respects_modules(monkeypatch):
         },
     )
     data = collect_brief(include_gpu=True)
-    assert set(data) == {"sensors"}
+    assert set(data) == {"sensors", "collected_at"}
     assert data["sensors"]["battery"]["percent"] == 12.0
 
 

@@ -192,6 +192,7 @@ def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
         data["gpu"] = _gpu_payload(settings)
     if settings.modules.sensors:
         data["sensors"] = collect("sensors", settings)
+    data["collected_at"] = time.time()
     return data
 
 
