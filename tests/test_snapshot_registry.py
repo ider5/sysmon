@@ -202,6 +202,21 @@ def test_top_live_survives_a_bad_refresh(monkeypatch):
     assert any(getattr(item, "plain", "") == "top error: bad top" for item in updates)
 
 
+def test_refresh_wait_quits_when_q_arrives(monkeypatch):
+    state = top_live_mod._TopState("cpu", None)
+    keys = iter([None, "q"])
+    clock = {"t": 0.0}
+    monkeypatch.setattr(top_live_mod, "_read_key", lambda: next(keys))
+    monkeypatch.setattr(top_live_mod.time, "monotonic", lambda: clock["t"])
+
+    def fake_sleep(seconds: float) -> None:
+        clock["t"] += seconds
+
+    monkeypatch.setattr(top_live_mod.time, "sleep", fake_sleep)
+    assert top_live_mod._sleep_until_key_or_refresh(1.0, state) is False
+    assert clock["t"] < 1.0
+
+
 def test_top_live_render_uses_collect_processes(monkeypatch):
     calls = []
 

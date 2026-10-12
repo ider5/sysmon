@@ -107,6 +107,19 @@ def _apply_top_key(state: _TopState, key: str | None) -> bool:
     return True
 
 
+def _sleep_until_key_or_refresh(refresh_rate: float, state: _TopState) -> bool:
+    """Wait out the refresh interval while still reading keys. False means quit."""
+    deadline = time.monotonic() + max(0.0, refresh_rate)
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return True
+        key = _read_key()
+        if key is not None and not _apply_top_key(state, key):
+            return False
+        time.sleep(min(0.05, remaining))
+
+
 def run_top_live(
     limit: int = 10,
     sort_by: str = "cpu",
@@ -153,6 +166,7 @@ def run_top_live(
                     raise
                 except Exception as exc:
                     live.update(Text(f"top error: {exc}", style="red"))
-                time.sleep(refresh_rate)
+                if not _sleep_until_key_or_refresh(refresh_rate, state):
+                    break
         except KeyboardInterrupt:
             pass

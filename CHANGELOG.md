@@ -44,6 +44,7 @@ All notable changes to SysMon are documented in this file.
 - Config intervals are clamped to 0.1–10 seconds, `process_limit` to 1–50, and a warn threshold above critical is swapped so the warning band still exists. A single string for `disk_mounts` or `network_interfaces` is kept as one entry instead of being split into characters. A non-table `modules` or `thresholds` value is ignored instead of discarding the rest of the file
 - CI runs on `master` only
 - Interactive `sysmon top --watch` treats `c`, `m`, `q`, and `/` as text while a name filter is being typed
+- Interactive top reads keys during the refresh wait, so quit and filter typing are not stuck until the next sample
 - A GPU temperature of 0°C is shown instead of being treated as missing
 - An unreadable selected disk mount stays in the result at zero usage instead of being replaced by the primary disk
 - Enumerating all disks skips virtual filesystems such as squashfs, tmpfs, and overlay. Explicit `disk_mounts` entries are still shown
