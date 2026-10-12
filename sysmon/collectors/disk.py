@@ -12,6 +12,32 @@ import psutil
 _prev_disk_io = None
 _prev_time: float | None = None
 _disk_lock = threading.Lock()
+_SKIP_FSTYPES = frozenset(
+    {
+        "autofs",
+        "binfmt_misc",
+        "bpf",
+        "cgroup",
+        "cgroup2",
+        "configfs",
+        "debugfs",
+        "devtmpfs",
+        "efivarfs",
+        "fusectl",
+        "hugetlbfs",
+        "mqueue",
+        "nsfs",
+        "overlay",
+        "proc",
+        "pstore",
+        "ramfs",
+        "securityfs",
+        "squashfs",
+        "sysfs",
+        "tmpfs",
+        "tracefs",
+    }
+)
 
 
 def _delta_rate(current: float, previous: float, dt: float) -> float:
@@ -34,6 +60,8 @@ def list_mount_points() -> list[str]:
     for part in psutil.disk_partitions(all=False):
         mount = part.mountpoint
         if not mount:
+            continue
+        if (getattr(part, "fstype", "") or "").lower() in _SKIP_FSTYPES:
             continue
         if platform.system() != "Windows" and mount.startswith("/dev"):
             continue

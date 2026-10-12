@@ -34,6 +34,22 @@ def test_get_disk_info_keeps_unreadable_selected_mount():
     assert all(item["total"] == 0 for item in result["mounts"])
 
 
+def test_list_mount_points_skips_virtual_filesystems():
+    parts = [
+        SimpleNamespace(mountpoint="/", device="/dev/sda1", fstype="ext4"),
+        SimpleNamespace(mountpoint="/snap/core/1", device="/dev/loop0", fstype="squashfs"),
+        SimpleNamespace(mountpoint="/run", device="tmpfs", fstype="tmpfs"),
+    ]
+    with patch("sysmon.collectors.disk.psutil.disk_partitions", return_value=parts):
+        with patch(
+            "sysmon.collectors.disk.psutil.disk_usage",
+            return_value=SimpleNamespace(total=1, used=0, free=1, percent=0),
+        ):
+            with patch("sysmon.collectors.disk.platform.system", return_value="Linux"):
+                mounts = list_mount_points()
+    assert mounts == ["/"]
+
+
 def test_list_mount_points_skips_inaccessible():
     parts = [
         SimpleNamespace(mountpoint="/", device="/dev/sda1"),

@@ -46,6 +46,7 @@ All notable changes to SysMon are documented in this file.
 - Interactive `sysmon top --watch` treats `c`, `m`, `q`, and `/` as text while a name filter is being typed
 - A GPU temperature of 0°C is shown instead of being treated as missing
 - An unreadable selected disk mount stays in the result at zero usage instead of being replaced by the primary disk
+- Enumerating all disks skips virtual filesystems such as squashfs, tmpfs, and overlay. Explicit `disk_mounts` entries are still shown
 - A selected network interface that is not present stays in the per-interface list at zero instead of disappearing
 
 ## [0.4.0] - 2026-08-14
