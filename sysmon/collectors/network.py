@@ -64,6 +64,18 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
             for name in resolved:
                 counters = per_nic.get(name)
                 if counters is None:
+                    _prev_iface_io.pop(name, None)
+                    iface_entries.append(
+                        {
+                            "name": name,
+                            "bytes_sent": 0,
+                            "bytes_recv": 0,
+                            "speed_up": 0.0,
+                            "speed_down": 0.0,
+                            "packets_sent": 0,
+                            "packets_recv": 0,
+                        }
+                    )
                     continue
                 prev = _prev_iface_io.get(name)
                 if prev is not None and _prev_iface_time is not None:

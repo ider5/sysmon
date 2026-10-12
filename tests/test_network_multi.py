@@ -65,6 +65,23 @@ def test_get_network_info_per_interface():
     assert second["speed_down"] == 1000.0
 
 
+def test_missing_interface_is_listed_at_zero():
+    network_module._prev_iface_io = {"nope": SimpleNamespace(bytes_sent=5, bytes_recv=5)}
+    network_module._prev_iface_time = 0.0
+
+    with patch(
+        "sysmon.collectors.network.psutil.net_io_counters",
+        return_value={},
+    ):
+        with patch("sysmon.collectors.network.time.time", return_value=1.0):
+            result = get_network_info(interfaces=["eth0", "nope"])
+
+    assert [item["name"] for item in result["interfaces"]] == ["eth0", "nope"]
+    assert result["bytes_sent"] == 0
+    assert result["speed_down"] == 0.0
+    assert "nope" not in network_module._prev_iface_io
+
+
 def test_list_network_interfaces_excludes_loopback():
     stats = {
         "lo": SimpleNamespace(isup=True),
