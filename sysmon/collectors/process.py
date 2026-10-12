@@ -138,6 +138,8 @@ def get_top_processes(
     Returns:
         List of dicts with pid, name, cpu_percent, memory_percent, memory_mb.
     """
+    if limit is None:
+        limit = 10
     if sample_interval is not None and sample_interval > 0:
         if _try_native_processes(limit, sort_by, name_filter) is not None:
             time.sleep(max(sample_interval, NATIVE_CPU_SAMPLE_FLOOR))

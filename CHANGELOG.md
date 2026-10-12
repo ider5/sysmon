@@ -67,6 +67,7 @@ All notable changes to SysMon are documented in this file.
 - Memory collection keeps RAM data when swap is unavailable, and returns zeros instead of crashing when RAM itself cannot be read
 - The native process scanner drops idle placeholders and the current process before applying the top-N limit, so the list is not shortened by those rows
 - An unrecognized process sort key orders by CPU, matching the native scanner. It previously fell back to memory on the psutil path
+- `get_top_processes(limit=None)` uses the default of 10 instead of raising
 - Linux DRM GPUs are ordered by card number, so `card10` no longer sorts before `card2`
 - Config intervals are clamped to 0.1–10 seconds, `process_limit` to 1–50, and a warn threshold above critical is swapped so the warning band still exists. A single string for `disk_mounts` or `network_interfaces` is kept as one entry instead of being split into characters. A non-table `modules` or `thresholds` value is ignored instead of discarding the rest of the file
 - CI runs on `master` only
