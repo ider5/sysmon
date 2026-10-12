@@ -7,6 +7,7 @@ All notable changes to SysMon are documented in this file.
 ### Added
 - Dashboard shows battery charge, power state, and temperatures when `[modules] sensors = true`
 - CPU snapshots, the CPU panel, JSON, and Prometheus include the 1, 5, and 15 minute load average when the OS provides it
+- Prometheus exports logical and physical CPU counts so load average can be compared with the machine size
 - Brief mode and the terminal title append the 1-minute load when it is at least the logical CPU count
 - `sysmon cpu` and the CPU snapshot show per-core usage, not only the dashboard's compact panel
 - The snapshot header includes the sysmon version

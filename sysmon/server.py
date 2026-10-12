@@ -122,6 +122,12 @@ def format_prometheus(data: dict[str, Any]) -> str:
     cpu = data.get("cpu")
     if isinstance(cpu, dict) and "percent" in cpu:
         gauge("sysmon_cpu_percent", cpu["percent"], "CPU utilization percent")
+        logical = _first_number(cpu, "count_logical")
+        physical = _first_number(cpu, "count_physical")
+        if logical is not None:
+            gauge("sysmon_cpu_logical", logical, "Logical CPU count")
+        if physical is not None:
+            gauge("sysmon_cpu_physical", physical, "Physical CPU count")
         load_avg = cpu.get("load_avg")
         if (
             isinstance(load_avg, (list, tuple))
