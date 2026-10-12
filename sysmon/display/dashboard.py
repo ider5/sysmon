@@ -112,7 +112,7 @@ def build_dashboard(
 
     if modules.cpu:
         cpu_snapshot = data.get("cpu")
-        if cpu_snapshot is None:
+        if not isinstance(cpu_snapshot, dict):
             metric_panels.append(
                 ("cpu", _waiting_panel("[bold cyan]📊 CPU[/bold cyan]", errors.get("cpu")))
             )
@@ -122,7 +122,7 @@ def build_dashboard(
                     "cpu",
                     cpu_panel(
                         cpu_snapshot,
-                        cores=cpu_snapshot["cores"],
+                        cores=cpu_snapshot.get("cores"),
                         compact=True,
                         warn=thresholds.cpu_warn,
                         critical=thresholds.cpu_critical,

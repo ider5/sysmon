@@ -109,6 +109,30 @@ def test_build_dashboard_uses_snapshot_cpu(monkeypatch):
     assert "12.5%" in console.export_text()
 
 
+def test_build_dashboard_cpu_without_cores_still_draws():
+    layout = build_dashboard(
+        include_gpu=False,
+        config=_cpu_only_config(),
+        snapshot={"cpu": {"percent": 12.5, "count_logical": 2, "count_physical": 1}},
+    )
+    console = Console(record=True, width=100)
+    console.print(layout)
+    assert "12.5%" in console.export_text()
+
+
+def test_build_dashboard_non_record_cpu_waits():
+    layout = build_dashboard(
+        include_gpu=False,
+        config=_cpu_only_config(),
+        snapshot={"cpu": "bad", "errors": {"cpu": "unavailable"}},
+    )
+    console = Console(record=True, width=100)
+    console.print(layout)
+    text = console.export_text()
+    assert "unavailable" in text
+    assert "Per-core" not in text
+
+
 def test_build_dashboard_gpu_none_is_unavailable(monkeypatch):
     def boom(*_a, **_k):
         raise AssertionError("collector should not run")

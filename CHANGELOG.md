@@ -74,6 +74,7 @@ All notable changes to SysMon are documented in this file.
 - Prometheus `/metrics` exports `sysmon_collected_at_seconds` and `sysmon_sample_age_seconds` when the payload has `collected_at`
 - Prometheus `/metrics` exports `sysmon_section_errors` when one or more sections failed
 - The dashboard stays open when one frame fails to render and shows that error until the next successful frame
+- The dashboard CPU panel still draws when the sample has no per-core list, and a non-record CPU sample shows the waiting panel
 - `sysmon brief --watch` and `sysmon top --watch` stay open when one refresh fails and show that error
 - The dashboard and `sysmon serve` reload `config.toml` when the file changes, without a restart
 - `sysmon brief --watch` reloads thresholds and the selected network interfaces from `config.toml` on each frame
