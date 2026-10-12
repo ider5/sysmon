@@ -143,7 +143,12 @@ def run_top_live(
             while True:
                 if not _apply_top_key(state, _read_key()):
                     break
-                live.update(render())
+                try:
+                    live.update(render())
+                except KeyboardInterrupt:
+                    raise
+                except Exception as exc:
+                    live.update(Text(f"top error: {exc}", style="red"))
                 time.sleep(refresh_rate)
         except KeyboardInterrupt:
             pass

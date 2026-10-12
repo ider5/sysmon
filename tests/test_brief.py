@@ -330,6 +330,44 @@ def test_run_brief_watch_passes_thresholds(monkeypatch):
     assert captured["kwargs"]["thresholds"] is thresholds
 
 
+def test_run_brief_watch_survives_a_bad_refresh(monkeypatch):
+    calls = {"n": 0}
+    sleeps = {"n": 0}
+    updates = []
+
+    def fake_sleep(_s):
+        sleeps["n"] += 1
+        if sleeps["n"] >= 3:
+            raise KeyboardInterrupt
+
+    def fake_line(*_a, **_k):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise RuntimeError("bad brief")
+        return "line"
+
+    class _Live:
+        def __init__(self, renderable, *a, **k):
+            self.renderable = renderable
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def update(self, line):
+            updates.append(line)
+
+    monkeypatch.setattr(brief_mod, "collect", lambda *a, **k: None)
+    monkeypatch.setattr(brief_mod.time, "sleep", fake_sleep)
+    monkeypatch.setattr(brief_mod, "build_brief_line", fake_line)
+    monkeypatch.setattr(brief_mod, "Live", _Live)
+    brief_mod.run_brief_watch(Console(record=True), no_gpu=True)
+    assert calls["n"] >= 2
+    assert any(getattr(item, "plain", "") == "brief error: bad brief" for item in updates)
+
+
 def test_print_brief_uses_sample_interval(monkeypatch):
     slept = {}
     monkeypatch.setattr(brief_mod, "collect", lambda *a, **k: None)

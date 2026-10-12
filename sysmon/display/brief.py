@@ -294,14 +294,19 @@ def run_brief_watch(
         try:
             while True:
                 time.sleep(refresh_rate)
-                live.update(
-                    build_brief_line(
-                        no_color,
-                        no_gpu,
-                        interfaces=interfaces,
-                        thresholds=thresholds,
+                try:
+                    live.update(
+                        build_brief_line(
+                            no_color,
+                            no_gpu,
+                            interfaces=interfaces,
+                            thresholds=thresholds,
+                        )
                     )
-                )
+                except KeyboardInterrupt:
+                    raise
+                except Exception as exc:
+                    live.update(Text(f"brief error: {exc}", style="red"))
         except KeyboardInterrupt:
             pass
 

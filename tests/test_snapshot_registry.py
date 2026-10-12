@@ -170,6 +170,38 @@ def test_top_commands_apply_outside_filter_mode():
     assert state.name_filter is None
 
 
+def test_top_live_survives_a_bad_refresh(monkeypatch):
+    calls = {"n": 0}
+    updates = []
+
+    def fake_collect_processes(**_kwargs):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise RuntimeError("bad top")
+        return []
+
+    class FakeLive:
+        def __init__(self, renderable, *a, **k):
+            self.renderable = renderable
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def update(self, renderable):
+            updates.append(renderable)
+
+    monkeypatch.setattr(top_live_mod, "collect_processes", fake_collect_processes)
+    monkeypatch.setattr(top_live_mod, "Live", FakeLive)
+    monkeypatch.setattr(top_live_mod, "_read_key", lambda: None)
+    monkeypatch.setattr(top_live_mod.time, "sleep", lambda _s: (_ for _ in ()).throw(KeyboardInterrupt()))
+    top_live_mod.run_top_live(limit=3)
+    assert calls["n"] >= 2
+    assert any(getattr(item, "plain", "") == "top error: bad top" for item in updates)
+
+
 def test_top_live_render_uses_collect_processes(monkeypatch):
     calls = []
 
