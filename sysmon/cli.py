@@ -497,6 +497,29 @@ def gpu(
 
 
 @app.command()
+def sensors(
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
+) -> None:
+    """Show battery and temperature sensors."""
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format, settings))
+
+    if fmt == "json":
+        from sysmon.export import collect_section
+
+        _emit_json(collect_section("sensors"))
+        return
+
+    from sysmon.collectors.registry import collect
+    from sysmon.display.snapshot import _print_sensors
+
+    _print_sensors(console, collect("sensors", settings))
+
+
+@app.command()
 def brief(
     watch: bool = typer.Option(
         False, "--watch", "-w",

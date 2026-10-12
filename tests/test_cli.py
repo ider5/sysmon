@@ -271,6 +271,39 @@ def test_disk_json(monkeypatch):
     assert "percent" in data["disk"]
 
 
+def test_sensors_json(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda name, settings=None: {
+            "battery": {"percent": 33.0, "secsleft": None, "power_plugged": False},
+            "temperatures": {},
+        },
+    )
+    result = runner.invoke(app, ["sensors", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["sensors"]["battery"]["percent"] == 33.0
+
+
+def test_sensors_rich_uses_registry_collect(monkeypatch):
+    calls = []
+    payload = {
+        "battery": {"percent": 33.0, "secsleft": None, "power_plugged": True},
+        "temperatures": {},
+    }
+
+    def fake_collect(name, settings=None):
+        calls.append(name)
+        return payload
+
+    monkeypatch.setattr("sysmon.collectors.registry.collect", fake_collect)
+    result = runner.invoke(app, ["sensors"])
+    assert result.exit_code == 0
+    assert calls == ["sensors"]
+    assert "33.0%" in result.stdout
+    assert "plugged in" in result.stdout
+
+
 def test_gpu_json():
     result = runner.invoke(app, ["gpu", "--format", "json"])
     assert result.exit_code == 0
