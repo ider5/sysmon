@@ -408,3 +408,27 @@ def test_build_sensors_text_battery_and_temperature():
 def test_build_sensors_text_empty_readings():
     text = build_sensors_text({"battery": None, "temperatures": {}})
     assert "No battery or temperature sensors" in text.plain
+
+
+def test_build_sensors_text_tolerates_partial_record():
+    text = build_sensors_text(
+        {
+            "battery": {"percent": "bad", "secsleft": True, "power_plugged": False},
+            "temperatures": {
+                "coretemp": [
+                    {"label": "Package", "current": True, "high": True, "critical": True},
+                    {"label": "Zero", "current": 0.0},
+                ]
+            },
+        }
+    )
+    plain = text.plain
+    assert "n/a" in plain
+    assert "1.0°C" not in plain
+    assert "0.0°C" in plain
+    assert "Remaining" not in plain
+
+
+def test_build_sensors_text_rejects_non_record():
+    text = build_sensors_text(None)  # type: ignore[arg-type]
+    assert "No battery or temperature sensors" in text.plain

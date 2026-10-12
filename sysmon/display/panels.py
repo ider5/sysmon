@@ -11,7 +11,7 @@ from rich.text import Text
 
 from sysmon.collectors.memory import bytes_to_gb
 from sysmon.collectors.network import format_bytes, format_speed
-from sysmon.display.components import gradient_color, progress_bar
+from sysmon.display.components import _finite_number, gradient_color, progress_bar
 from sysmon.display.sparkline import render_sparkline
 
 
@@ -435,11 +435,11 @@ def _format_remaining(seconds: int) -> str:
 
 
 def _temperature_style(current: float, entry: dict) -> str:
-    critical = entry.get("critical")
-    high = entry.get("high")
-    if isinstance(critical, (int, float)) and current >= critical:
+    critical = _finite_number(entry.get("critical"))
+    high = _finite_number(entry.get("high"))
+    if critical is not None and current >= critical:
         return "bold red"
-    if isinstance(high, (int, float)) and current >= high:
+    if high is not None and current >= high:
         return "bold yellow"
     return "bold white"
 
@@ -447,6 +447,9 @@ def _temperature_style(current: float, entry: dict) -> str:
 def build_sensors_text(info: dict) -> Text:
     """Build battery and temperature text."""
     text = Text()
+    if not isinstance(info, dict):
+        text.append("  No battery or temperature sensors\n", style="dim")
+        return text
     battery = info.get("battery") if isinstance(info.get("battery"), dict) else None
     temperatures = info.get("temperatures") if isinstance(info.get("temperatures"), dict) else {}
 
@@ -455,14 +458,13 @@ def build_sensors_text(info: dict) -> Text:
         return text
 
     if battery is not None:
-        percent = float(battery.get("percent") or 0.0)
         text.append(f"  {'Battery':<14}", style="bold")
-        text.append_text(progress_bar(percent, width=25))
+        text.append_text(progress_bar(battery.get("percent"), width=25))
         plugged = "plugged in" if battery.get("power_plugged") else "on battery"
         text.append(f"\n  {'Power':<14}", style="bold")
         text.append(plugged + "\n", style="bold white")
-        secsleft = battery.get("secsleft")
-        if isinstance(secsleft, (int, float)) and secsleft >= 0:
+        secsleft = _finite_number(battery.get("secsleft"))
+        if secsleft is not None and secsleft >= 0:
             text.append(f"  {'Remaining':<14}", style="bold")
             text.append(_format_remaining(int(secsleft)) + "\n", style="bold white")
 
@@ -480,10 +482,10 @@ def build_sensors_text(info: dict) -> Text:
             text.append("  " + "─" * 30 + "\n", style="dim")
         shown = readings[:8]
         for label, entry in shown:
-            current = entry.get("current")
+            current = _finite_number(entry.get("current"))
             text.append(f"  {label[:14]:<14}", style="bold")
-            if isinstance(current, (int, float)):
-                text.append(f"{float(current):.1f}°C\n", style=_temperature_style(float(current), entry))
+            if current is not None:
+                text.append(f"{current:.1f}°C\n", style=_temperature_style(current, entry))
             else:
                 text.append("n/a\n", style="dim")
         extra = len(readings) - len(shown)
