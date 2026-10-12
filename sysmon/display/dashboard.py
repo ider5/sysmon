@@ -303,35 +303,46 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
         ) as live:
             try:
                 while True:
-                    config = load_config()
-                    snapshot = service.get_snapshot()
-                    cpu = snapshot.get("cpu")
-                    if cpu is not None:
-                        cpu_history.add(cpu["percent"])
-                    mem = snapshot.get("memory")
-                    if mem is not None:
-                        mem_history.add(mem["percent"])
-                    net = snapshot.get("network")
-                    if net is not None:
-                        net_history.add(net["speed_down"])
-                        net_up_history.add(net["speed_up"])
-                    disk = snapshot.get("disk")
-                    if disk is not None:
-                        disk_read_history.add(disk["read_speed"])
-                        disk_write_history.add(disk["write_speed"])
-                    live.update(
-                        build_dashboard(
-                            include_gpu=include_gpu,
-                            config=config,
-                            cpu_history=cpu_history,
-                            mem_history=mem_history,
-                            net_history=net_history,
-                            net_up_history=net_up_history,
-                            disk_read_history=disk_read_history,
-                            disk_write_history=disk_write_history,
-                            snapshot=snapshot,
+                    try:
+                        config = load_config()
+                        snapshot = service.get_snapshot()
+                        cpu = snapshot.get("cpu")
+                        if cpu is not None:
+                            cpu_history.add(cpu["percent"])
+                        mem = snapshot.get("memory")
+                        if mem is not None:
+                            mem_history.add(mem["percent"])
+                        net = snapshot.get("network")
+                        if net is not None:
+                            net_history.add(net["speed_down"])
+                            net_up_history.add(net["speed_up"])
+                        disk = snapshot.get("disk")
+                        if disk is not None:
+                            disk_read_history.add(float(disk.get("read_speed") or 0))
+                            disk_write_history.add(float(disk.get("write_speed") or 0))
+                        live.update(
+                            build_dashboard(
+                                include_gpu=include_gpu,
+                                config=config,
+                                cpu_history=cpu_history,
+                                mem_history=mem_history,
+                                net_history=net_history,
+                                net_up_history=net_up_history,
+                                disk_read_history=disk_read_history,
+                                disk_write_history=disk_write_history,
+                                snapshot=snapshot,
+                            )
                         )
-                    )
+                    except KeyboardInterrupt:
+                        raise
+                    except Exception as exc:
+                        live.update(
+                            Panel(
+                                Text(f"  Display error: {exc}", style="red"),
+                                title="sysmon",
+                                border_style="red",
+                            )
+                        )
                     time.sleep(refresh_rate)
             except KeyboardInterrupt:
                 pass

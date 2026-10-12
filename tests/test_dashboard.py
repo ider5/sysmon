@@ -1,6 +1,8 @@
 """Tests for dashboard layout building."""
 
 from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
 
 from sysmon.config import SysmonConfig
 from sysmon.display.dashboard import build_dashboard, run_dashboard
@@ -330,6 +332,64 @@ def test_build_dashboard_sensors_waiting_and_error():
     console = Console(record=True, width=80)
     console.print(failed)
     assert "Collection error: sensor read failed" in console.export_text()
+
+
+def test_run_dashboard_shows_display_error_and_continues(monkeypatch):
+    builds = {"n": 0}
+
+    def flaky_build(*_args, **_kwargs):
+        builds["n"] += 1
+        if builds["n"] > 1:
+            raise RuntimeError("bad frame")
+        return Panel(Text("ok"))
+
+    sleeps = {"n": 0}
+
+    def fake_sleep(_seconds: float) -> None:
+        sleeps["n"] += 1
+        if sleeps["n"] >= 2:
+            raise KeyboardInterrupt
+
+    class FakeService:
+        def __init__(self, **_kwargs):
+            return None
+
+        def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+        def get_snapshot(self) -> dict:
+            return {}
+
+    class FakeLive:
+        def __init__(self, renderable, **kwargs):
+            self.renderable = renderable
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def update(self, renderable) -> None:
+            self.frames.append(renderable)
+
+        frames: list = []
+
+    monkeypatch.setattr("sysmon.display.dashboard.CollectorService", FakeService)
+    monkeypatch.setattr("sysmon.display.dashboard.Live", FakeLive)
+    monkeypatch.setattr("sysmon.display.dashboard.time.sleep", fake_sleep)
+    monkeypatch.setattr("sysmon.collectors.registry.collect", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        "sysmon.display.dashboard.load_config", lambda: _sensors_only_config()
+    )
+    monkeypatch.setattr("sysmon.display.dashboard.build_dashboard", flaky_build)
+
+    run_dashboard(refresh_rate=1.0, include_gpu=False)
+    assert builds["n"] >= 2
+    assert sleeps["n"] >= 2
 
 
 def test_run_dashboard_follows_sensor_module_config(monkeypatch):
