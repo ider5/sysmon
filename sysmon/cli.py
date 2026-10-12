@@ -136,6 +136,14 @@ def config_path() -> None:
     print(get_config_path())
 
 
+@config_app.command("show")
+def config_show() -> None:
+    """Print the resolved configuration as JSON."""
+    from dataclasses import asdict
+
+    _emit_json(asdict(load_config()))
+
+
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,

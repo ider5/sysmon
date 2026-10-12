@@ -139,6 +139,7 @@ Requires `pip install shtab` or `pip install -e ".[dev]"`.
 sysmon config init      # Create the platform config file
 sysmon config init --force  # Overwrite an existing config
 sysmon config path      # Show config file location
+sysmon config show      # Print the resolved settings as JSON
 ```
 
 Config directory (first existing `config.toml` wins on Windows/macOS):

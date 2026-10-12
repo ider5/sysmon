@@ -383,6 +383,17 @@ def test_config_init(tmp_path, monkeypatch):
     assert forced.exit_code == 0
 
 
+def test_config_show_prints_resolved_json(monkeypatch):
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    result = runner.invoke(app, ["config", "show"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["refresh_interval"] == 1.0
+    assert data["modules"]["sensors"] is False
+    assert data["thresholds"]["cpu_warn"] == 80.0
+    assert data["disk_mounts"] is None
+
+
 def test_config_path():
     result = runner.invoke(app, ["config", "path"])
     assert result.exit_code == 0
