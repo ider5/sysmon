@@ -409,6 +409,31 @@ def test_snapshot_preserves_collector_errors():
     assert "cpu" not in data
 
 
+def test_snapshot_errors_do_not_hide_formatting_errors(monkeypatch):
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("format")
+
+    monkeypatch.setattr("sysmon.export._cpu_payload", boom)
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=True,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    data = collect_all_from_snapshot(
+        {"cpu": {"percent": 1}, "errors": {"disk": "disk down"}},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["errors"]["cpu"] == "format"
+    assert data["errors"]["disk"] == "disk down"
+
+
 def test_snapshot_collected_at_ignores_non_finite(monkeypatch):
     monkeypatch.setattr("sysmon.export.time.time", lambda: 1000.0)
     settings = SysmonConfig(

@@ -428,7 +428,12 @@ def collect_all_from_snapshot(
         data["processes"] = _process_rows(processes)
     errors = snapshot.get("errors")
     if isinstance(errors, dict) and errors:
-        data["errors"] = {str(key): str(value) for key, value in errors.items()}
+        merged = data.get("errors")
+        if not isinstance(merged, dict):
+            merged = {}
+        for key, value in errors.items():
+            merged.setdefault(str(key), str(value))
+        data["errors"] = merged
     if cfg.modules.sensors and "sensors" in snapshot:
         sensors = snapshot["sensors"]
         if isinstance(sensors, dict):
