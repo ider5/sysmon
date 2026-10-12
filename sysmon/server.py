@@ -92,8 +92,23 @@ def format_prometheus(data: dict[str, Any]) -> str:
     if isinstance(cpu, dict) and "percent" in cpu:
         gauge("sysmon_cpu_percent", cpu["percent"], "CPU utilization percent")
     memory = data.get("memory")
-    if isinstance(memory, dict) and "percent" in memory:
-        gauge("sysmon_memory_percent", memory["percent"], "Memory utilization percent")
+    if isinstance(memory, dict) and isinstance(memory.get("percent"), (int, float)):
+        if not isinstance(memory.get("percent"), bool):
+            gauge("sysmon_memory_percent", memory["percent"], "Memory utilization percent")
+        swap_total = memory.get("swap_total")
+        swap_percent = memory.get("swap_percent")
+        if (
+            isinstance(swap_total, (int, float))
+            and not isinstance(swap_total, bool)
+            and swap_total > 0
+            and isinstance(swap_percent, (int, float))
+            and not isinstance(swap_percent, bool)
+        ):
+            gauge("sysmon_swap_percent", swap_percent, "Swap utilization percent")
+            swap_used = memory.get("swap_used")
+            if isinstance(swap_used, (int, float)) and not isinstance(swap_used, bool):
+                gauge("sysmon_swap_used_bytes", swap_used, "Swap space used in bytes")
+            gauge("sysmon_swap_total_bytes", swap_total, "Swap space total in bytes")
     disk = data.get("disk")
     if isinstance(disk, dict) and "percent" in disk:
         gauge("sysmon_disk_percent", disk["percent"], "Primary disk utilization percent")

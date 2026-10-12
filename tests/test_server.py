@@ -62,6 +62,28 @@ def test_format_prometheus_includes_mounts_and_interfaces():
     assert 'sysmon_network_interface_speed_down{device="eth\\"0"} 2.5' in text
 
 
+def test_format_prometheus_includes_swap_when_present():
+    text = format_prometheus(
+        {
+            "memory": {
+                "percent": 40.0,
+                "swap_percent": 12.5,
+                "swap_used": 128.0,
+                "swap_total": 1024.0,
+            }
+        }
+    )
+    assert "sysmon_memory_percent 40.0" in text
+    assert "sysmon_swap_percent 12.5" in text
+    assert "sysmon_swap_used_bytes 128.0" in text
+    assert "sysmon_swap_total_bytes 1024.0" in text
+
+
+def test_format_prometheus_omits_swap_when_absent():
+    text = format_prometheus({"memory": {"percent": 40.0, "swap_total": 0, "swap_percent": 0}})
+    assert "sysmon_swap_" not in text
+
+
 def test_format_prometheus_includes_sensors():
     text = format_prometheus(
         {
