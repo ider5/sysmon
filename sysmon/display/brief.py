@@ -126,6 +126,23 @@ def _format_gpu(
     return text
 
 
+def _format_sensors(info: dict, no_color: bool = False) -> Text | None:
+    """Format battery charge for the compact status line."""
+    battery = info.get("battery") if isinstance(info, dict) else None
+    if not isinstance(battery, dict) or battery.get("percent") is None:
+        return None
+    text = Text()
+    text.append("BAT ")
+    percent = f"{float(battery['percent']):.0f}%"
+    if no_color:
+        text.append(percent)
+    else:
+        text.append(percent, style="bold")
+    if battery.get("power_plugged"):
+        text.append(" AC")
+    return text
+
+
 def build_brief_line(
     no_color: bool = False,
     no_gpu: bool = False,
@@ -140,43 +157,49 @@ def build_brief_line(
     if interfaces is not None:
         settings = replace(settings, network_interfaces=tuple(interfaces))
 
-    cpu_info = collect("cpu", settings)
-    mem_info = collect("memory", settings)
-    net_info = collect("network", settings)
-    gpu_info = None if no_gpu else collect("gpu", settings)
-
-    line = Text()
-    line.append_text(
-        _format_cpu(
-            cpu_info,
-            no_color,
-            warn=thresholds.cpu_warn,
-            critical=thresholds.cpu_critical,
+    parts: list[Text] = []
+    if settings.modules.cpu:
+        parts.append(
+            _format_cpu(
+                collect("cpu", settings),
+                no_color,
+                warn=thresholds.cpu_warn,
+                critical=thresholds.cpu_critical,
+            )
         )
-    )
-    line.append(" │ ", style="dim")
-    line.append_text(
-        _format_memory(
-            mem_info,
-            no_color,
-            warn=thresholds.memory_warn,
-            critical=thresholds.memory_critical,
+    if settings.modules.memory:
+        parts.append(
+            _format_memory(
+                collect("memory", settings),
+                no_color,
+                warn=thresholds.memory_warn,
+                critical=thresholds.memory_critical,
+            )
         )
-    )
-    line.append(" │ ", style="dim")
-    line.append_text(_format_network(net_info, no_color))
-
-    if gpu_info:
+    if settings.modules.network:
+        parts.append(_format_network(collect("network", settings), no_color))
+    if settings.modules.gpu and settings.enable_gpu and not no_gpu:
         gpu_text = _format_gpu(
-            gpu_info,
+            collect("gpu", settings),
             no_color,
             warn=thresholds.gpu_warn,
             critical=thresholds.gpu_critical,
         )
         if gpu_text:
-            line.append(" │ ", style="dim")
-            line.append_text(gpu_text)
+            parts.append(gpu_text)
+    if settings.modules.sensors:
+        sensor_text = _format_sensors(collect("sensors", settings), no_color)
+        if sensor_text:
+            parts.append(sensor_text)
 
+    line = Text()
+    if not parts:
+        line.append("modules disabled", style=None if no_color else "dim")
+        return line
+    for index, part in enumerate(parts):
+        if index:
+            line.append(" │ ", style="dim")
+        line.append_text(part)
     return line
 
 
@@ -192,7 +215,8 @@ def print_brief(
     settings = load_config()
     if interfaces is not None:
         settings = replace(settings, network_interfaces=tuple(interfaces))
-    collect("network", settings)
+    if settings.modules.network:
+        collect("network", settings)
     time.sleep(sample_interval)
     console.print(
         build_brief_line(
@@ -213,7 +237,8 @@ def run_brief_watch(
     settings = load_config()
     if interfaces is not None:
         settings = replace(settings, network_interfaces=tuple(interfaces))
-    collect("network", settings)
+    if settings.modules.network:
+        collect("network", settings)
     time.sleep(min(0.5, refresh_rate))
 
     with Live(

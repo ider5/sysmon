@@ -6,7 +6,7 @@ import subprocess
 
 from rich.console import Console
 
-from sysmon.config import ThresholdConfig
+from sysmon.config import ModuleConfig, SysmonConfig, ThresholdConfig
 from sysmon.display import brief as brief_mod
 
 
@@ -109,6 +109,90 @@ def test_build_brief_line_gpu_load_uses_gpu_thresholds(monkeypatch):
     )
     styles = _span_styles_for(line, "GPU 15%")
     assert any("yellow" in style for style in styles)
+
+
+def test_build_brief_line_skips_disabled_modules(monkeypatch):
+    seen = []
+
+    def fake_collect(name, settings=None):
+        seen.append(name)
+        if name == "memory":
+            return {"used": 1, "total": 2, "percent": 10.0}
+        raise AssertionError(name)
+
+    monkeypatch.setattr(brief_mod, "collect", fake_collect)
+    monkeypatch.setattr(brief_mod, "bytes_to_gb", lambda n: 1.0)
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=True,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    line = brief_mod.build_brief_line(no_gpu=False)
+    assert seen == ["memory"]
+    assert line.plain == "RAM 1.0/1.0G (10%)"
+
+
+def test_build_brief_line_includes_battery_when_sensors_enabled(monkeypatch):
+    def fake_collect(name, settings=None):
+        assert name == "sensors"
+        return {
+            "battery": {"percent": 80.0, "power_plugged": True, "secsleft": None},
+            "temperatures": {},
+        }
+
+    monkeypatch.setattr(brief_mod, "collect", fake_collect)
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=True,
+            )
+        ),
+    )
+    line = brief_mod.build_brief_line(no_color=True)
+    assert line.plain == "BAT 80% AC"
+
+
+def test_build_brief_line_empty_when_modules_disabled(monkeypatch):
+    monkeypatch.setattr(
+        brief_mod,
+        "collect",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("collect")),
+    )
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    line = brief_mod.build_brief_line(no_gpu=True)
+    assert line.plain == "modules disabled"
 
 
 def test_print_brief_passes_thresholds(monkeypatch):

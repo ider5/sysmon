@@ -8,6 +8,9 @@ All notable changes to SysMon are documented in this file.
 - Dashboard shows battery charge, power state, and temperatures when `[modules] sensors = true`
 - `sysmon snapshot sensors` prints that same panel; the full snapshot includes it when the module is enabled
 
+### Changed
+- Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading is included when sensors are enabled
+
 ## [0.4.0] - 2026-08-14
 
 ### Added

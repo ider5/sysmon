@@ -61,20 +61,22 @@ def set_title(title: str) -> None:
 def build_title(no_gpu: bool) -> str:
     """Build plain-text title string."""
     settings = load_config()
-    cpu = collect("cpu", settings)
-    mem = collect("memory", settings)
-    net = collect("network", settings)
-
-    parts = [
-        f"CPU {cpu['percent']:.0f}%",
-        (
+    parts: list[str] = []
+    if settings.modules.cpu:
+        cpu = collect("cpu", settings)
+        parts.append(f"CPU {cpu['percent']:.0f}%")
+    if settings.modules.memory:
+        mem = collect("memory", settings)
+        parts.append(
             f"RAM {bytes_to_gb(mem['used'])}/{bytes_to_gb(mem['total'])}G "
             f"({mem['percent']:.0f}%)"
-        ),
-        f"↑{format_speed(net['speed_up'])} ↓{format_speed(net['speed_down'])}",
-    ]
-
-    if not no_gpu:
+        )
+    if settings.modules.network:
+        net = collect("network", settings)
+        parts.append(
+            f"↑{format_speed(net['speed_up'])} ↓{format_speed(net['speed_down'])}"
+        )
+    if settings.modules.gpu and settings.enable_gpu and not no_gpu:
         gpus = collect("gpu", settings)
         if gpus:
             gpu = gpus[0]
@@ -85,14 +87,22 @@ def build_title(no_gpu: bool) -> str:
             if gpu["temperature"]:
                 gpu_str += f" {gpu['temperature']}°C"
             parts.append(gpu_str)
-
+    if settings.modules.sensors:
+        sensors = collect("sensors", settings)
+        battery = sensors.get("battery") if isinstance(sensors, dict) else None
+        if isinstance(battery, dict) and battery.get("percent") is not None:
+            plugged = " AC" if battery.get("power_plugged") else ""
+            parts.append(f"BAT {float(battery['percent']):.0f}%{plugged}")
+    if not parts:
+        return "sysmon"
     return " │ ".join(parts)
 
 
 def run_loop(refresh_rate: float, no_gpu: bool) -> None:
     """Main title update loop."""
     settings = load_config()
-    collect("network", settings)
+    if settings.modules.network:
+        collect("network", settings)
     time.sleep(0.5)
 
     failures = 0
