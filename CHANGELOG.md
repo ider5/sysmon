@@ -30,7 +30,7 @@ All notable changes to SysMon are documented in this file.
 - The network panel does not draw a divider before the first real interface when an earlier entry is not a record
 - Network collection reports inbound and outbound errors and drops. The panel, brief line, and terminal title show them when any are non-zero, and Prometheus exports them as counters
 - Network interfaces include link speed in Mb/s when the OS reports it, on the panel and as `sysmon_network_interface_speed_mbps`
-- Network interfaces include whether the link is up, and the panel says `down` when it is not
+- Network interfaces include whether the link is up, and the panel says `down` when it is not. Prometheus exports `sysmon_network_interface_up`
 - The network panel ignores a non-finite or absurd link speed instead of failing the frame
 - Network collection ignores a non-finite link speed instead of failing the sample
 - CPU and memory panels tolerate a partial record instead of raising

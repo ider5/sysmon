@@ -346,20 +346,32 @@ def format_prometheus(data: dict[str, Any]) -> str:
             if value is not None:
                 counter(metric, value, help_text)
         link_samples: list[tuple[str, float]] = []
+        state_samples: list[tuple[str, float]] = []
         interfaces = network.get("interfaces")
         if isinstance(interfaces, list):
             for iface in interfaces:
                 if not isinstance(iface, dict):
                     continue
+                name = str(iface.get("name", ""))
                 speed_mbps = _first_number(iface, "speed_mbps")
                 if speed_mbps is not None and speed_mbps > 0:
-                    link_samples.append((str(iface.get("name", "")), speed_mbps))
+                    link_samples.append((name, speed_mbps))
+                isup = iface.get("isup")
+                if isinstance(isup, bool):
+                    state_samples.append((name, 1.0 if isup else 0.0))
         _labeled_gauge(
             lines,
             "sysmon_network_interface_speed_mbps",
             "Interface link speed in megabits per second",
             "device",
             link_samples,
+        )
+        _labeled_gauge(
+            lines,
+            "sysmon_network_interface_up",
+            "1 when the interface link is up",
+            "device",
+            state_samples,
         )
         up_samples: list[tuple[str, float]] = []
         down_samples: list[tuple[str, float]] = []

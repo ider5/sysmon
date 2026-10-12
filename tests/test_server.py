@@ -182,6 +182,23 @@ def test_format_prometheus_includes_link_speed():
     assert 'sysmon_network_interface_speed_mbps{device="eth0"} 1000.0' in text
 
 
+def test_format_prometheus_includes_link_state():
+    text = format_prometheus(
+        {
+            "network": {
+                "interfaces": [
+                    {"name": "eth0", "isup": False},
+                    {"name": "wlan0", "isup": True},
+                    {"name": "skip0"},
+                ]
+            }
+        }
+    )
+    assert 'sysmon_network_interface_up{device="eth0"} 0.0' in text
+    assert 'sysmon_network_interface_up{device="wlan0"} 1.0' in text
+    assert 'device="skip0"' not in text
+
+
 def test_format_prometheus_includes_network_errors():
     text = format_prometheus({"network": {"errin": 2, "errout": 0, "dropin": 4, "dropout": 1}})
     assert "# TYPE sysmon_network_errin counter" in text
