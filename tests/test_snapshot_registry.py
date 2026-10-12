@@ -45,6 +45,30 @@ def test_print_memory_shows_available():
     assert "Available" in buffer.getvalue()
 
 
+def test_print_snapshot_includes_version(monkeypatch):
+    from sysmon import __version__
+
+    monkeypatch.setattr(
+        snapshot_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    buffer = io.StringIO()
+    console = Console(file=buffer, force_terminal=True, width=100)
+    snapshot_mod.print_snapshot(console, section="all", include_gpu=False)
+    assert __version__ in buffer.getvalue()
+
+
 def test_print_snapshot_cpu_uses_registry_collect(monkeypatch):
     calls = []
 

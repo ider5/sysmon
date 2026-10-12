@@ -7,6 +7,7 @@ All notable changes to SysMon are documented in this file.
 ### Added
 - Dashboard shows battery charge, power state, and temperatures when `[modules] sensors = true`
 - `sysmon cpu` and the CPU snapshot show per-core usage, not only the dashboard's compact panel
+- The snapshot header includes the sysmon version
 - `sysmon memory` and the memory snapshot show available RAM, matching the dashboard
 - Disk panels show free space next to used and total when the collector provides it, and a partial mount record does not crash the panel
 - Network panels tolerate a partial interface or totals record instead of raising

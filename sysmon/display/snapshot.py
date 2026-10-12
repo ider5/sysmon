@@ -9,6 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from sysmon import __version__
 from sysmon.collectors.registry import collect
 from sysmon.config import load_config
 from sysmon.display.components import _get_os_name, _get_uptime, ascii_logo, gpu_panel
@@ -58,6 +59,8 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
     sys_text = Text()
     sys_text.append("  System Information\n", style="bold underline")
     sys_text.append("\n")
+    sys_text.append(f"  {'Version':<12}", style="bold")
+    sys_text.append(f"{__version__}\n", style="dim")
     sys_text.append(f"  {'Host':<12}", style="bold")
     sys_text.append(f"{hostname}\n", style="bold white")
     sys_text.append(f"  {'OS':<12}", style="bold")
