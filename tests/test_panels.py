@@ -103,6 +103,24 @@ def test_build_disk_text_includes_speed_history():
     assert "█" in rendered
 
 
+def test_build_disk_text_shows_free_space():
+    info = {
+        "mount": "/",
+        "percent": 50.0,
+        "used": 50,
+        "free": 50,
+        "total": 100,
+        "read_speed": 0,
+        "write_speed": 0,
+        "mounts": [
+            {"mount": "/", "percent": 50.0, "used": 50, "free": 50, "total": 100}
+        ],
+    }
+    text = build_disk_text(info)
+    assert "Free" in text.plain
+    assert "50.0 B" in text.plain
+
+
 def test_build_disk_text_includes_mount():
     info = {
         "mount": "C:\\",

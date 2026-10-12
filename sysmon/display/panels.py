@@ -256,6 +256,9 @@ def build_disk_text(
             f"{format_bytes(mount_info['used'])} / {format_bytes(mount_info['total'])}\n",
             style="bold white",
         )
+        if "free" in mount_info:
+            text.append(f"  {'Free':<14}", style="bold")
+            text.append(format_bytes(mount_info["free"]) + "\n", style="dim")
 
     text.append("  " + "─" * 30 + "\n", style="dim")
     text.append(f"  {'Read':<14}", style="bold")
