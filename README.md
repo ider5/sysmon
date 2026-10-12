@@ -182,7 +182,7 @@ gpu_warn = 80
 gpu_critical = 95
 ```
 
-CLI flags override config values. The dashboard, `sysmon serve`, `sysmon brief --watch`, and `sysmon top --watch` reload this file when it changes.
+CLI flags override config values. The dashboard, `sysmon serve`, `sysmon brief --watch`, `sysmon top --watch`, and title mode reload this file when it changes. `-r` keeps the interval fixed.
 
 ### Brief Mode (Single-line)
 
