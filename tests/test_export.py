@@ -236,7 +236,9 @@ def test_collect_section_sensors(monkeypatch):
         return payload
 
     monkeypatch.setattr("sysmon.export.collect", fake_collect)
-    assert collect_section("sensors") == {"sensors": payload}
+    data = collect_section("sensors")
+    assert data["sensors"] == payload
+    assert isinstance(data["collected_at"], float)
 
 
 def test_to_json_roundtrip():

@@ -162,20 +162,23 @@ def _process_payload(
 def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
     """Collect metrics for a single section."""
     if section == "cpu":
-        return {"cpu": _cpu_payload()}
-    if section == "memory":
-        return {"memory": _memory_payload()}
-    if section == "network":
-        return {"network": _network_payload()}
-    if section == "disk":
-        return {"disk": _disk_payload()}
-    if section == "gpu":
-        return {"gpu": _gpu_payload() if include_gpu else None}
-    if section == "process":
-        return {"processes": _process_payload()}
-    if section == "sensors":
-        return {"sensors": collect("sensors", _resolve_settings(None))}
-    raise ValueError(f"Unknown section: {section}")
+        payload: dict[str, Any] = {"cpu": _cpu_payload()}
+    elif section == "memory":
+        payload = {"memory": _memory_payload()}
+    elif section == "network":
+        payload = {"network": _network_payload()}
+    elif section == "disk":
+        payload = {"disk": _disk_payload()}
+    elif section == "gpu":
+        payload = {"gpu": _gpu_payload() if include_gpu else None}
+    elif section == "process":
+        payload = {"processes": _process_payload()}
+    elif section == "sensors":
+        payload = {"sensors": collect("sensors", _resolve_settings(None))}
+    else:
+        raise ValueError(f"Unknown section: {section}")
+    payload["collected_at"] = time.time()
+    return payload
 
 
 def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
