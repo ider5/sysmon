@@ -64,6 +64,49 @@ def _footer_text(filter_mode: bool, filter_buffer: str) -> Text:
     return text
 
 
+class _TopState:
+    """Mutable view state for the interactive top loop."""
+
+    def __init__(self, sort_by: str, name_filter: str | None) -> None:
+        self.sort_by = sort_by
+        self.name_filter = name_filter
+        self.filter_mode = False
+        self.filter_buffer = name_filter or ""
+
+
+def _apply_top_key(state: _TopState, key: str | None) -> bool:
+    """Apply one key. Return False when the view should quit."""
+    if state.filter_mode:
+        if key == "\x1b":
+            state.filter_mode = False
+            state.filter_buffer = ""
+            state.name_filter = None
+            return True
+        if key == "\r":
+            state.filter_mode = False
+            state.name_filter = state.filter_buffer or None
+            return True
+        if key in ("\x08", "\x7f"):
+            state.filter_buffer = state.filter_buffer[:-1]
+            return True
+        if key is not None and len(key) == 1 and key.isprintable():
+            state.filter_buffer += key
+        return True
+
+    if key == "q":
+        return False
+    if key == "c":
+        state.sort_by = "cpu"
+    elif key == "m":
+        state.sort_by = "memory"
+    elif key == "/":
+        state.filter_mode = True
+        state.filter_buffer = ""
+    elif key == "\x1b":
+        state.name_filter = None
+    return True
+
+
 def run_top_live(
     limit: int = 10,
     sort_by: str = "cpu",
@@ -74,54 +117,32 @@ def run_top_live(
 ) -> None:
     """Run interactive top with runtime sort and filter."""
     console = Console()
-    current_sort = sort_by
-    current_filter = name_filter
-    filter_mode = False
-    filter_buffer = current_filter or ""
+    state = _TopState(sort_by, name_filter)
 
     def render() -> Group:
         processes = collect_processes(
             limit=limit,
-            sort_by=current_sort,
-            name_filter=current_filter,
+            sort_by=state.sort_by,
+            name_filter=state.name_filter,
         )
         main = process_panel(
             processes,
-            sort_by=current_sort,
-            name_filter=current_filter,
+            sort_by=state.sort_by,
+            name_filter=state.name_filter,
             warn=warn,
             critical=critical,
         )
-        footer = Panel(_footer_text(filter_mode, filter_buffer), border_style="dim")
+        footer = Panel(
+            _footer_text(state.filter_mode, state.filter_buffer),
+            border_style="dim",
+        )
         return Group(main, footer)
 
     with Live(render(), console=console, refresh_per_second=4, screen=True) as live:
         try:
             while True:
-                key = _read_key()
-                if key == "q":
+                if not _apply_top_key(state, _read_key()):
                     break
-                if key == "c":
-                    current_sort = "cpu"
-                elif key == "m":
-                    current_sort = "memory"
-                elif key == "/":
-                    filter_mode = True
-                    filter_buffer = ""
-                elif key == "\x1b":
-                    if filter_mode:
-                        filter_mode = False
-                        filter_buffer = ""
-                    current_filter = None
-                elif key == "\r" and filter_mode:
-                    filter_mode = False
-                    current_filter = filter_buffer or None
-                elif filter_mode and key is not None:
-                    if key in ("\x08", "\x7f"):
-                        filter_buffer = filter_buffer[:-1]
-                    elif len(key) == 1 and key.isprintable():
-                        filter_buffer += key
-
                 live.update(render())
                 time.sleep(refresh_rate)
         except KeyboardInterrupt:

@@ -101,7 +101,7 @@ sysmon gpu              # GPU utilization, VRAM, temperature
 sysmon sensors          # Battery and temperatures (also `sysmon sensors --format json`)
 sysmon top              # Top processes by CPU usage
 sysmon top -n 15 --sort memory
-sysmon top --watch      # Interactive: c/m sort, / filter, q quit
+sysmon top --watch      # Interactive: c/m sort, / filter, q quit (those keys are text while filtering)
 sysmon top --filter python
 sysmon cpu --format json
 ```

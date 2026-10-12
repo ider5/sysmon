@@ -149,6 +149,27 @@ def test_print_snapshot_sensors_section(monkeypatch):
     assert "on battery" in text
 
 
+def test_top_filter_accepts_command_keys():
+    state = top_live_mod._TopState("memory", None)
+    assert top_live_mod._apply_top_key(state, "/") is True
+    assert state.filter_mode is True
+    for key in ("c", "m", "q", "/"):
+        assert top_live_mod._apply_top_key(state, key) is True
+    assert state.sort_by == "memory"
+    assert top_live_mod._apply_top_key(state, "\r") is True
+    assert state.filter_mode is False
+    assert state.name_filter == "cmq/"
+    assert top_live_mod._apply_top_key(state, "q") is False
+
+
+def test_top_commands_apply_outside_filter_mode():
+    state = top_live_mod._TopState("memory", "chrome")
+    assert top_live_mod._apply_top_key(state, "c") is True
+    assert state.sort_by == "cpu"
+    assert top_live_mod._apply_top_key(state, "\x1b") is True
+    assert state.name_filter is None
+
+
 def test_top_live_render_uses_collect_processes(monkeypatch):
     calls = []
 
