@@ -116,6 +116,17 @@ def test_format_prometheus_includes_mounts_and_interfaces():
     assert 'sysmon_network_interface_speed_down{device="eth\\"0"} 2.5' in text
 
 
+def test_format_prometheus_includes_link_speed():
+    text = format_prometheus(
+        {
+            "network": {
+                "interfaces": [{"name": "eth0", "speed_mbps": 1000}],
+            }
+        }
+    )
+    assert 'sysmon_network_interface_speed_mbps{device="eth0"} 1000.0' in text
+
+
 def test_format_prometheus_includes_network_errors():
     text = format_prometheus({"network": {"errin": 2, "errout": 0, "dropin": 4, "dropout": 1}})
     assert "# TYPE sysmon_network_errin counter" in text

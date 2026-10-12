@@ -15,6 +15,24 @@ _prev_iface_time: float | None = None
 _net_lock = threading.Lock()
 
 
+def _interface_link() -> dict[str, dict[str, int | bool]]:
+    """Return link speed in Mb/s and duplex-up flag for each interface."""
+    try:
+        stats = psutil.net_if_stats()
+    except (OSError, RuntimeError, NotImplementedError, AttributeError):
+        return {}
+    links: dict[str, dict[str, int | bool]] = {}
+    for name, info in stats.items():
+        speed = getattr(info, "speed", 0) or 0
+        if isinstance(speed, bool) or not isinstance(speed, (int, float)) or speed <= 0:
+            continue
+        links[name] = {
+            "speed_mbps": int(speed),
+            "isup": bool(getattr(info, "isup", False)),
+        }
+    return links
+
+
 def _error_counts(obj: object) -> dict[str, int]:
     """Read NIC error and drop counters, using zero when a field is absent."""
     counts: dict[str, int] = {}
@@ -73,6 +91,7 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
             per_nic = psutil.net_io_counters(pernic=True) or {}
         except (OSError, RuntimeError):
             per_nic = {}
+        links = _interface_link()
         iface_entries: list[dict] = []
         with _net_lock:
             for name in resolved:
@@ -89,6 +108,11 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
                             "packets_sent": 0,
                             "packets_recv": 0,
                             **_error_counts(None),
+                            **(
+                                {"speed_mbps": links[name]["speed_mbps"]}
+                                if name in links
+                                else {}
+                            ),
                         }
                     )
                     continue
@@ -110,6 +134,11 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
                         "packets_sent": counters.packets_sent,
                         "packets_recv": counters.packets_recv,
                         **_error_counts(counters),
+                        **(
+                            {"speed_mbps": links[name]["speed_mbps"]}
+                            if name in links
+                            else {}
+                        ),
                     }
                 )
                 _prev_iface_io[name] = counters

@@ -184,6 +184,10 @@ def build_network_text(
             text.append(format_speed(_as_number(iface.get("speed_up"))) + "\n", style="green")
             text.append(f"  {'↓ Download':<14}", style="bold")
             text.append(format_speed(_as_number(iface.get("speed_down"))) + "\n", style="cyan")
+            speed_mbps = iface.get("speed_mbps")
+            if isinstance(speed_mbps, (int, float)) and not isinstance(speed_mbps, bool) and speed_mbps > 0:
+                text.append(f"  {'Link':<14}", style="bold")
+                text.append(f"{int(speed_mbps)} Mb/s\n", style="dim")
             iface_errin = int(_as_number(iface.get("errin")))
             iface_errout = int(_as_number(iface.get("errout")))
             iface_dropin = int(_as_number(iface.get("dropin")))

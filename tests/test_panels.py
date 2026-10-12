@@ -92,6 +92,19 @@ def test_build_memory_text_includes_ram():
     assert "Available" in rendered
 
 
+def test_build_network_text_shows_link_speed():
+    text = build_network_text(
+        {
+            "speed_up": 0,
+            "speed_down": 0,
+            "bytes_sent": 0,
+            "bytes_recv": 0,
+            "interfaces": [{"name": "eth0", "speed_up": 0, "speed_down": 0, "speed_mbps": 1000}],
+        }
+    )
+    assert "1000 Mb/s" in text.plain
+
+
 def test_build_network_text_shows_per_interface_errors():
     text = build_network_text(
         {
