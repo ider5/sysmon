@@ -115,6 +115,7 @@ All notable changes to SysMon are documented in this file.
 - JSON snapshots include `uptime_seconds` and `boot_time`, and Prometheus exports `sysmon_uptime_seconds` and `sysmon_boot_time_seconds`, when the boot time can be read
 - Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled. Swap usage is appended only while swap is actually in use, and disk usage is appended only at or above the disk warn threshold
 - Brief mode and the terminal title keep the rest of the line when swap or battery charge is missing or not a number
+- `sysmon brief --no-color` leaves the separators unstyled so the line can be copied without color codes
 - Process memory percentages use the memory warn/critical thresholds. CPU bars still use the CPU thresholds
 - The process table ignores rows that are not records instead of raising, and shows the empty state when none remain
 - Process names and the active filter are shown as plain text, so markup or a newline in a name does not change the table

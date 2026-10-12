@@ -274,7 +274,10 @@ def _format_sensors(info: dict, no_color: bool = False) -> Text | None:
     line = Text()
     for index, piece in enumerate(pieces):
         if index:
-            line.append(" │ ", style="dim")
+            if no_color:
+                line.append(" │ ")
+            else:
+                line.append(" │ ", style="dim")
         line.append_text(piece)
     return line
 
@@ -350,7 +353,10 @@ def build_brief_line(
         return line
     for index, part in enumerate(parts):
         if index:
-            line.append(" │ ", style="dim")
+            if no_color:
+                line.append(" │ ")
+            else:
+                line.append(" │ ", style="dim")
         line.append_text(part)
     return line
 

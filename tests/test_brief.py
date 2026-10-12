@@ -140,6 +140,13 @@ def test_build_brief_line_shows_disk_only_under_pressure(monkeypatch):
     assert busy.plain == "DISK 91%"
 
 
+def test_build_brief_line_no_color_leaves_separators_unstyled(monkeypatch):
+    _stub_brief_collectors(monkeypatch)
+    line = brief_mod.build_brief_line(no_color=True, no_gpu=True)
+    assert " │ " in line.plain
+    assert all("dim" not in str(span.style) for span in line.spans)
+
+
 def test_build_brief_line_includes_swap_when_in_use(monkeypatch):
     def fake_collect(name, settings=None):
         if name == "memory":
