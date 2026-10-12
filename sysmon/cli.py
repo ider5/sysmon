@@ -305,7 +305,7 @@ def top(
         from sysmon.display.top_live import run_top_live
 
         run_top_live(
-            limit=count,
+            limit=limit,
             sort_by=sort_key,
             refresh_rate=refresh,
             name_filter=filter_name,

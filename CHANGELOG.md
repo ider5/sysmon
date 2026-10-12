@@ -95,7 +95,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon brief --watch` also follows `brief_refresh_interval` from `config.toml` on each frame unless `-r` was passed
 - The dashboard follows `refresh_interval` from `config.toml` unless `-r` was passed
 - `sysmon serve` follows `refresh_interval` from `config.toml` while it is running
-- `sysmon top --watch` follows `refresh_interval` from `config.toml` unless `-r` was passed
+- `sysmon top --watch` follows `refresh_interval` from `config.toml` unless `-r` was passed, and follows `process_limit` unless `-n` was passed
 - Title mode follows `brief_refresh_interval` from `config.toml` unless `-r` was passed
 - `sysmon top --watch` reloads CPU and memory thresholds from `config.toml` on each frame
 - The background collector keeps sampling after an unexpected collection error instead of stopping the thread

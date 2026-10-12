@@ -123,7 +123,7 @@ def _sleep_until_key_or_refresh(refresh_rate: float, state: _TopState) -> bool:
 
 
 def run_top_live(
-    limit: int = 10,
+    limit: int | None = None,
     sort_by: str = "cpu",
     refresh_rate: float | None = None,
     name_filter: str | None = None,
@@ -139,8 +139,9 @@ def run_top_live(
     def render() -> Group:
         settings = load_config()
         state.interval = settings.refresh_interval if refresh_rate is None else refresh_rate
+        current_limit = settings.process_limit if limit is None else limit
         processes = collect_processes(
-            limit=limit,
+            limit=current_limit,
             sort_by=state.sort_by,
             name_filter=state.name_filter,
         )
