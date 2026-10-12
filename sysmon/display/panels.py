@@ -251,14 +251,18 @@ def build_disk_text(
         text.append_text(
             progress_bar(mount_info["percent"], width=25, warn=warn, critical=critical)
         )
+        used = mount_info.get("used", 0)
+        total = mount_info.get("total", 0)
         text.append(f"\n  {'':14}")
         text.append(
-            f"{format_bytes(mount_info['used'])} / {format_bytes(mount_info['total'])}\n",
+            f"{format_bytes(used if isinstance(used, (int, float)) else 0)} / "
+            f"{format_bytes(total if isinstance(total, (int, float)) else 0)}\n",
             style="bold white",
         )
-        if "free" in mount_info:
+        free = mount_info.get("free")
+        if isinstance(free, (int, float)) and not isinstance(free, bool):
             text.append(f"  {'Free':<14}", style="bold")
-            text.append(format_bytes(mount_info["free"]) + "\n", style="dim")
+            text.append(format_bytes(free) + "\n", style="dim")
 
     text.append("  " + "─" * 30 + "\n", style="dim")
     text.append(f"  {'Read':<14}", style="bold")

@@ -121,6 +121,19 @@ def test_build_disk_text_shows_free_space():
     assert "50.0 B" in text.plain
 
 
+def test_build_disk_text_tolerates_partial_mount():
+    info = {
+        "mount": "/",
+        "percent": 0,
+        "read_speed": 0,
+        "write_speed": 0,
+        "mounts": [{"mount": "/", "percent": 0, "free": None}],
+    }
+    text = build_disk_text(info)
+    assert "0.0 B / 0.0 B" in text.plain
+    assert "Free" not in text.plain
+
+
 def test_build_disk_text_includes_mount():
     info = {
         "mount": "C:\\",
