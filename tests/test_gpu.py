@@ -121,6 +121,21 @@ def _write_amd_sysfs(root):
     return root
 
 
+def test_sysfs_backend_sorts_card_numbers(tmp_path, monkeypatch):
+    drm = tmp_path / "drm"
+    for card_name, label in (("card10", "Ten"), ("card2", "Two")):
+        device = drm / card_name / "device"
+        device.mkdir(parents=True)
+        (device / "vendor").write_text("0x1002\n", encoding="utf-8")
+        (device / "gpu_busy_percent").write_text("1\n", encoding="utf-8")
+        (device / "product_name").write_text(label + "\n", encoding="utf-8")
+    monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)
+    gpus = gpu_mod._get_gpu_info_sysfs()
+    assert gpus is not None
+    assert [gpu["name"] for gpu in gpus] == ["Two", "Ten"]
+    assert [gpu["id"] for gpu in gpus] == [0, 1]
+
+
 def test_sysfs_backend_reads_amd_card(tmp_path, monkeypatch):
     drm = _write_amd_sysfs(tmp_path / "drm")
     monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)

@@ -163,11 +163,18 @@ def _hwmon_temp_c(device: Path) -> float | None:
     return None
 
 
+def _drm_card_sort_key(path: Path) -> tuple[int, int | str]:
+    name = path.name
+    if name.startswith("card") and name[4:].isdigit():
+        return (0, int(name[4:]))
+    return (1, name)
+
+
 def _get_gpu_info_sysfs() -> Optional[list[GpuInfo]]:
     if not _DRM_ROOT.is_dir():
         return None
     try:
-        cards = sorted(_DRM_ROOT.iterdir())
+        cards = sorted(_DRM_ROOT.iterdir(), key=_drm_card_sort_key)
     except OSError:
         return None
 
