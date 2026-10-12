@@ -19,6 +19,7 @@ All notable changes to SysMon are documented in this file.
 ### Fixed
 - Aggregate network collection returns zero counters instead of crashing when the OS exposes no I/O counters
 - The native process scanner drops idle placeholders and the current process before applying the top-N limit, so the list is not shortened by those rows
+- Config intervals are clamped to 0.1–10 seconds, `process_limit` to 1–50, and a warn threshold above critical is swapped so the warning band still exists. A single string for `disk_mounts` or `network_interfaces` is kept as one entry instead of being split into characters
 
 ## [0.4.0] - 2026-08-14
 
