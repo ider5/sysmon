@@ -205,6 +205,8 @@ def test_server_json_and_metrics_endpoints(monkeypatch):
         metrics = conn.getresponse()
         body = metrics.read().decode("utf-8")
         assert metrics.status == 200
+        assert response.getheader("Cache-Control") == "no-store"
+        assert "sysmon_up 1.0" in body
         assert "sysmon_cpu_percent 12.5" in body
         conn.close()
     finally:

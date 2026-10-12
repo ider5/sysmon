@@ -29,6 +29,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon serve` returns HTTP 500 JSON when a scrape fails, and later requests still succeed
 - `sysmon serve` accepts a trailing slash on `/json`, `/metrics`, and `/health`
 - `sysmon serve` answers HEAD with the same status and content length as GET, without a body
+- Metrics responses send `Cache-Control: no-store` and always include a `sysmon_up` gauge
 - The dashboard stays open when one frame fails to render and shows that error until the next successful frame
 - `sysmon brief --watch` and `sysmon top --watch` stay open when one refresh fails and show that error
 - The dashboard and `sysmon serve` reload `config.toml` when the file changes, without a restart

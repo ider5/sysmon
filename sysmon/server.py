@@ -99,6 +99,7 @@ def format_prometheus(data: dict[str, Any]) -> str:
         lines.append(f"# TYPE {name} counter")
         lines.append(f"{name} {_fmt(value)}")
 
+    gauge("sysmon_up", 1, "1 when the sysmon metrics endpoint is serving")
     cpu = data.get("cpu")
     if isinstance(cpu, dict) and "percent" in cpu:
         gauge("sysmon_cpu_percent", cpu["percent"], "CPU utilization percent")
@@ -362,6 +363,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         if include_body:
             self.wfile.write(body)
