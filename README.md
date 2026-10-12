@@ -202,7 +202,7 @@ Example output:
 CPU 15% 3176M │ RAM 8.2/16.0G (51%) │ ↑1.2 MB/s ↓5.8 MB/s │ GPU 32% 2.1/10.0G 65°C
 ```
 
-Modules set to `false` are left out of this line and out of title mode. Swap is added only while it is in use (`SWAP 25%`). Disk is added only at or above the disk warn threshold (`DISK 91%`). With `sensors = true`, a battery reading adds `BAT 80%` (`AC` while plugged in) and the hottest temperature adds `TEMP 62°C`.
+Modules set to `false` are left out of this line and out of title mode. Swap is added only while it is in use (`SWAP 25%`). Disk is added only at or above the disk warn threshold (`DISK 91%`). The 1-minute load average is added (`LD 2.50`) when it is at least the number of logical CPUs. With `sensors = true`, a battery reading adds `BAT 80%` (`AC` while plugged in) and the hottest temperature adds `TEMP 62°C`.
 
 **Title Mode (`-t`)** runs as a background process and updates the terminal window title. Completely non-blocking - terminal is free to use immediately. Use `sysmon brief --stop` to stop.
 

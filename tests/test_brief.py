@@ -70,6 +70,19 @@ class _DeadProc:
         return 1
 
 
+def test_format_cpu_shows_load_when_it_meets_cpu_count():
+    quiet = brief_mod._format_cpu(
+        {"percent": 10, "freq_current": 0, "count_logical": 4, "load_avg": (1.0, 1.0, 1.0)},
+        no_color=True,
+    )
+    assert "LD" not in quiet.plain
+    busy = brief_mod._format_cpu(
+        {"percent": 10, "freq_current": 0, "count_logical": 2, "load_avg": (2.5, 2.0, 1.0)},
+        no_color=True,
+    )
+    assert "LD 2.50" in busy.plain
+
+
 def test_format_cpu_tolerates_empty_record():
     assert brief_mod._format_cpu({}, no_color=True).plain == "CPU 0%"
 

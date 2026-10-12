@@ -64,6 +64,35 @@ def _format_cpu(
     freq = _num(info, "freq_current")
     if freq:
         text.append(f" {freq:.0f}M")
+    load_text = _format_load_pressure(info, no_color)
+    if load_text is not None:
+        text.append(" ")
+        text.append_text(load_text)
+    return text
+
+
+def _format_load_pressure(info: dict, no_color: bool = False) -> Text | None:
+    """Show 1-minute load when it is at or above the logical CPU count."""
+    if not isinstance(info, dict):
+        return None
+    load_avg = info.get("load_avg")
+    if not isinstance(load_avg, (list, tuple)) or not load_avg:
+        return None
+    one = _finite_number(load_avg[0])
+    if one is None:
+        return None
+    logical = _num(info, "count_logical", 1.0)
+    if logical <= 0:
+        logical = 1.0
+    if one < logical:
+        return None
+    text = Text()
+    text.append("LD ")
+    label = f"{one:.2f}"
+    if no_color:
+        text.append(label)
+    else:
+        text.append(label, style="yellow" if one < logical * 2 else "red")
     return text
 
 

@@ -73,7 +73,14 @@ def build_title(no_gpu: bool) -> str:
     parts: list[str] = []
     if settings.modules.cpu:
         cpu = collect("cpu", settings)
-        parts.append(f"CPU {_num(cpu, 'percent'):.0f}%")
+        cpu_part = f"CPU {_num(cpu, 'percent'):.0f}%"
+        load_avg = cpu.get("load_avg") if isinstance(cpu, dict) else None
+        logical = _num(cpu, "count_logical", 1.0) or 1.0
+        if isinstance(load_avg, (list, tuple)) and load_avg:
+            one = _finite_number(load_avg[0])
+            if one is not None and one >= logical:
+                cpu_part += f" LD {one:.2f}"
+        parts.append(cpu_part)
     if settings.modules.memory:
         mem = collect("memory", settings)
         ram = (
