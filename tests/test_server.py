@@ -198,6 +198,17 @@ def test_format_prometheus_omits_swap_when_absent():
     assert "sysmon_swap_" not in text
 
 
+def test_format_prometheus_includes_battery_time_remaining():
+    present = format_prometheus(
+        {"sensors": {"battery": {"percent": 80.0, "power_plugged": False, "secsleft": 120}}}
+    )
+    assert "sysmon_battery_secsleft 120.0" in present
+    absent = format_prometheus(
+        {"sensors": {"battery": {"percent": 80.0, "power_plugged": True, "secsleft": None}}}
+    )
+    assert "sysmon_battery_secsleft" not in absent
+
+
 def test_format_prometheus_includes_sensors():
     text = format_prometheus(
         {

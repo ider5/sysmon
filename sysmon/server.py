@@ -366,6 +366,13 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 1.0 if battery.get("power_plugged") else 0.0,
                 "1 when external power is connected",
             )
+            secsleft = _first_number(battery, "secsleft")
+            if secsleft is not None and secsleft >= 0:
+                gauge(
+                    "sysmon_battery_secsleft",
+                    secsleft,
+                    "Seconds of battery remaining",
+                )
         temperatures = sensors.get("temperatures")
         temp_samples: list[tuple[str, str, float]] = []
         if isinstance(temperatures, dict):
