@@ -201,7 +201,7 @@ def _get_gpu_info_sysfs() -> Optional[list[GpuInfo]]:
             {
                 "id": index,
                 "name": label,
-                "load": float(busy),
+                "load": float(busy) if busy >= 0 else 0.0,
                 "memory_total": vram_total / (1024 * 1024),
                 "memory_used": vram_used / (1024 * 1024),
                 "temperature": _hwmon_temp_c(device),
