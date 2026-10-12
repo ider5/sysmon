@@ -3,23 +3,42 @@
 import psutil
 
 
+def _zero_memory() -> dict:
+    return {
+        "total": 0,
+        "used": 0,
+        "available": 0,
+        "percent": 0.0,
+        "swap_total": 0,
+        "swap_used": 0,
+        "swap_percent": 0.0,
+    }
+
+
 def get_memory_info() -> dict:
     """Get current memory usage.
 
     Returns:
         dict with keys: total, used, available, percent, swap_total, swap_used, swap_percent
     """
-    mem = psutil.virtual_memory()
-    swap = psutil.swap_memory()
+    try:
+        mem = psutil.virtual_memory()
+    except (OSError, RuntimeError, NotImplementedError):
+        return _zero_memory()
+
+    try:
+        swap = psutil.swap_memory()
+    except (OSError, RuntimeError, NotImplementedError):
+        swap = None
 
     return {
         "total": mem.total,
         "used": mem.used,
         "available": mem.available,
         "percent": mem.percent,
-        "swap_total": swap.total,
-        "swap_used": swap.used,
-        "swap_percent": swap.percent,
+        "swap_total": 0 if swap is None else swap.total,
+        "swap_used": 0 if swap is None else swap.used,
+        "swap_percent": 0.0 if swap is None else swap.percent,
     }
 
 
