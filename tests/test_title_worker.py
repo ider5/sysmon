@@ -46,6 +46,38 @@ def test_run_loop_skips_network_prime_when_disabled(monkeypatch):
     assert sleeps == [2.0]
 
 
+def test_run_loop_follows_config_interval(monkeypatch):
+    slept: list[float] = []
+    monkeypatch.setattr(
+        title_worker,
+        "load_config",
+        lambda: SysmonConfig(
+            brief_refresh_interval=2.5,
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            ),
+        ),
+    )
+    monkeypatch.setattr(title_worker, "set_title", lambda *_args, **_kwargs: None)
+
+    def fake_sleep(seconds: float) -> None:
+        slept.append(seconds)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(title_worker.time, "sleep", fake_sleep)
+    try:
+        title_worker.run_loop(0, True)
+    except KeyboardInterrupt:
+        pass
+    assert slept == [2.5]
+
+
 def test_sanitize_title_strips_osc_breakers():
     cleaned = sanitize_title("CPU 10%\033]0;evil\007")
     assert "\033" not in cleaned

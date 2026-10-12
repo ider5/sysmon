@@ -159,7 +159,7 @@ def main(
         help="Internal: run the title-mode worker loop.",
     ),
     title_refresh: float = typer.Option(
-        2.0, "--title-refresh", hidden=True,
+        0.0, "--title-refresh", hidden=True,
     ),
     title_no_gpu: bool = typer.Option(
         False, "--title-no-gpu", hidden=True,
@@ -590,9 +590,6 @@ def brief(
 
     settings = load_config()
     fmt = _validate_format(_resolve_format(output_format, settings))
-    refresh_rate = (
-        refresh if refresh is not None else settings.brief_refresh_interval
-    )
     include_gpu = _resolve_gpu_enabled(no_gpu, settings)
 
     if fmt == "json":
@@ -612,7 +609,7 @@ def brief(
         return
 
     if title:
-        run_title_mode(console, refresh_rate=refresh_rate, no_gpu=not include_gpu)
+        run_title_mode(console, refresh_rate=refresh, no_gpu=not include_gpu)
     elif watch:
         run_brief_watch(
             console,

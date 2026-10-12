@@ -182,7 +182,8 @@ def run_loop(refresh_rate: float, no_gpu: bool) -> None:
                 pass
             if failures >= _MAX_CONSECUTIVE_ERRORS:
                 raise SystemExit(1)
-        time.sleep(refresh_rate)
+        delay = refresh_rate if refresh_rate and refresh_rate > 0 else load_config().brief_refresh_interval
+        time.sleep(delay)
 
 
 def main() -> None:

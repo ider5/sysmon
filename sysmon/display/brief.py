@@ -511,15 +511,12 @@ def _stop_existing_title_process() -> None:
         _PID_FILE.unlink(missing_ok=True)
 
 
-def title_worker_command(refresh_rate: float, no_gpu: bool) -> list[str]:
+def title_worker_command(refresh_rate: float | None, no_gpu: bool) -> list[str]:
     """Build the argv used to spawn the title worker."""
     if getattr(sys, "frozen", False):
-        cmd = [
-            sys.executable,
-            "--title-worker",
-            "--title-refresh",
-            str(refresh_rate),
-        ]
+        cmd = [sys.executable, "--title-worker"]
+        if refresh_rate is not None:
+            cmd.extend(["--title-refresh", str(refresh_rate)])
         if no_gpu:
             cmd.append("--title-no-gpu")
         return cmd
@@ -527,11 +524,11 @@ def title_worker_command(refresh_rate: float, no_gpu: bool) -> list[str]:
         sys.executable,
         "-m",
         "sysmon.display.title_worker",
-        "--refresh",
-        str(refresh_rate),
         "--marker",
         WORKER_MARKER,
     ]
+    if refresh_rate is not None:
+        cmd.extend(["--refresh", str(refresh_rate)])
     if no_gpu:
         cmd.append("--no-gpu")
     return cmd
@@ -539,7 +536,7 @@ def title_worker_command(refresh_rate: float, no_gpu: bool) -> list[str]:
 
 def run_title_mode(
     console: Console,
-    refresh_rate: float = 2.0,
+    refresh_rate: float | None = None,
     no_gpu: bool = False,
 ) -> None:
     """Run in terminal title mode - non-blocking background worker."""

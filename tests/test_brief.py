@@ -667,6 +667,12 @@ def test_run_title_mode_reports_immediate_exit(tmp_path, monkeypatch):
     assert not (tmp_path / "title.pid").exists()
 
 
+def test_title_worker_command_omits_refresh_when_following_config():
+    cmd = brief_mod.title_worker_command(None, False)
+    assert "--refresh" not in cmd
+    assert "--marker" in cmd
+
+
 def test_title_worker_command_uses_module_for_python():
     cmd = brief_mod.title_worker_command(2.0, True)
     assert "-m" in cmd
