@@ -117,6 +117,18 @@ def test_get_top_processes_name_filter():
     assert names == {"chrome", "Chrome Helper"}
 
 
+def test_get_top_processes_strips_name_filter():
+    procs = [
+        _proc(1, 0.0, 1.0, "chrome"),
+        _proc(2, 0.0, 1.0, "python"),
+    ]
+    with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
+        spaced = process_module.get_top_processes(limit=10, name_filter="  chrome  ")
+        blank = process_module.get_top_processes(limit=10, name_filter="   ")
+    assert [row["name"] for row in spaced] == ["chrome"]
+    assert {row["name"] for row in blank} == {"chrome", "python"}
+
+
 def test_get_top_processes_sample_interval_computes_cpu(monkeypatch):
     proc = _proc(1, 0.0, 1.0, "a")
     proc.cpu_times.side_effect = [

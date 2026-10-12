@@ -141,6 +141,10 @@ def get_top_processes(
     """
     if limit is None:
         limit = 10
+    if isinstance(name_filter, str):
+        name_filter = name_filter.strip()
+        if not name_filter:
+            name_filter = None
     if sample_interval is not None and sample_interval > 0:
         if _try_native_processes(limit, sort_by, name_filter) is not None:
             time.sleep(max(sample_interval, NATIVE_CPU_SAMPLE_FLOOR))
