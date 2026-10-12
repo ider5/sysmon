@@ -17,6 +17,7 @@ All notable changes to SysMon are documented in this file.
 - The snapshot header includes the sysmon version
 - `sysmon memory` and the memory snapshot show available RAM, matching the dashboard
 - Disk panels show free space next to used and total when the collector provides it, and a partial mount or speed record does not crash the panel
+- The disk panel skips a mount entry that is not a record, and ignores a non-finite size instead of printing `inf` or `nan`
 - Disk collection reports inode usage on platforms with `statvfs`, and the panel, JSON, and Prometheus include it per mount as well as for the primary disk
 - Disk mounts include the filesystem type, shown next to the mount point and as `sysmon_disk_mount_info`, when the OS reports it
 - JSON disk mounts tolerate a record that omits used, free, or total instead of dropping the disk section

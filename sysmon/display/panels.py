@@ -277,18 +277,27 @@ def build_disk_text(
 ) -> Text:
     """Build disk metrics text."""
     text = Text()
-    mounts = info.get("mounts") or [
-        {
-            "mount": info.get("mount", "?"),
-            "percent": info.get("percent", 0),
-            "used": info.get("used", 0),
-            "total": info.get("total", 0),
-        }
-    ]
+    if not isinstance(info, dict):
+        info = {}
+    mounts = info.get("mounts")
+    if not isinstance(mounts, list) or not mounts:
+        mounts = [
+            {
+                "mount": info.get("mount", "?"),
+                "percent": info.get("percent", 0),
+                "used": info.get("used", 0),
+                "total": info.get("total", 0),
+                "free": info.get("free"),
+            }
+        ]
 
-    for idx, mount_info in enumerate(mounts):
-        if idx > 0:
+    shown = 0
+    for mount_info in mounts:
+        if not isinstance(mount_info, dict):
+            continue
+        if shown > 0:
             text.append("  " + "─" * 30 + "\n", style="dim")
+        shown += 1
         text.append(f"  {'Mount':<14}", style="bold")
         mount_name = str(mount_info.get("mount") or "?")
         fstype = mount_info.get("fstype")
@@ -299,23 +308,21 @@ def build_disk_text(
         text.append_text(
             progress_bar(_as_number(mount_info.get("percent")), width=25, warn=warn, critical=critical)
         )
-        used = mount_info.get("used", 0)
-        total = mount_info.get("total", 0)
         text.append(f"\n  {'':14}")
         text.append(
-            f"{format_bytes(used if isinstance(used, (int, float)) else 0)} / "
-            f"{format_bytes(total if isinstance(total, (int, float)) else 0)}\n",
+            f"{format_bytes(_as_number(mount_info.get('used')))} / "
+            f"{format_bytes(_as_number(mount_info.get('total')))}\n",
             style="bold white",
         )
-        free = mount_info.get("free")
-        if isinstance(free, (int, float)) and not isinstance(free, bool):
+        free = _finite_number(mount_info.get("free"))
+        if free is not None:
             text.append(f"  {'Free':<14}", style="bold")
             text.append(format_bytes(free) + "\n", style="dim")
-        inode_percent = mount_info.get("inode_percent")
-        if isinstance(inode_percent, (int, float)) and not isinstance(inode_percent, bool):
+        inode_percent = _finite_number(mount_info.get("inode_percent"))
+        if inode_percent is not None:
             text.append(f"  {'Inodes':<14}", style="bold")
             text.append_text(
-                progress_bar(float(inode_percent), width=25, warn=warn, critical=critical)
+                progress_bar(inode_percent, width=25, warn=warn, critical=critical)
             )
             text.append("\n")
 

@@ -275,6 +275,32 @@ def test_build_disk_text_tolerates_partial_mount():
     assert "Free" not in text.plain
 
 
+def test_build_disk_text_skips_non_record_mounts():
+    text = build_disk_text(
+        {
+            "read_speed": float("inf"),
+            "write_speed": float("nan"),
+            "mounts": [
+                "bad",
+                {
+                    "mount": "/",
+                    "percent": 12.0,
+                    "used": float("inf"),
+                    "total": 100,
+                    "free": float("nan"),
+                },
+            ],
+        }
+    )
+    plain = text.plain
+    assert "/" in plain
+    assert "12.0%" in plain
+    assert "0.0 B / 100.0 B" in plain
+    assert "Free" not in plain
+    assert "inf" not in plain
+    assert "nan" not in plain
+
+
 def test_build_disk_text_includes_mount():
     info = {
         "mount": "C:\\",
