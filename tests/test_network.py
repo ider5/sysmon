@@ -18,6 +18,8 @@ def test_format_bytes():
     assert format_bytes(512) == "512.0 B"
     assert format_bytes(1536) == "1.5 KB"
     assert format_bytes(1024 ** 3) == "1.0 GB"
+    assert format_bytes(float("inf")) == "0.0 B"
+    assert format_bytes("bad") == "0.0 B"
 
 
 def test_down_interface_names():

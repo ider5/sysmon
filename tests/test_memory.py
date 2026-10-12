@@ -9,6 +9,8 @@ from sysmon.collectors.memory import bytes_to_gb, get_memory_info
 def test_bytes_to_gb():
     assert bytes_to_gb(1024 ** 3) == "1.0"
     assert bytes_to_gb(2.5 * 1024 ** 3) == "2.5"
+    assert bytes_to_gb(float("nan")) == "0.0"
+    assert bytes_to_gb(None) == "0.0"
 
 
 def test_get_memory_info_when_swap_is_unavailable():

@@ -1,5 +1,7 @@
 """Memory metrics collector."""
 
+import math
+
 import psutil
 
 
@@ -44,4 +46,6 @@ def get_memory_info() -> dict:
 
 def bytes_to_gb(b: float) -> str:
     """Convert bytes to GB string with 1 decimal."""
+    if isinstance(b, bool) or not isinstance(b, (int, float)) or not math.isfinite(b):
+        b = 0.0
     return f"{b / (1024 ** 3):.1f}"

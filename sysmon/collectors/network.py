@@ -246,6 +246,8 @@ def down_interface_names(info: object) -> list[str]:
 
 def format_bytes(b: float) -> str:
     """Format bytes to human-readable string."""
+    if isinstance(b, bool) or not isinstance(b, (int, float)) or not math.isfinite(b):
+        b = 0.0
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if abs(b) < 1024:
             return f"{b:.1f} {unit}"
