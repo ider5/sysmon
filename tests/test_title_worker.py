@@ -7,6 +7,45 @@ from sysmon.display import title_worker
 from sysmon.display.title_worker import osc_title_sequence, sanitize_title
 
 
+def test_run_loop_skips_network_prime_when_disabled(monkeypatch):
+    calls: list[str] = []
+    sleeps: list[float] = []
+
+    monkeypatch.setattr(
+        title_worker,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        title_worker,
+        "collect",
+        lambda name, settings=None: calls.append(name),
+    )
+    monkeypatch.setattr(title_worker, "set_title", lambda *_args, **_kwargs: None)
+
+    def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(title_worker.time, "sleep", fake_sleep)
+    try:
+        title_worker.run_loop(2.0, True)
+    except KeyboardInterrupt:
+        pass
+    assert calls == []
+    assert sleeps == [2.0]
+
+
 def test_sanitize_title_strips_osc_breakers():
     cleaned = sanitize_title("CPU 10%\033]0;evil\007")
     assert "\033" not in cleaned

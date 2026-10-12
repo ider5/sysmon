@@ -156,7 +156,7 @@ def run_loop(refresh_rate: float, no_gpu: bool) -> None:
     settings = load_config()
     if settings.modules.network:
         collect("network", settings)
-    time.sleep(0.5)
+        time.sleep(0.5)
 
     failures = 0
     while True:
