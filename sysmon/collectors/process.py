@@ -121,6 +121,24 @@ def _evict_stale_cpu_cache(alive: set[tuple[int, float]]) -> None:
             del _prev_cpu[key]
 
 
+def _rank_processes(processes: list[dict], sort_by: str, limit: int) -> list[dict]:
+    """Order process rows by CPU or memory, breaking ties by pid."""
+    sort_key = "memory_percent" if sort_by == "memory" else "cpu_percent"
+    if limit <= 0:
+        return []
+
+    def _sort_value(value: object) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            return 0.0
+        return float(value)
+
+    return heapq.nlargest(
+        limit,
+        processes,
+        key=lambda item: (_sort_value(item.get(sort_key)), -_sort_value(item.get("pid"))),
+    )
+
+
 def get_top_processes(
     limit: int = 10,
     sort_by: str = "cpu",
@@ -150,13 +168,13 @@ def get_top_processes(
             time.sleep(max(sample_interval, NATIVE_CPU_SAMPLE_FLOOR))
             native = _try_native_processes(limit, sort_by, name_filter)
             if native is not None:
-                return native
+                return _rank_processes(native, sort_by, limit)
         _prime_cpu_times()
         time.sleep(sample_interval)
     else:
         native = _try_native_processes(limit, sort_by, name_filter)
         if native is not None:
-            return native
+            return _rank_processes(native, sort_by, limit)
 
     processes: list[dict] = []
     needle = name_filter.lower() if name_filter else None
@@ -195,21 +213,7 @@ def get_top_processes(
             continue
 
     _evict_stale_cpu_cache(alive)
-
-    sort_key = "memory_percent" if sort_by == "memory" else "cpu_percent"
-    if limit <= 0:
-        return []
-
-    def _sort_value(value: object) -> float:
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-            return 0.0
-        return float(value)
-
-    return heapq.nlargest(
-        limit,
-        processes,
-        key=lambda item: (_sort_value(item.get(sort_key)), -_sort_value(item.get("pid"))),
-    )
+    return _rank_processes(processes, sort_by, limit)
 
 
 def _try_native_processes(

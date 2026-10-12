@@ -117,6 +117,19 @@ def test_get_top_processes_name_filter():
     assert names == {"chrome", "Chrome Helper"}
 
 
+def test_get_top_processes_orders_native_ties(monkeypatch):
+    monkeypatch.setattr(
+        process_module,
+        "_try_native_processes",
+        lambda *_args, **_kwargs: [
+            {"pid": 9, "name": "c", "cpu_percent": 1.0, "memory_percent": 1.0, "memory_mb": 1.0},
+            {"pid": 2, "name": "a", "cpu_percent": 1.0, "memory_percent": 1.0, "memory_mb": 1.0},
+        ],
+    )
+    result = process_module.get_top_processes(limit=2, sort_by="cpu")
+    assert [row["pid"] for row in result] == [2, 9]
+
+
 def test_get_top_processes_tie_breaks_by_pid():
     procs = [
         _proc(5, 0.0, 1.0, "b"),
