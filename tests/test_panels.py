@@ -105,6 +105,20 @@ def test_build_network_text_shows_link_speed():
     assert "1000 Mb/s" in text.plain
 
 
+def test_build_network_text_ignores_non_finite_link_speed():
+    text = build_network_text(
+        {
+            "interfaces": [
+                {"name": "bad0", "speed_up": 0, "speed_down": 0, "speed_mbps": float("inf")},
+                {"name": "huge0", "speed_up": 0, "speed_down": 0, "speed_mbps": 1e308},
+                {"name": "eth0", "speed_up": 0, "speed_down": 0, "speed_mbps": 1000},
+            ]
+        }
+    )
+    assert "1000 Mb/s" in text.plain
+    assert "inf" not in text.plain
+
+
 def test_build_network_text_shows_per_interface_errors():
     text = build_network_text(
         {
