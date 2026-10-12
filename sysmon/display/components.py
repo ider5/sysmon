@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import platform
 import time
 
@@ -56,6 +57,14 @@ def gradient_color(percent: float, warn: float = 80.0, critical: float = 95.0) -
     return "green"
 
 
+def _finite_number(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value):
+        return None
+    return float(value)
+
+
 def progress_bar(
     percent: float,
     width: int = 30,
@@ -63,6 +72,13 @@ def progress_bar(
     critical: float = 95.0,
 ) -> Text:
     """Create a text-based progress bar with color coding."""
+    number = _finite_number(percent)
+    if number is None:
+        text = Text()
+        text.append("─" * width, style="grey50")
+        text.append("   n/a", style="dim")
+        return text
+    percent = number
     filled = min(width, max(0, int(width * max(0.0, percent) / 100.0)))
     empty = width - filled
     color = gradient_color(percent, warn=warn, critical=critical)

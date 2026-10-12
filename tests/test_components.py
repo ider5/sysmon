@@ -35,6 +35,13 @@ def test_gpu_panel_uses_warn_critical_for_load():
     assert any("yellow" in style for style in styles)
 
 
+def test_progress_bar_non_finite_is_not_a_crash():
+    bar = progress_bar(float("nan"), width=4)
+    rendered = str(bar)
+    assert "n/a" in rendered
+    assert "━" not in rendered
+
+
 def test_progress_bar_contains_percentage():
     bar = progress_bar(42.5, width=10)
     assert "42.5%" in str(bar)

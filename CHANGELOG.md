@@ -21,6 +21,7 @@ All notable changes to SysMon are documented in this file.
 - The dashboard keeps sparklines for memory, disk read/write speed, and upload speed, next to the existing CPU and download history
 - Sparklines fill missing history with the first real sample, so a short trail does not look like a jump up from zero
 - Sparkline history drops NaN and infinite samples instead of crashing the dashboard
+- Progress bars render `n/a` for NaN or infinite percentages instead of crashing the dashboard
 - The dashboard and `sysmon serve` reload `config.toml` when the file changes, without a restart
 - `sysmon snapshot` and `sysmon serve` only sample network and disk counters when those modules are enabled. Snapshot also skips that wait for sections that do not need it
 - Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled. Swap usage is appended only while swap is actually in use
