@@ -106,9 +106,6 @@ class CollectorService:
         from sysmon.collectors.registry import collect
 
         self._refresh_config()
-        with self._lock:
-            prev = dict(self._snapshot)
-
         data: dict[str, Any] = {"timestamp": time.time()}
         keys = self._enabled_keys()
         if not keys:
@@ -129,8 +126,6 @@ class CollectorService:
                 except Exception as exc:
                     errors = data.setdefault("errors", {})
                     errors[key] = str(exc)
-                    if key in prev:
-                        data[key] = prev[key]
 
         with self._lock:
             self._snapshot = data

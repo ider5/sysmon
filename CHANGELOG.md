@@ -88,6 +88,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon brief --watch` reloads thresholds and the selected network interfaces from `config.toml` on each frame
 - `sysmon top --watch` reloads CPU and memory thresholds from `config.toml` on each frame
 - The background collector keeps sampling after an unexpected collection error instead of stopping the thread
+- A failed section is left out of the new sample instead of being filled with the previous section's values
 - The dashboard header says `stale` when the cached sample is older than three refresh intervals, or when its timestamp is not finite
 - Dashboard history ignores a metric record that is missing its percent or speed instead of failing the whole frame
 - `sysmon snapshot` and `sysmon serve` only sample network and disk counters when those modules are enabled. Snapshot also skips that wait for sections that do not need it

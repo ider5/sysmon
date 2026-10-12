@@ -5,7 +5,7 @@ import time
 import pytest
 
 from sysmon.collectors.service import CollectorService
-from sysmon.config import SysmonConfig
+from sysmon.config import ModuleConfig, SysmonConfig
 
 
 def _wait_until(predicate, timeout: float = 2.0) -> None:
@@ -180,6 +180,39 @@ def test_module_failure_keeps_other_metrics(monkeypatch):
         assert "cpu" in snapshot.get("errors", {})
     finally:
         service.stop()
+
+
+def test_module_failure_does_not_reuse_previous_sample(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_cpu():
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise RuntimeError("cpu down")
+        return {"percent": 10.0, "cores": [10.0]}
+
+    monkeypatch.setattr("sysmon.collectors.cpu.get_cpu_snapshot", fake_cpu)
+    service = CollectorService(
+        interval=10,
+        include_gpu=False,
+        config=SysmonConfig(
+            modules=ModuleConfig(
+                cpu=True,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    service._collect_once()
+    assert service.get_snapshot()["cpu"]["percent"] == 10.0
+    service._collect_once()
+    snapshot = service.get_snapshot()
+    assert "cpu" not in snapshot
+    assert snapshot["errors"]["cpu"] == "cpu down"
 
 
 def test_collector_service_calls_registry_collect_not_cpu_snapshot(monkeypatch):
