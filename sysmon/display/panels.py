@@ -84,12 +84,17 @@ def build_memory_text(
     show_available: bool = False,
     warn: float = 80.0,
     critical: float = 95.0,
+    history: list[float] | None = None,
 ) -> Text:
     """Build memory metrics text."""
     text = Text()
     text.append(f"  {'RAM':<14}", style="bold")
     text.append_text(progress_bar(info["percent"], width=25, warn=warn, critical=critical))
-    text.append(f"\n  {'':14}")
+    text.append("\n")
+    if history:
+        text.append(f"  {'History':<14}", style="bold")
+        text.append(render_sparkline(history, width=25) + "\n", style="magenta")
+    text.append(f"  {'':14}")
     text.append(
         f"{bytes_to_gb(info['used'])} / {bytes_to_gb(info['total'])} GB",
         style="bold white",
@@ -119,10 +124,17 @@ def memory_panel(
     show_available: bool = False,
     warn: float = 80.0,
     critical: float = 95.0,
+    history: list[float] | None = None,
 ) -> Panel:
     """Build memory metrics panel."""
     return Panel(
-        build_memory_text(info, show_available=show_available, warn=warn, critical=critical),
+        build_memory_text(
+            info,
+            show_available=show_available,
+            warn=warn,
+            critical=critical,
+            history=history,
+        ),
         title="[bold magenta]💾 Memory[/bold magenta]",
         border_style="magenta",
     )

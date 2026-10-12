@@ -38,6 +38,7 @@ def build_dashboard(
     include_gpu: bool = True,
     config: SysmonConfig | None = None,
     cpu_history: HistoryBuffer | None = None,
+    mem_history: HistoryBuffer | None = None,
     net_history: HistoryBuffer | None = None,
     snapshot: dict | None = None,
 ) -> Layout:
@@ -104,6 +105,7 @@ def build_dashboard(
                         show_available=True,
                         warn=thresholds.memory_warn,
                         critical=thresholds.memory_critical,
+                        history=mem_history.values() if mem_history else None,
                     ),
                 )
             )
@@ -255,6 +257,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
     console = Console()
     config = load_config()
     cpu_history = HistoryBuffer(maxlen=60)
+    mem_history = HistoryBuffer(maxlen=60)
     net_history = HistoryBuffer(maxlen=60)
 
     from sysmon.collectors.registry import collect
@@ -277,6 +280,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                 include_gpu=include_gpu,
                 config=config,
                 cpu_history=cpu_history,
+                mem_history=mem_history,
                 net_history=net_history,
                 snapshot=service.get_snapshot(),
             ),
@@ -290,6 +294,9 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                     cpu = snapshot.get("cpu")
                     if cpu is not None:
                         cpu_history.add(cpu["percent"])
+                    mem = snapshot.get("memory")
+                    if mem is not None:
+                        mem_history.add(mem["percent"])
                     net = snapshot.get("network")
                     if net is not None:
                         net_history.add(net["speed_down"])
@@ -298,6 +305,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                             include_gpu=include_gpu,
                             config=config,
                             cpu_history=cpu_history,
+                            mem_history=mem_history,
                             net_history=net_history,
                             snapshot=snapshot,
                         )

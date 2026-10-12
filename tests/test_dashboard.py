@@ -4,6 +4,7 @@ from rich.console import Console
 
 from sysmon.config import SysmonConfig
 from sysmon.display.dashboard import build_dashboard, run_dashboard
+from sysmon.display.sparkline import HistoryBuffer
 
 
 def _cpu_only_config() -> SysmonConfig:
@@ -204,6 +205,43 @@ def test_build_dashboard_process_row_is_full_width():
     assert "4242" in text
     assert "python" in text
     assert "PID" in text
+
+
+def test_build_dashboard_renders_memory_history():
+    history = HistoryBuffer()
+    history.add(10.0)
+    history.add(90.0)
+    config = SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": False,
+                "memory": True,
+                "network": False,
+                "disk": False,
+                "gpu": False,
+                "process": False,
+            }
+        }
+    )
+    layout = build_dashboard(
+        include_gpu=False,
+        config=config,
+        mem_history=history,
+        snapshot={
+            "memory": {
+                "percent": 90.0,
+                "used": 9 * 1024 ** 3,
+                "total": 10 * 1024 ** 3,
+                "available": 1 * 1024 ** 3,
+                "swap_total": 0,
+                "swap_used": 0,
+                "swap_percent": 0.0,
+            }
+        },
+    )
+    console = Console(record=True, width=100)
+    console.print(layout)
+    assert "History" in console.export_text()
 
 
 def _sensors_only_config() -> SysmonConfig:

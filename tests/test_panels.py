@@ -23,6 +23,22 @@ def test_build_cpu_text_includes_usage():
     assert "8 cores / 16 threads" in str(text)
 
 
+def test_build_memory_text_includes_history():
+    info = {
+        "percent": 50.0,
+        "used": 8 * 1024 ** 3,
+        "total": 16 * 1024 ** 3,
+        "available": 8 * 1024 ** 3,
+        "swap_total": 0,
+        "swap_used": 0,
+        "swap_percent": 0.0,
+    }
+    text = build_memory_text(info, history=[10.0, 50.0, 90.0])
+    rendered = text.plain
+    assert "History" in rendered
+    assert "▁" in rendered or "█" in rendered
+
+
 def test_build_memory_text_includes_ram():
     info = {
         "percent": 50.0,
