@@ -78,17 +78,30 @@ def _network_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     info = info if info is not None else collect("network", cfg)
+
+    def _count(key: str) -> int:
+        value = info.get(key, 0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return 0
+        return int(value)
+
+    def _rate(key: str) -> float:
+        value = info.get(key, 0.0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return 0.0
+        return float(value)
+
     payload: dict[str, Any] = {
-        "bytes_sent": info["bytes_sent"],
-        "bytes_recv": info["bytes_recv"],
-        "speed_up": info["speed_up"],
-        "speed_down": info["speed_down"],
-        "packets_sent": info["packets_sent"],
-        "packets_recv": info["packets_recv"],
-        "errin": int(info.get("errin") or 0),
-        "errout": int(info.get("errout") or 0),
-        "dropin": int(info.get("dropin") or 0),
-        "dropout": int(info.get("dropout") or 0),
+        "bytes_sent": _count("bytes_sent"),
+        "bytes_recv": _count("bytes_recv"),
+        "speed_up": _rate("speed_up"),
+        "speed_down": _rate("speed_down"),
+        "packets_sent": _count("packets_sent"),
+        "packets_recv": _count("packets_recv"),
+        "errin": _count("errin"),
+        "errout": _count("errout"),
+        "dropin": _count("dropin"),
+        "dropout": _count("dropout"),
     }
     if "interfaces" in info:
         payload["interfaces"] = info["interfaces"]

@@ -137,6 +137,14 @@ def test_collect_section_memory():
     assert data["memory"]["status"] in ("ok", "warn", "critical")
 
 
+def test_network_payload_tolerates_partial_record(monkeypatch):
+    monkeypatch.setattr("sysmon.export.collect", lambda *_a, **_k: {"bytes_sent": 5})
+    data = collect_section("network")
+    assert data["network"]["bytes_sent"] == 5
+    assert data["network"]["speed_down"] == 0.0
+    assert data["network"]["errin"] == 0
+
+
 def test_collect_section_network():
     data = collect_section("network")
     assert "network" in data
