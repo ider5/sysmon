@@ -6,6 +6,7 @@ All notable changes to SysMon are documented in this file.
 
 ### Added
 - Dashboard shows battery charge, power state, and temperatures when `[modules] sensors = true`
+- Sensor collection keeps the rest of the sample when a battery or temperature value is not a number
 - The sensors panel keeps drawing when a battery or temperature field is missing or not a number
 - The sensors panel lists the hottest temperatures first, so the eight visible rows are the highest readings
 - A non-finite temperature is left out of the GPU panel, brief line, terminal title, and hottest-sensor selection
