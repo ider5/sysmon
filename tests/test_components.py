@@ -48,6 +48,22 @@ def test_progress_bar_clamps_fill_above_100_percent():
     assert rendered.count("─") == 0
 
 
+def test_gpu_panel_shows_zero_celsius():
+    panel = gpu_panel(
+        [
+            {
+                "id": 0,
+                "name": "Cold",
+                "load": 0.0,
+                "memory_used": 0.0,
+                "memory_total": 100.0,
+                "temperature": 0.0,
+            }
+        ]
+    )
+    assert "0°C" in str(panel.renderable)
+
+
 def test_gpu_panel_empty_list_shows_unavailable():
     panel = gpu_panel([])
     assert "No GPU" in str(panel.renderable)

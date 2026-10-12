@@ -12,6 +12,7 @@ from sysmon.collectors.network import format_speed
 from sysmon.collectors.registry import collect
 from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import load_config
+from sysmon.display.components import celsius
 from sysmon.paths import get_log_dir
 
 WORKER_MARKER = "sysmon.title_worker"
@@ -85,8 +86,9 @@ def build_title(no_gpu: bool) -> str:
                 f"GPU {gpu['load']:.0f}% "
                 f"{gpu['memory_used']/1024:.1f}/{gpu['memory_total']/1024:.1f}G"
             )
-            if gpu["temperature"]:
-                gpu_str += f" {gpu['temperature']}°C"
+            temp = celsius(gpu.get("temperature"))
+            if temp is not None:
+                gpu_str += f" {temp:g}°C"
             parts.append(gpu_str)
     if settings.modules.sensors:
         sensors = collect("sensors", settings)

@@ -19,6 +19,7 @@ from sysmon.collectors.network import format_speed
 from sysmon.collectors.registry import collect
 from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import ThresholdConfig, load_config, metric_status
+from sysmon.display.components import celsius
 from sysmon.display.title_worker import WORKER_MARKER
 
 _STATUS_COLORS = {
@@ -116,13 +117,13 @@ def _format_gpu(
     mem_total = gpu["memory_total"] / 1024
     text.append(f" {mem_used:.1f}/{mem_total:.1f}G")
 
-    if gpu["temperature"]:
-        temp = gpu["temperature"]
+    temp = celsius(gpu.get("temperature"))
+    if temp is not None:
         if no_color:
-            text.append(f" {temp}°C")
+            text.append(f" {temp:g}°C")
         else:
             color = "green" if temp < 65 else "yellow" if temp < 80 else "red"
-            text.append(f" {temp}°C", style=color)
+            text.append(f" {temp:g}°C", style=color)
 
     return text
 

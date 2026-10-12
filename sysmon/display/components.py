@@ -114,6 +114,13 @@ def ascii_logo() -> Text:
     return text
 
 
+def celsius(value: object) -> float | None:
+    """Return a temperature in Celsius, keeping 0 and rejecting missing values."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
 def gpu_panel(
     gpus: list | None,
     warn: float = 80.0,
@@ -148,11 +155,11 @@ def gpu_panel(
         text.append(f"\n  {'':14}{gpu['memory_used']:.0f} / {gpu['memory_total']:.0f} MB\n", style="dim")
 
         # Temperature
-        if gpu["temperature"]:
-            temp = gpu["temperature"]
+        temp = celsius(gpu.get("temperature"))
+        if temp is not None:
             temp_color = "red" if temp >= 80 else "yellow" if temp >= 65 else "green"
             text.append(f"  {'Temperature':<14}", style="bold")
-            text.append(f"🌡  {temp}°C\n", style=temp_color)
+            text.append(f"🌡  {temp:g}°C\n", style=temp_color)
 
         text.append("\n")
 

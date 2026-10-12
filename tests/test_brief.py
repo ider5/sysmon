@@ -94,6 +94,20 @@ def test_build_brief_line_memory_color_uses_memory_thresholds(monkeypatch):
     assert any("yellow" in style for style in styles)
 
 
+def test_build_brief_line_shows_zero_gpu_temperature(monkeypatch):
+    gpu = [
+        {
+            "load": 1.0,
+            "memory_used": 1024,
+            "memory_total": 2048,
+            "temperature": 0,
+        }
+    ]
+    _stub_brief_collectors(monkeypatch, gpu=gpu)
+    line = brief_mod.build_brief_line(no_color=True)
+    assert "0°C" in line.plain
+
+
 def test_build_brief_line_gpu_load_uses_gpu_thresholds(monkeypatch):
     gpu = [
         {
