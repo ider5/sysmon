@@ -98,6 +98,7 @@ All notable changes to SysMon are documented in this file.
 - Process memory percentages use the memory warn/critical thresholds. CPU bars still use the CPU thresholds
 - The process table ignores rows that are not records instead of raising, and shows the empty state when none remain
 - Process collection skips one unreadable process instead of failing the whole top list
+- The native process list keeps the rows that are records when another row is not
 - JSON process lists drop entries that are not records, including `sysmon top --format json` and snapshots from the background collector
 - `sysmon brief --format json` uses those same module switches and includes `sensors` when the module is enabled
 

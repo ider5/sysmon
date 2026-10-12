@@ -133,6 +133,18 @@ def test_try_native_calls_list_processes(monkeypatch):
     assert result[0]["pid"] == 1
 
 
+def test_try_native_keeps_records_when_a_row_is_not(monkeypatch):
+    fake = ModuleType("sysmon._core")
+
+    def list_processes(limit, sort_by, name_filter, skip_pid=None):
+        return [None, {"pid": 4, "name": "ok"}, "bad"]
+
+    fake.list_processes = list_processes
+    monkeypatch.setitem(sys.modules, "sysmon._core", fake)
+    result = process_module._try_native_processes(4, "cpu", None)
+    assert result == [{"pid": 4, "name": "ok"}]
+
+
 def test_get_top_processes_sample_interval_uses_native(monkeypatch):
     calls = []
 

@@ -211,10 +211,13 @@ def _try_native_processes(
     try:
         fetch = 0 if limit <= 0 else limit + IDLE_FETCH_EXTRA
         rows = list_processes(fetch, sort_by, name_filter, os.getpid())
+        if not isinstance(rows, list):
+            return None
         return [
             row
             for row in rows
-            if not is_idle_process(str(row.get("name", "")), row.get("pid"))
+            if isinstance(row, dict)
+            and not is_idle_process(str(row.get("name") or ""), row.get("pid"))
             and not is_self_process(row.get("pid"))
         ][:limit]
     except Exception:
