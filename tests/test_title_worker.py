@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from sysmon.config import ModuleConfig, SysmonConfig
 from sysmon.display import title_worker
 from sysmon.display.title_worker import osc_title_sequence, sanitize_title
@@ -76,6 +78,19 @@ def test_run_loop_follows_config_interval(monkeypatch):
     except KeyboardInterrupt:
         pass
     assert slept == [2.5]
+
+
+def test_main_without_refresh_follows_config(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(sys, "argv", ["sysmon.title_worker"])
+    monkeypatch.setattr(
+        title_worker,
+        "run_loop",
+        lambda refresh, no_gpu: seen.update(refresh=refresh, no_gpu=no_gpu),
+    )
+    title_worker.main()
+    assert seen["refresh"] == 0.0
+    assert seen["no_gpu"] is False
 
 
 def test_sanitize_title_strips_osc_breakers():

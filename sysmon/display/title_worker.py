@@ -188,7 +188,7 @@ def run_loop(refresh_rate: float, no_gpu: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog=WORKER_MARKER)
-    parser.add_argument("--refresh", type=float, default=2.0)
+    parser.add_argument("--refresh", type=float, default=0.0)
     parser.add_argument("--no-gpu", action="store_true")
     parser.add_argument(
         "--marker",
