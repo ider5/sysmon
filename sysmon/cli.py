@@ -52,11 +52,12 @@ def version_callback(value: bool) -> None:
 
 
 def _validate_format(output_format: str) -> OutputFormat:
-    if output_format not in ("rich", "json"):
+    text = output_format.strip().lower() if isinstance(output_format, str) else ""
+    if text not in ("rich", "json"):
         console.print(f"[red]Unknown format: {output_format}[/red]")
         console.print("Valid formats: rich, json")
         raise typer.Exit(code=1)
-    return output_format  # type: ignore[return-value]
+    return text  # type: ignore[return-value]
 
 
 def _resolve_format(

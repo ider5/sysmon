@@ -142,7 +142,8 @@ _CONFIG_CACHE: tuple[str, float | None, SysmonConfig] | None = None
 
 def _normalize_default_format(value: str) -> str:
     """Clamp unknown formats to the safe default."""
-    return value if value in ("rich", "json") else "rich"
+    text = value.strip().lower() if isinstance(value, str) else ""
+    return text if text in ("rich", "json") else "rich"
 
 
 def _clamp_interval(value: object, default: float) -> float:

@@ -59,6 +59,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon sensors` prints battery and temperatures, with the same JSON section as the other metric commands
 - Sensor JSON includes `hottest_c`, the highest numeric temperature in the sample, including `sysmon brief --format json` and snapshots from the background collector. Prometheus exports it as `sysmon_temperature_hottest_celsius`
 - `sysmon config show` prints the resolved configuration as JSON
+- `default_format` and `--format` accept `JSON` and `Rich` in any letter case
 - A broken `config.toml` reports the parser or value error before falling back to defaults
 - Prometheus `/metrics` exports battery charge, remaining time when known, and sensor temperatures when they are present in the payload
 - Prometheus `/metrics` exports per-mount disk utilization and per-interface network speeds when those lists are present

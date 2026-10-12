@@ -139,6 +139,8 @@ def test_from_mapping_ignores_non_dict_sections():
 def test_from_mapping_invalid_default_format_falls_back():
     config = SysmonConfig.from_mapping({"default_format": "yaml"})
     assert config.default_format == "rich"
+    assert SysmonConfig.from_mapping({"default_format": " JSON "}).default_format == "json"
+    assert SysmonConfig.from_mapping({"default_format": "Rich"}).default_format == "rich"
 
 
 def test_load_config_from_file(tmp_path: Path, monkeypatch):

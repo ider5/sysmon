@@ -236,6 +236,13 @@ def test_top_json_uses_collect_processes(monkeypatch):
     assert captured["sort_by"] == "memory"
 
 
+def test_format_flag_is_case_insensitive():
+    result = runner.invoke(app, ["cpu", "--format", "JSON"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "cpu" in data
+
+
 def test_cpu_json():
     result = runner.invoke(app, ["cpu", "--format", "json"])
     assert result.exit_code == 0
