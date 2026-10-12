@@ -17,6 +17,14 @@ def _zero_memory() -> dict:
     }
 
 
+def _mem_number(obj: object, name: str) -> float:
+    """Read one finite memory field, or zero when it is missing."""
+    value = getattr(obj, name, 0)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return 0.0
+    return float(value)
+
+
 def get_memory_info() -> dict:
     """Get current memory usage.
 
@@ -34,13 +42,13 @@ def get_memory_info() -> dict:
         swap = None
 
     return {
-        "total": mem.total,
-        "used": mem.used,
-        "available": mem.available,
-        "percent": mem.percent,
-        "swap_total": 0 if swap is None else swap.total,
-        "swap_used": 0 if swap is None else swap.used,
-        "swap_percent": 0.0 if swap is None else swap.percent,
+        "total": _mem_number(mem, "total"),
+        "used": _mem_number(mem, "used"),
+        "available": _mem_number(mem, "available"),
+        "percent": _mem_number(mem, "percent"),
+        "swap_total": 0.0 if swap is None else _mem_number(swap, "total"),
+        "swap_used": 0.0 if swap is None else _mem_number(swap, "used"),
+        "swap_percent": 0.0 if swap is None else _mem_number(swap, "percent"),
     }
 
 

@@ -106,6 +106,7 @@ All notable changes to SysMon are documented in this file.
 - CPU physical core count falls back to the logical count when the OS does not report it, instead of rendering "None cores"
 - Uptime is 0 when the boot time is in the future, and "unknown" when the boot time cannot be read
 - CPU collection returns a zero snapshot instead of crashing when percent sampling is not implemented
+- Memory collection uses zero for a missing or non-finite field instead of failing the sample
 - A non-numeric per-core sample or load average is dropped instead of failing the CPU snapshot
 - Memory collection keeps RAM data when swap is unavailable, and returns zeros instead of crashing when RAM itself cannot be read
 - The native process scanner drops idle placeholders and the current process before applying the top-N limit, so the list is not shortened by those rows

@@ -27,6 +27,19 @@ def test_get_memory_info_when_swap_is_unavailable():
     assert info["swap_percent"] == 0.0
 
 
+def test_get_memory_info_ignores_non_numeric_fields():
+    mem = SimpleNamespace(total=100, used="bad", available=60, percent=float("nan"))
+    swap = SimpleNamespace(total=float("inf"), used=5, percent=None)
+    with patch("sysmon.collectors.memory.psutil.virtual_memory", return_value=mem):
+        with patch("sysmon.collectors.memory.psutil.swap_memory", return_value=swap):
+            info = get_memory_info()
+    assert info["total"] == 100.0
+    assert info["used"] == 0.0
+    assert info["percent"] == 0.0
+    assert info["swap_total"] == 0.0
+    assert info["swap_used"] == 5.0
+
+
 def test_get_memory_info_when_memory_is_unavailable():
     with patch(
         "sysmon.collectors.memory.psutil.virtual_memory",
