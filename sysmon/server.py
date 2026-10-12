@@ -100,6 +100,13 @@ def format_prometheus(data: dict[str, Any]) -> str:
         lines.append(f"{name} {_fmt(value)}")
 
     gauge("sysmon_up", 1, "1 when the sysmon metrics endpoint is serving")
+    errors = data.get("errors")
+    if isinstance(errors, dict) and errors:
+        gauge(
+            "sysmon_section_errors",
+            len(errors),
+            "Number of sections that failed while building this sample",
+        )
     collected_at = _first_number(data, "collected_at")
     if collected_at is not None:
         gauge(

@@ -26,6 +26,12 @@ _FAKE_ALL = {
 }
 
 
+def test_format_prometheus_counts_section_errors():
+    text = format_prometheus({"errors": {"cpu": "down", "disk": "down"}})
+    assert "sysmon_section_errors 2.0" in text
+    assert "sysmon_section_errors" not in format_prometheus({})
+
+
 def test_format_prometheus_includes_collected_at():
     text = format_prometheus({"collected_at": 100.5, "cpu": {"percent": 1.0}})
     assert "sysmon_collected_at_seconds 100.5" in text

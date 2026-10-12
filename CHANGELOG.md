@@ -31,6 +31,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon serve` answers HEAD with the same status and content length as GET, without a body
 - Metrics responses send `Cache-Control: no-store` and always include a `sysmon_up` gauge
 - Prometheus `/metrics` exports `sysmon_collected_at_seconds` when the payload has `collected_at`
+- Prometheus `/metrics` exports `sysmon_section_errors` when one or more sections failed
 - The dashboard stays open when one frame fails to render and shows that error until the next successful frame
 - `sysmon brief --watch` and `sysmon top --watch` stay open when one refresh fails and show that error
 - The dashboard and `sysmon serve` reload `config.toml` when the file changes, without a restart
