@@ -182,6 +182,26 @@ def test_format_prometheus_includes_link_speed():
     assert 'sysmon_network_interface_speed_mbps{device="eth0"} 1000.0' in text
 
 
+def test_format_prometheus_includes_process_sample():
+    text = format_prometheus(
+        {
+            "processes": [
+                {"pid": 1, "cpu_percent": 10.0, "memory_percent": 80.0},
+                "bad",
+                {"pid": 2, "cpu_percent": 40.0, "memory_percent": 5.0},
+                {"pid": 3, "cpu_percent": float("nan")},
+            ]
+        }
+    )
+    assert "sysmon_process_count 3.0" in text
+    assert "sysmon_process_top_cpu_percent 40.0" in text
+    assert "sysmon_process_top_memory_percent 80.0" in text
+    empty = format_prometheus({"processes": []})
+    assert "sysmon_process_count 0.0" in empty
+    assert "sysmon_process_top_cpu_percent" not in empty
+    assert "sysmon_process_top_memory_percent" not in empty
+
+
 def test_format_prometheus_includes_link_state():
     text = format_prometheus(
         {

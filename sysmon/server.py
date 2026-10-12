@@ -409,6 +409,35 @@ def format_prometheus(data: dict[str, Any]) -> str:
                     "sysmon_network_interface_speed_down"
                     f'{{device="{_escape_label(name)}"}} {_fmt(speed)}'
                 )
+    processes = data.get("processes")
+    if isinstance(processes, list):
+        process_rows = [row for row in processes if isinstance(row, dict)]
+        gauge(
+            "sysmon_process_count",
+            float(len(process_rows)),
+            "Processes included in this sample",
+        )
+        top_cpu: float | None = None
+        top_memory: float | None = None
+        for row in process_rows:
+            cpu = _number(row.get("cpu_percent"))
+            memory = _number(row.get("memory_percent"))
+            if cpu is not None and (top_cpu is None or cpu > top_cpu):
+                top_cpu = cpu
+            if memory is not None and (top_memory is None or memory > top_memory):
+                top_memory = memory
+        if top_cpu is not None:
+            gauge(
+                "sysmon_process_top_cpu_percent",
+                top_cpu,
+                "CPU percent of the busiest process in this sample",
+            )
+        if top_memory is not None:
+            gauge(
+                "sysmon_process_top_memory_percent",
+                top_memory,
+                "Memory percent of the largest process in this sample",
+            )
     gpus = data.get("gpu")
     samples: list[tuple[str, float]] = []
     memory_used: list[tuple[str, float]] = []

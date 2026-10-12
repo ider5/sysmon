@@ -12,6 +12,7 @@ All notable changes to SysMon are documented in this file.
 - A non-finite temperature is left out of the GPU panel, brief line, terminal title, and hottest-sensor selection
 - CPU snapshots, the CPU panel, JSON, and Prometheus include the 1, 5, and 15 minute load average when the OS provides it
 - Prometheus exports logical and physical CPU counts so load average can be compared with the machine size
+- Prometheus exports `sysmon_process_count`, `sysmon_process_top_cpu_percent`, and `sysmon_process_top_memory_percent` for the processes included in the sample
 - Prometheus output skips a metric whose value is missing or non-finite instead of failing the whole scrape
 - Prometheus load average, per-mount disk percent, per-interface throughput, and temperature series also skip non-finite and boolean samples instead of writing `inf` or `nan`
 - Brief mode and the terminal title append the 1-minute load when it is at least the logical CPU count
