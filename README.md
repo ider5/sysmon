@@ -118,7 +118,7 @@ Endpoints: `GET /json` (schema v3), `GET /metrics` (Prometheus text), `GET /` or
 
 Binds loopback (`127.0.0.1`, `localhost`, `::1`) by default. Non-loopback addresses require `--allow-remote`. There is **no authentication**—do not expose it on a public interface.
 
-The server primes network/disk counters once so the first scrape is not stuck at 0 B/s. When sensors are enabled, `/metrics` also exports `sysmon_battery_percent`, `sysmon_battery_plugged`, and `sysmon_temperature_celsius`.
+The server primes network/disk counters once so the first scrape is not stuck at 0 B/s. `/metrics` keeps the aggregate CPU, memory, disk, and network gauges. When the payload includes them, it also exports per-mount `sysmon_disk_mount_percent`, per-interface network speeds, and — if sensors are enabled — `sysmon_battery_percent`, `sysmon_battery_plugged`, and `sysmon_temperature_celsius`.
 
 ### Shell Completion
 

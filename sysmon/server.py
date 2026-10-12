@@ -73,6 +73,19 @@ def format_prometheus(data: dict[str, Any]) -> str:
     disk = data.get("disk")
     if isinstance(disk, dict) and "percent" in disk:
         gauge("sysmon_disk_percent", disk["percent"], "Primary disk utilization percent")
+        mount_samples: list[tuple[str, float]] = []
+        mounts = disk.get("mounts")
+        if isinstance(mounts, list):
+            for mount in mounts:
+                if isinstance(mount, dict) and isinstance(mount.get("percent"), (int, float)):
+                    mount_samples.append((str(mount.get("mount", "")), float(mount["percent"])))
+        if mount_samples:
+            lines.append("# HELP sysmon_disk_mount_percent Disk utilization percent by mount")
+            lines.append("# TYPE sysmon_disk_mount_percent gauge")
+            for mount, percent in mount_samples:
+                lines.append(
+                    f'sysmon_disk_mount_percent{{mount="{_escape_label(mount)}"}} {_fmt(percent)}'
+                )
     network = data.get("network")
     if isinstance(network, dict):
         if "speed_up" in network:
@@ -87,6 +100,40 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 network["speed_down"],
                 "Download throughput in bytes per second",
             )
+        up_samples: list[tuple[str, float]] = []
+        down_samples: list[tuple[str, float]] = []
+        interfaces = network.get("interfaces")
+        if isinstance(interfaces, list):
+            for iface in interfaces:
+                if not isinstance(iface, dict):
+                    continue
+                name = str(iface.get("name", ""))
+                if isinstance(iface.get("speed_up"), (int, float)):
+                    up_samples.append((name, float(iface["speed_up"])))
+                if isinstance(iface.get("speed_down"), (int, float)):
+                    down_samples.append((name, float(iface["speed_down"])))
+        if up_samples:
+            lines.append(
+                "# HELP sysmon_network_interface_speed_up "
+                "Per-interface upload throughput in bytes per second"
+            )
+            lines.append("# TYPE sysmon_network_interface_speed_up gauge")
+            for name, speed in up_samples:
+                lines.append(
+                    "sysmon_network_interface_speed_up"
+                    f'{{device="{_escape_label(name)}"}} {_fmt(speed)}'
+                )
+        if down_samples:
+            lines.append(
+                "# HELP sysmon_network_interface_speed_down "
+                "Per-interface download throughput in bytes per second"
+            )
+            lines.append("# TYPE sysmon_network_interface_speed_down gauge")
+            for name, speed in down_samples:
+                lines.append(
+                    "sysmon_network_interface_speed_down"
+                    f'{{device="{_escape_label(name)}"}} {_fmt(speed)}'
+                )
     gpus = data.get("gpu")
     samples: list[tuple[str, float]] = []
     if isinstance(gpus, list):

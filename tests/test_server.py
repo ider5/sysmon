@@ -35,6 +35,33 @@ def test_format_prometheus_includes_core_gauges():
     assert "# TYPE sysmon_cpu_percent gauge" in text
 
 
+def test_format_prometheus_includes_mounts_and_interfaces():
+    text = format_prometheus(
+        {
+            "disk": {
+                "percent": 10.0,
+                "mounts": [
+                    {"mount": "C:\\", "percent": 11.0},
+                    {"mount": "/", "percent": 22.5},
+                ],
+            },
+            "network": {
+                "speed_up": 5.0,
+                "speed_down": 6.0,
+                "interfaces": [
+                    {"name": 'eth"0', "speed_up": 1.5, "speed_down": 2.5},
+                ],
+            },
+        }
+    )
+    assert "sysmon_disk_percent 10.0" in text
+    assert 'sysmon_disk_mount_percent{mount="C:\\\\"} 11.0' in text
+    assert 'sysmon_disk_mount_percent{mount="/"} 22.5' in text
+    assert text.count("# TYPE sysmon_disk_mount_percent gauge") == 1
+    assert 'sysmon_network_interface_speed_up{device="eth\\"0"} 1.5' in text
+    assert 'sysmon_network_interface_speed_down{device="eth\\"0"} 2.5' in text
+
+
 def test_format_prometheus_includes_sensors():
     text = format_prometheus(
         {
