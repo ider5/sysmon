@@ -94,6 +94,11 @@ def format_prometheus(data: dict[str, Any]) -> str:
         lines.append(f"# TYPE {name} gauge")
         lines.append(f"{name} {_fmt(value)}")
 
+    def counter(name: str, value: float, help_text: str) -> None:
+        lines.append(f"# HELP {name} {help_text}")
+        lines.append(f"# TYPE {name} counter")
+        lines.append(f"{name} {_fmt(value)}")
+
     cpu = data.get("cpu")
     if isinstance(cpu, dict) and "percent" in cpu:
         gauge("sysmon_cpu_percent", cpu["percent"], "CPU utilization percent")
@@ -145,6 +150,12 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 write_speed,
                 "Disk write throughput in bytes per second",
             )
+        read_bytes = _first_number(disk, "read_bytes")
+        write_bytes = _first_number(disk, "write_bytes")
+        if read_bytes is not None:
+            counter("sysmon_disk_read_bytes", read_bytes, "Bytes read since boot")
+        if write_bytes is not None:
+            counter("sysmon_disk_write_bytes", write_bytes, "Bytes written since boot")
     network = data.get("network")
     if isinstance(network, dict):
         if "speed_up" in network:
@@ -159,6 +170,12 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 network["speed_down"],
                 "Download throughput in bytes per second",
             )
+        sent = _first_number(network, "bytes_sent")
+        recv = _first_number(network, "bytes_recv")
+        if sent is not None:
+            counter("sysmon_network_bytes_sent", sent, "Bytes sent since boot")
+        if recv is not None:
+            counter("sysmon_network_bytes_recv", recv, "Bytes received since boot")
         up_samples: list[tuple[str, float]] = []
         down_samples: list[tuple[str, float]] = []
         interfaces = network.get("interfaces")

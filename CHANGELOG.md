@@ -14,6 +14,7 @@ All notable changes to SysMon are documented in this file.
 - Prometheus `/metrics` exports GPU memory and temperature alongside utilization
 - Prometheus `/metrics` exports swap utilization and size when swap is present
 - Prometheus `/metrics` exports aggregate disk read and write throughput
+- Prometheus `/metrics` exports network and disk byte totals as counters
 
 ### Changed
 - The dashboard keeps sparklines for memory, disk read/write speed, and upload speed, next to the existing CPU and download history

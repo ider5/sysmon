@@ -62,6 +62,20 @@ def test_format_prometheus_includes_mounts_and_interfaces():
     assert 'sysmon_network_interface_speed_down{device="eth\\"0"} 2.5' in text
 
 
+def test_format_prometheus_exports_byte_counters():
+    text = format_prometheus(
+        {
+            "network": {"bytes_sent": 10.0, "bytes_recv": 20.0, "speed_up": 1.0, "speed_down": 2.0},
+            "disk": {"percent": 1.0, "read_bytes": 30.0, "write_bytes": 40.0},
+        }
+    )
+    assert "# TYPE sysmon_network_bytes_sent counter" in text
+    assert "sysmon_network_bytes_sent 10.0" in text
+    assert "sysmon_network_bytes_recv 20.0" in text
+    assert "# TYPE sysmon_disk_read_bytes counter" in text
+    assert "sysmon_disk_write_bytes 40.0" in text
+
+
 def test_format_prometheus_includes_disk_speeds():
     text = format_prometheus(
         {"disk": {"percent": 10.0, "read_speed": 4096.0, "write_speed": 0.0}}
