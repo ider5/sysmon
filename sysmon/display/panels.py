@@ -59,7 +59,7 @@ def build_cpu_text(
             style="bold white",
         )
 
-    if cores:
+    if isinstance(cores, list) and cores:
         text.append("\n  ", style="bold")
         text.append("Per-core Usage\n", style="bold underline")
         for i in range(0, len(cores), 2):

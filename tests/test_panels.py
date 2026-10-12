@@ -60,6 +60,13 @@ def test_build_cpu_text_shows_per_core_outside_compact_mode():
     assert "90.0%" in rendered
 
 
+def test_build_cpu_text_ignores_non_list_cores():
+    info = {"percent": 10.0, "count_physical": 1, "count_logical": 1}
+    text = build_cpu_text(info, cores=4)  # type: ignore[arg-type]
+    assert "10.0%" in text.plain
+    assert "Per-core Usage" not in text.plain
+
+
 def test_build_memory_text_includes_history():
     info = {
         "percent": 50.0,
