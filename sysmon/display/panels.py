@@ -184,6 +184,16 @@ def build_network_text(
             text.append(format_speed(_as_number(iface.get("speed_up"))) + "\n", style="green")
             text.append(f"  {'↓ Download':<14}", style="bold")
             text.append(format_speed(_as_number(iface.get("speed_down"))) + "\n", style="cyan")
+            iface_errin = int(_as_number(iface.get("errin")))
+            iface_errout = int(_as_number(iface.get("errout")))
+            iface_dropin = int(_as_number(iface.get("dropin")))
+            iface_dropout = int(_as_number(iface.get("dropout")))
+            if iface_errin or iface_errout or iface_dropin or iface_dropout:
+                text.append(f"  {'Errors':<14}", style="bold")
+                text.append(
+                    f"in {iface_errin} out {iface_errout} drop {iface_dropin}/{iface_dropout}\n",
+                    style="yellow",
+                )
         text.append("  " + "─" * 30 + "\n", style="dim")
         text.append(f"  {'Total ↑':<14}", style="bold")
         text.append(format_speed(_as_number(info.get("speed_up"))) + "\n", style="green")
