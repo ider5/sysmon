@@ -123,55 +123,77 @@ def _network_payload(
     return payload
 
 
+def _disk_number(value: object, default: float = 0.0) -> float:
+    """Use a numeric sample, or the default when it is missing or not a number."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    return value
+
+
 def _disk_payload(
     settings: SysmonConfig | None = None,
     info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     info = info if info is not None else collect("disk", cfg)
+    if not isinstance(info, dict):
+        info = {}
+    percent = _disk_number(info.get("percent"))
     primary_status = metric_status(
-        info["percent"],
+        percent,
         cfg.thresholds.disk_warn,
         cfg.thresholds.disk_critical,
     )
     mounts = []
-    for mount_info in info.get("mounts", []):
-        percent = mount_info.get("percent", 0)
-        mount_payload = {
-            "mount": mount_info.get("mount", ""),
-            "total": mount_info.get("total", 0),
-            "used": mount_info.get("used", 0),
-            "free": mount_info.get("free", 0),
-            "percent": 0 if percent is None else percent,
-            "status": metric_status(
-                0 if percent is None else percent,
-                cfg.thresholds.disk_warn,
-                cfg.thresholds.disk_critical,
-            ),
-        }
-        fstype = mount_info.get("fstype")
-        if isinstance(fstype, str) and fstype:
-            mount_payload["fstype"] = fstype
-        inode_percent = mount_info.get("inode_percent")
-        if isinstance(inode_percent, (int, float)) and not isinstance(inode_percent, bool):
-            mount_payload["inode_percent"] = float(inode_percent)
-        mounts.append(mount_payload)
+    raw_mounts = info.get("mounts", [])
+    if isinstance(raw_mounts, list):
+        for mount_info in raw_mounts:
+            if not isinstance(mount_info, dict):
+                continue
+            mount_percent = _disk_number(mount_info.get("percent"))
+            mount_payload = {
+                "mount": str(mount_info.get("mount") or ""),
+                "total": _disk_number(mount_info.get("total"), 0),
+                "used": _disk_number(mount_info.get("used"), 0),
+                "free": _disk_number(mount_info.get("free"), 0),
+                "percent": mount_percent,
+                "status": metric_status(
+                    mount_percent,
+                    cfg.thresholds.disk_warn,
+                    cfg.thresholds.disk_critical,
+                ),
+            }
+            fstype = mount_info.get("fstype")
+            if isinstance(fstype, str) and fstype:
+                mount_payload["fstype"] = fstype
+            inode_percent = mount_info.get("inode_percent")
+            if (
+                isinstance(inode_percent, (int, float))
+                and not isinstance(inode_percent, bool)
+                and math.isfinite(inode_percent)
+            ):
+                mount_payload["inode_percent"] = inode_percent
+            mounts.append(mount_payload)
     payload = {
         "mounts": mounts,
-        "mount": info["mount"],
-        "total": info["total"],
-        "used": info["used"],
-        "free": info["free"],
-        "percent": info["percent"],
-        "read_bytes": info["read_bytes"],
-        "write_bytes": info["write_bytes"],
-        "read_speed": info["read_speed"],
-        "write_speed": info["write_speed"],
+        "mount": str(info.get("mount") or ""),
+        "total": _disk_number(info.get("total"), 0),
+        "used": _disk_number(info.get("used"), 0),
+        "free": _disk_number(info.get("free"), 0),
+        "percent": percent,
+        "read_bytes": _disk_number(info.get("read_bytes"), 0),
+        "write_bytes": _disk_number(info.get("write_bytes"), 0),
+        "read_speed": _disk_number(info.get("read_speed")),
+        "write_speed": _disk_number(info.get("write_speed")),
         "status": primary_status,
     }
     inode_percent = info.get("inode_percent")
-    if isinstance(inode_percent, (int, float)) and not isinstance(inode_percent, bool):
-        payload["inode_percent"] = float(inode_percent)
+    if (
+        isinstance(inode_percent, (int, float))
+        and not isinstance(inode_percent, bool)
+        and math.isfinite(inode_percent)
+    ):
+        payload["inode_percent"] = inode_percent
     return payload
 
 

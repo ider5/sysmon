@@ -233,6 +233,23 @@ def test_disk_payload_tolerates_partial_mount(monkeypatch):
     assert mount["percent"] == 5.0
 
 
+def test_disk_payload_tolerates_partial_primary(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "mounts": ["bad", {"mount": "/data", "percent": 5.0}, None],
+        },
+    )
+    data = collect_section("disk")
+    disk = data["disk"]
+    assert disk["mount"] == ""
+    assert disk["percent"] == 0.0
+    assert disk["read_speed"] == 0.0
+    assert disk["total"] == 0
+    assert [mount["mount"] for mount in disk["mounts"]] == ["/data"]
+    assert "errors" not in data
+
+
 def test_collect_section_disk():
     data = collect_section("disk")
     assert "disk" in data
