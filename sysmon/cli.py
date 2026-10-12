@@ -558,8 +558,9 @@ def brief(
         from sysmon.collectors.registry import collect
         from sysmon.export import collect_brief
 
-        collect("network", settings)
-        time.sleep(settings.sample_interval)
+        if settings.modules.network:
+            collect("network", settings)
+            time.sleep(settings.sample_interval)
         _emit_json(collect_brief(include_gpu=include_gpu))
         return
 

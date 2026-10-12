@@ -224,6 +224,31 @@ def test_brief_json(monkeypatch):
     assert set(data.keys()) == {"cpu", "memory", "network"}
 
 
+def test_brief_json_skips_network_sample_when_module_disabled(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=True,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    slept: list[float] = []
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: settings)
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    monkeypatch.setattr("time.sleep", lambda seconds: slept.append(seconds))
+    result = runner.invoke(app, ["brief", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert set(data.keys()) == {"cpu"}
+    assert settings.sample_interval not in slept
+
+
 def test_network_json(monkeypatch):
     monkeypatch.setattr("sysmon.cli.time.sleep", lambda _s: None)
     result = runner.invoke(

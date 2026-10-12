@@ -11,6 +11,7 @@ All notable changes to SysMon are documented in this file.
 
 ### Changed
 - Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading is included when sensors are enabled
+- `sysmon brief --format json` uses those same module switches and includes `sensors` when the module is enabled
 
 ### Fixed
 - Aggregate network collection returns zero counters instead of crashing when the OS exposes no I/O counters

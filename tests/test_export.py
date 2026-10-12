@@ -78,6 +78,34 @@ def test_collect_brief_keys():
     assert set(data.keys()) == {"cpu", "memory", "network"}
 
 
+def test_collect_brief_respects_modules(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=False,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=True,
+            process=False,
+            sensors=True,
+        ),
+        enable_gpu=False,
+    )
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda name, collect_settings=None: {
+            "battery": {"percent": 12.0, "power_plugged": False, "secsleft": None},
+            "temperatures": {},
+        },
+    )
+    data = collect_brief(include_gpu=True)
+    assert set(data) == {"sensors"}
+    assert data["sensors"]["battery"]["percent"] == 12.0
+
+
 def test_collect_section_cpu():
     data = collect_section("cpu")
     assert "cpu" in data

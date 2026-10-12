@@ -180,13 +180,17 @@ def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
 def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
     """Collect compact metrics for brief mode."""
     settings = load_config()
-    data: dict[str, Any] = {
-        "cpu": _cpu_payload(settings),
-        "memory": _memory_payload(settings),
-        "network": _network_payload(settings),
-    }
-    if include_gpu:
+    data: dict[str, Any] = {}
+    if settings.modules.cpu:
+        data["cpu"] = _cpu_payload(settings)
+    if settings.modules.memory:
+        data["memory"] = _memory_payload(settings)
+    if settings.modules.network:
+        data["network"] = _network_payload(settings)
+    if include_gpu and settings.modules.gpu and settings.enable_gpu:
         data["gpu"] = _gpu_payload(settings)
+    if settings.modules.sensors:
+        data["sensors"] = collect("sensors", settings)
     return data
 
 
