@@ -93,7 +93,7 @@ def progress_bar(
     return text
 
 
-def header_bar(hostname: str, os_name: str, uptime: str) -> Panel:
+def header_bar(hostname: str, os_name: str, uptime: str, notice: str | None = None) -> Panel:
     """Create the dashboard header bar with system info.
 
     Args:
@@ -111,6 +111,9 @@ def header_bar(hostname: str, os_name: str, uptime: str) -> Panel:
     text.append(f"{os_name}", style="bold blue")
     text.append("  │  ", style="dim")
     text.append(f"⏱  {uptime}", style="bold green")
+    if notice:
+        text.append("  │  ", style="dim")
+        text.append(notice, style="bold red")
 
     return Panel(
         text,

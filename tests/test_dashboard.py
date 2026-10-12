@@ -24,6 +24,26 @@ def _cpu_only_config() -> SysmonConfig:
     )
 
 
+def test_snapshot_is_stale_after_several_refreshes():
+    from sysmon.display.dashboard import snapshot_is_stale
+
+    assert snapshot_is_stale({"timestamp": 100.0}, 1.0, now=110.0) is True
+    assert snapshot_is_stale({"timestamp": 100.0}, 1.0, now=102.0) is False
+    assert snapshot_is_stale({}, 1.0, now=200.0) is False
+
+
+def test_build_dashboard_shows_stale_notice():
+    layout = build_dashboard(
+        include_gpu=False,
+        config=_cpu_only_config(),
+        snapshot={"timestamp": 1.0},
+        notice="stale",
+    )
+    console = Console(record=True, width=120)
+    console.print(layout)
+    assert "stale" in console.export_text()
+
+
 def test_build_dashboard_placeholder_when_snapshot_missing(monkeypatch):
     def boom(*_a, **_k):
         raise AssertionError("collector should not run on the UI thread")

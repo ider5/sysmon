@@ -34,6 +34,17 @@ def _waiting_panel(title: str, error: str | None = None) -> Panel:
     )
 
 
+def snapshot_is_stale(snapshot: dict | None, refresh_rate: float, now: float | None = None) -> bool:
+    """Return True when the cached sample is older than a few refresh intervals."""
+    if not isinstance(snapshot, dict):
+        return False
+    timestamp = snapshot.get("timestamp")
+    if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)):
+        return False
+    current = time.time() if now is None else now
+    return current - float(timestamp) > max(3.0, refresh_rate * 3)
+
+
 def build_dashboard(
     include_gpu: bool = True,
     config: SysmonConfig | None = None,
@@ -44,6 +55,7 @@ def build_dashboard(
     disk_read_history: HistoryBuffer | None = None,
     disk_write_history: HistoryBuffer | None = None,
     snapshot: dict | None = None,
+    notice: str | None = None,
 ) -> Layout:
     """Build the full dashboard layout from a cached snapshot."""
     settings = config or load_config()
@@ -61,7 +73,7 @@ def build_dashboard(
         Layout(name="header", size=3),
         Layout(name="content"),
     )
-    layout["header"].update(header_bar(hostname, os_name, uptime))
+    layout["header"].update(header_bar(hostname, os_name, uptime, notice=notice))
 
     metric_panels: list[tuple[str, Panel]] = []
     process_item: tuple[str, Panel] | None = None
@@ -308,6 +320,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                     try:
                         config = load_config()
                         snapshot = service.get_snapshot()
+                        notice = "stale" if snapshot_is_stale(snapshot, refresh_rate) else None
                         cpu = snapshot.get("cpu")
                         if cpu is not None:
                             cpu_history.add(cpu["percent"])
@@ -333,6 +346,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                                 disk_read_history=disk_read_history,
                                 disk_write_history=disk_write_history,
                                 snapshot=snapshot,
+                                notice=notice,
                             )
                         )
                     except KeyboardInterrupt:
