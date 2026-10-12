@@ -144,6 +144,29 @@ def test_collect_section_network():
     assert "speed_down" in data["network"]
 
 
+def test_disk_payload_tolerates_partial_mount(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "mount": "/",
+            "percent": 10.0,
+            "total": 100,
+            "used": 10,
+            "free": 90,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "read_speed": 0,
+            "write_speed": 0,
+            "mounts": [{"mount": "/data", "percent": 5.0}],
+        },
+    )
+    data = collect_section("disk")
+    mount = data["disk"]["mounts"][0]
+    assert mount["mount"] == "/data"
+    assert mount["free"] == 0
+    assert mount["percent"] == 5.0
+
+
 def test_collect_section_disk():
     data = collect_section("disk")
     assert "disk" in data

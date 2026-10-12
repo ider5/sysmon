@@ -108,14 +108,15 @@ def _disk_payload(
     )
     mounts = []
     for mount_info in info.get("mounts", []):
+        percent = mount_info.get("percent", 0)
         mount_payload = {
-            "mount": mount_info["mount"],
-            "total": mount_info["total"],
-            "used": mount_info["used"],
-            "free": mount_info["free"],
-            "percent": mount_info["percent"],
+            "mount": mount_info.get("mount", ""),
+            "total": mount_info.get("total", 0),
+            "used": mount_info.get("used", 0),
+            "free": mount_info.get("free", 0),
+            "percent": 0 if percent is None else percent,
             "status": metric_status(
-                mount_info["percent"],
+                0 if percent is None else percent,
                 cfg.thresholds.disk_warn,
                 cfg.thresholds.disk_critical,
             ),
