@@ -73,6 +73,7 @@ class _TopState:
         self.name_filter = name_filter
         self.filter_mode = False
         self.filter_buffer = name_filter or ""
+        self.interval = 1.0
 
 
 def _apply_top_key(state: _TopState, key: str | None) -> bool:
@@ -124,7 +125,7 @@ def _sleep_until_key_or_refresh(refresh_rate: float, state: _TopState) -> bool:
 def run_top_live(
     limit: int = 10,
     sort_by: str = "cpu",
-    refresh_rate: float = 1.0,
+    refresh_rate: float | None = None,
     name_filter: str | None = None,
     warn: float | None = None,
     critical: float | None = None,
@@ -137,6 +138,7 @@ def run_top_live(
 
     def render() -> Group:
         settings = load_config()
+        state.interval = settings.refresh_interval if refresh_rate is None else refresh_rate
         processes = collect_processes(
             limit=limit,
             sort_by=state.sort_by,
@@ -170,7 +172,7 @@ def run_top_live(
                     raise
                 except Exception as exc:
                     live.update(Text(f"top error: {exc}", style="red"))
-                if not _sleep_until_key_or_refresh(refresh_rate, state):
+                if not _sleep_until_key_or_refresh(state.interval, state):
                     break
         except KeyboardInterrupt:
             pass

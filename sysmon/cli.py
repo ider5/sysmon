@@ -297,7 +297,6 @@ def top(
         console.print("Valid sort keys: cpu, memory")
         raise typer.Exit(code=1)
     sort_key = sort_by
-    refresh_rate = refresh if refresh is not None else settings.refresh_interval
 
     if watch:
         if fmt == "json":
@@ -308,7 +307,7 @@ def top(
         run_top_live(
             limit=count,
             sort_by=sort_key,
-            refresh_rate=refresh_rate,
+            refresh_rate=refresh,
             name_filter=filter_name,
         )
         return

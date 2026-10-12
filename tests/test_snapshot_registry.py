@@ -315,6 +315,38 @@ def test_refresh_wait_quits_when_q_arrives(monkeypatch):
     assert clock["t"] < 1.0
 
 
+def test_top_live_follows_config_interval(monkeypatch):
+    seen: list[float] = []
+
+    class FakeLive:
+        def __init__(self, renderable, *a, **k):
+            self.renderable = renderable
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def update(self, renderable):
+            self.renderable = renderable
+
+    monkeypatch.setattr(
+        top_live_mod, "load_config", lambda: SysmonConfig(refresh_interval=2.5)
+    )
+    monkeypatch.setattr(top_live_mod, "collect_processes", lambda **_kwargs: [])
+    monkeypatch.setattr(top_live_mod, "process_panel", lambda *_args, **_kwargs: "panel")
+    monkeypatch.setattr(top_live_mod, "Live", FakeLive)
+    monkeypatch.setattr(top_live_mod, "_read_key", lambda: None)
+    monkeypatch.setattr(
+        top_live_mod,
+        "_sleep_until_key_or_refresh",
+        lambda delay, _state: seen.append(delay) or False,
+    )
+    top_live_mod.run_top_live(limit=2)
+    assert seen == [2.5]
+
+
 def test_top_live_reloads_thresholds(monkeypatch):
     configs = [
         SysmonConfig(
