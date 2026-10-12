@@ -12,6 +12,17 @@ from sysmon.display.components import (
 )
 
 
+def test_header_bar_keeps_labels_on_one_line():
+    from sysmon.display.components import header_bar
+
+    panel = header_bar("box\nname", "Linux\nextra", "1h\n2m")
+    plain = panel.renderable.plain
+    assert "box name" in plain
+    assert "Linux extra" in plain
+    assert "1h 2m" in plain
+    assert "\n" not in plain
+
+
 def test_one_line_collapses_whitespace():
     assert one_line("eth0\nextra", "unknown") == "eth0 extra"
     assert one_line("   ", "unknown") == "unknown"

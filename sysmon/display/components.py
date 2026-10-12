@@ -101,6 +101,9 @@ def header_bar(hostname: str, os_name: str, uptime: str, notice: str | None = No
         os_name: Operating system name
         uptime: System uptime string
     """
+    hostname = one_line(hostname, "unknown")
+    os_name = one_line(os_name, "unknown")
+    uptime = one_line(uptime, "unknown")
     text = Text()
     text.append("⚡ ", style="bold yellow")
     text.append("sysmon", style="bold cyan")

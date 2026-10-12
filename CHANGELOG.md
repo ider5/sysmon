@@ -122,6 +122,7 @@ All notable changes to SysMon are documented in this file.
 - The process table ignores rows that are not records instead of raising, and shows the empty state when none remain
 - Process names and the active filter are shown as plain text, so markup or a newline in a name does not change the table
 - Mount points, interface names, sensor labels, and GPU names are drawn on one line
+- The dashboard header keeps the hostname, OS name, and uptime on one line
 - A down interface name on the brief line and title stays on one line
 - Process collection skips one unreadable process instead of failing the whole top list
 - The native process list keeps the rows that are records when another row is not
