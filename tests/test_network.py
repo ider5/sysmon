@@ -43,6 +43,24 @@ def test_get_network_info_speed_calculation():
     assert second_result["speed_down"] == 1000.0
 
 
+def test_get_network_info_when_counters_unavailable():
+    network_module._prev_net_io = None
+    network_module._prev_time = None
+
+    with patch("sysmon.collectors.network.psutil.net_io_counters", return_value=None):
+        result = get_network_info()
+
+    assert result == {
+        "bytes_sent": 0,
+        "bytes_recv": 0,
+        "speed_up": 0.0,
+        "speed_down": 0.0,
+        "packets_sent": 0,
+        "packets_recv": 0,
+    }
+    assert network_module._prev_net_io is None
+
+
 def test_get_network_info_clamps_counter_reset():
     first = SimpleNamespace(
         bytes_sent=5000, bytes_recv=8000, packets_sent=10, packets_recv=20,

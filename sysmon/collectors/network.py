@@ -100,6 +100,16 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
         return result
 
     current = psutil.net_io_counters()
+    if current is None:
+        return {
+            "bytes_sent": 0,
+            "bytes_recv": 0,
+            "speed_up": 0.0,
+            "speed_down": 0.0,
+            "packets_sent": 0,
+            "packets_recv": 0,
+        }
+
     with _net_lock:
         if _prev_net_io is not None and _prev_time is not None:
             dt = now - _prev_time

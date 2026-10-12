@@ -12,6 +12,9 @@ All notable changes to SysMon are documented in this file.
 ### Changed
 - Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading is included when sensors are enabled
 
+### Fixed
+- Aggregate network collection returns zero counters instead of crashing when the OS exposes no I/O counters
+
 ## [0.4.0] - 2026-08-14
 
 ### Added
