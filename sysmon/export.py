@@ -147,6 +147,9 @@ def _disk_payload(
                 cfg.thresholds.disk_critical,
             ),
         }
+        fstype = mount_info.get("fstype")
+        if isinstance(fstype, str) and fstype:
+            mount_payload["fstype"] = fstype
         inode_percent = mount_info.get("inode_percent")
         if isinstance(inode_percent, (int, float)) and not isinstance(inode_percent, bool):
             mount_payload["inode_percent"] = float(inode_percent)

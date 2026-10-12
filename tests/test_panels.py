@@ -178,6 +178,24 @@ def test_build_disk_text_includes_speed_history():
     assert "█" in rendered
 
 
+def test_build_disk_text_shows_filesystem_type():
+    info = {
+        "read_speed": 0,
+        "write_speed": 0,
+        "mounts": [
+            {
+                "mount": "/data",
+                "percent": 10.0,
+                "used": 1,
+                "free": 9,
+                "total": 10,
+                "fstype": "ext4",
+            }
+        ],
+    }
+    assert "/data (ext4)" in build_disk_text(info).plain
+
+
 def test_build_disk_text_shows_inode_usage():
     info = {
         "mount": "/",

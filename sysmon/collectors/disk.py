@@ -84,6 +84,21 @@ def _resolve_mounts(selected: Iterable[str] | None) -> list[str]:
     return mounts
 
 
+def _filesystem_types() -> dict[str, str]:
+    """Map mount points to filesystem types. Empty when the OS call fails."""
+    try:
+        parts = psutil.disk_partitions(all=True)
+    except (OSError, RuntimeError, NotImplementedError):
+        return {}
+    types: dict[str, str] = {}
+    for part in parts:
+        mount = getattr(part, "mountpoint", "") or ""
+        fstype = getattr(part, "fstype", "") or ""
+        if mount and fstype:
+            types[mount] = fstype
+    return types
+
+
 def _inode_percent(mount: str) -> float | None:
     """Return inode usage percent on platforms that expose statvfs."""
     statvfs = getattr(os, "statvfs", None)
@@ -131,6 +146,7 @@ def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
     global _prev_disk_io, _prev_time
 
     resolved = _resolve_mounts(mounts)
+    fstypes = _filesystem_types()
     mount_entries: list[dict] = []
     for mount in resolved:
         entry = _mount_usage(mount)
@@ -142,6 +158,9 @@ def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
                 "free": 0,
                 "percent": 0.0,
             }
+        fstype = fstypes.get(mount)
+        if fstype:
+            entry["fstype"] = fstype
         mount_entries.append(entry)
 
     if not mount_entries:

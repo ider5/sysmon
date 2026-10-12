@@ -286,7 +286,11 @@ def build_disk_text(
         if idx > 0:
             text.append("  " + "─" * 30 + "\n", style="dim")
         text.append(f"  {'Mount':<14}", style="bold")
-        text.append(f"{str(mount_info.get('mount') or '?')}\n", style="bold white")
+        mount_name = str(mount_info.get("mount") or "?")
+        fstype = mount_info.get("fstype")
+        if isinstance(fstype, str) and fstype:
+            mount_name = f"{mount_name} ({fstype})"
+        text.append(f"{mount_name}\n", style="bold white")
         text.append(f"  {'Usage':<14}", style="bold")
         text.append_text(
             progress_bar(_as_number(mount_info.get("percent")), width=25, warn=warn, critical=critical)

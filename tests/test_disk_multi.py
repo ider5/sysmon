@@ -6,6 +6,18 @@ from unittest.mock import patch
 from sysmon.collectors.disk import get_disk_info, list_mount_points
 
 
+def test_get_disk_info_records_filesystem_type():
+    usage = SimpleNamespace(total=100, used=40, free=60, percent=40.0)
+    io = SimpleNamespace(read_bytes=0, write_bytes=0)
+    parts = [SimpleNamespace(mountpoint="/data", fstype="ext4", device="/dev/sdb1")]
+    with patch("sysmon.collectors.disk.psutil.disk_usage", return_value=usage):
+        with patch("sysmon.collectors.disk.psutil.disk_io_counters", return_value=io):
+            with patch("sysmon.collectors.disk.psutil.disk_partitions", return_value=parts):
+                with patch("sysmon.collectors.disk.time.time", return_value=1.0):
+                    result = get_disk_info(mounts=["/data"])
+    assert result["mounts"][0]["fstype"] == "ext4"
+
+
 def test_get_disk_info_includes_mounts_list():
     usage = SimpleNamespace(total=100, used=50, free=50, percent=50.0)
     io = SimpleNamespace(read_bytes=1000, write_bytes=2000)
