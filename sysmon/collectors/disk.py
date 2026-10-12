@@ -65,10 +65,16 @@ def _primary_mount() -> str:
 
 def list_mount_points() -> list[str]:
     """Return available disk mount points for the current platform."""
+    try:
+        parts = psutil.disk_partitions(all=False)
+    except (OSError, RuntimeError, NotImplementedError):
+        return []
+    if not isinstance(parts, list):
+        return []
     mounts: list[str] = []
-    for part in psutil.disk_partitions(all=False):
-        mount = part.mountpoint
-        if not mount:
+    for part in parts:
+        mount = getattr(part, "mountpoint", "") or ""
+        if not isinstance(mount, str) or not mount:
             continue
         if (getattr(part, "fstype", "") or "").lower() in _SKIP_FSTYPES:
             continue

@@ -23,6 +23,7 @@ All notable changes to SysMon are documented in this file.
 - Disk panels show free space next to used and total when the collector provides it, and a partial mount or speed record does not crash the panel
 - The disk panel skips a mount entry that is not a record, and ignores a non-finite size instead of printing `inf` or `nan`
 - Disk collection reports inode usage on platforms with `statvfs`, and the panel, JSON, and Prometheus include it per mount as well as for the primary disk
+- Listing disk mounts returns an empty list when the OS partition call fails, instead of failing the caller
 - Inode usage is omitted when the OS counters are not finite numbers, instead of failing the disk sample
 - Disk mounts include the filesystem type, shown next to the mount point and as `sysmon_disk_mount_info`, when the OS reports it
 - JSON disk mounts tolerate a record that omits used, free, or total instead of dropping the disk section

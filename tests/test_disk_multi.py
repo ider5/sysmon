@@ -62,6 +62,14 @@ def test_list_mount_points_skips_virtual_filesystems():
     assert mounts == ["/"]
 
 
+def test_list_mount_points_when_partitions_unavailable():
+    with patch(
+        "sysmon.collectors.disk.psutil.disk_partitions",
+        side_effect=OSError("partitions"),
+    ):
+        assert list_mount_points() == []
+
+
 def test_list_mount_points_skips_inaccessible():
     parts = [
         SimpleNamespace(mountpoint="/", device="/dev/sda1"),
