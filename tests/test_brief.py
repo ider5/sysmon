@@ -70,6 +70,13 @@ class _DeadProc:
         return 1
 
 
+def test_format_network_errors_only_when_nonzero():
+    assert brief_mod._format_network_errors({"errin": 0, "errout": 0, "dropin": 0, "dropout": 0}) is None
+    text = brief_mod._format_network_errors({"errin": 2, "dropin": 1})
+    assert text is not None
+    assert text.plain == "ERR 2/0 DROP 1/0"
+
+
 def test_format_cpu_shows_load_when_it_meets_cpu_count():
     quiet = brief_mod._format_cpu(
         {"percent": 10, "freq_current": 0, "count_logical": 4, "load_avg": (1.0, 1.0, 1.0)},

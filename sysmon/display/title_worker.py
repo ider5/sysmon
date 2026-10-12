@@ -97,6 +97,12 @@ def build_title(no_gpu: bool) -> str:
         parts.append(
             f"↑{format_speed(_num(net, 'speed_up'))} ↓{format_speed(_num(net, 'speed_down'))}"
         )
+        errin = int(_num(net, "errin"))
+        errout = int(_num(net, "errout"))
+        dropin = int(_num(net, "dropin"))
+        dropout = int(_num(net, "dropout"))
+        if errin or errout or dropin or dropout:
+            parts.append(f"ERR {errin}/{errout} DROP {dropin}/{dropout}")
     if settings.modules.disk:
         disk = collect("disk", settings)
         percent = disk.get("percent") if isinstance(disk, dict) else None

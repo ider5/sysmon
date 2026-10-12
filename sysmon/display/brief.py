@@ -141,6 +141,21 @@ def _format_network(info: dict, no_color: bool = False) -> Text:
     return text
 
 
+def _format_network_errors(info: dict) -> Text | None:
+    """Show NIC errors and drops only when at least one count is non-zero."""
+    if not isinstance(info, dict):
+        return None
+    errin = int(_num(info, "errin"))
+    errout = int(_num(info, "errout"))
+    dropin = int(_num(info, "dropin"))
+    dropout = int(_num(info, "dropout"))
+    if not (errin or errout or dropin or dropout):
+        return None
+    text = Text()
+    text.append(f"ERR {errin}/{errout} DROP {dropin}/{dropout}")
+    return text
+
+
 def _format_gpu(
     gpus: list | None,
     no_color: bool = False,
@@ -282,7 +297,11 @@ def build_brief_line(
             )
         )
     if settings.modules.network:
-        parts.append(_format_network(collect("network", settings), no_color))
+        network_info = collect("network", settings)
+        parts.append(_format_network(network_info, no_color))
+        error_text = _format_network_errors(network_info)
+        if error_text is not None:
+            parts.append(error_text)
     if settings.modules.disk:
         disk_text = _format_disk_pressure(
             collect("disk", settings),
