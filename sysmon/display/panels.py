@@ -178,11 +178,13 @@ def build_network_text(
     interfaces = info.get("interfaces")
 
     if isinstance(interfaces, list) and interfaces:
-        for idx, iface in enumerate(interfaces):
+        shown = 0
+        for iface in interfaces:
             if not isinstance(iface, dict):
                 continue
-            if idx > 0:
+            if shown > 0:
                 text.append("  " + "─" * 30 + "\n", style="dim")
+            shown += 1
             name = str(iface.get("name") or "unknown")
             text.append(f"  {name:<14}", style="bold underline white")
             text.append("\n")

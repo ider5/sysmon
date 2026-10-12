@@ -98,6 +98,19 @@ def test_cpu_memory_network_panels_tolerate_non_record():
     assert "0.0 B/s" in build_network_text(None).plain  # type: ignore[arg-type]
 
 
+def test_build_network_text_skips_divider_before_first_interface():
+    text = build_network_text(
+        {
+            "speed_up": 0,
+            "speed_down": 0,
+            "interfaces": ["bad", {"name": "eth0", "speed_up": 0, "speed_down": 0}],
+        }
+    )
+    plain = text.plain
+    assert "eth0" in plain
+    assert plain.index("eth0") < plain.index("─")
+
+
 def test_build_network_text_shows_link_speed():
     text = build_network_text(
         {

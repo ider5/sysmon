@@ -26,6 +26,7 @@ All notable changes to SysMon are documented in this file.
 - JSON CPU and memory sections tolerate a partial record instead of dropping the section
 - JSON GPU entries tolerate a partial record. A temperature of 0°C is kept, and a missing temperature stays null
 - Network panels tolerate a partial interface or totals record instead of raising
+- The network panel does not draw a divider before the first real interface when an earlier entry is not a record
 - Network collection reports inbound and outbound errors and drops. The panel, brief line, and terminal title show them when any are non-zero, and Prometheus exports them as counters
 - Network interfaces include link speed in Mb/s when the OS reports it, on the panel and as `sysmon_network_interface_speed_mbps`
 - The network panel ignores a non-finite or absurd link speed instead of failing the frame
