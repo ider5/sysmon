@@ -108,6 +108,25 @@ def test_pynvml_init_once_and_maps_fields(monkeypatch):
     assert second == first
 
 
+def test_pynvml_clamps_negative_load(monkeypatch):
+    fake = SimpleNamespace(
+        NVML_TEMPERATURE_GPU=0,
+        nvmlInit=lambda: None,
+        nvmlShutdown=lambda: None,
+        nvmlDeviceGetCount=lambda: 1,
+        nvmlDeviceGetHandleByIndex=lambda _i: object(),
+        nvmlDeviceGetName=lambda _h: "Neg",
+        nvmlDeviceGetUtilizationRates=lambda _h: SimpleNamespace(gpu=-5),
+        nvmlDeviceGetMemoryInfo=lambda _h: SimpleNamespace(total=1024 * 1024, used=0),
+        nvmlDeviceGetTemperature=lambda _h, _t: 40,
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    monkeypatch.setattr(gpu_mod, "_nvml_state", True)
+    gpus = gpu_mod._get_gpu_info_pynvml()
+    assert gpus is not None
+    assert gpus[0]["load"] == 0.0
+
+
 def test_pynvml_skips_one_failing_device(monkeypatch):
     def utilization(handle):
         if handle == "bad":

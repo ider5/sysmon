@@ -55,7 +55,7 @@ All notable changes to SysMon are documented in this file.
 - Brief mode and the terminal title tolerate a partial CPU, memory, network, or GPU record instead of raising
 - GPU panels tolerate a partial record instead of raising
 - NVIDIA collection keeps the GPUs it can read when one device query fails
-- A negative DRM busy percentage is shown as 0% instead of a negative load
+- A negative or non-numeric GPU load is shown as 0% on the NVIDIA, GPUtil, and DRM paths, and one bad GPUtil card no longer drops the rest
 - `sysmon network` and the network snapshot show packet counts, matching the dashboard
 - `sysmon snapshot sensors` prints that same panel; the full snapshot includes it when the module is enabled
 - `sysmon sensors` prints battery and temperatures, with the same JSON section as the other metric commands

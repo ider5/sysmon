@@ -7,6 +7,7 @@ then Linux DRM sysfs for cards that expose gpu_busy_percent (typically AMD).
 from __future__ import annotations
 
 import atexit
+import math
 import threading
 from pathlib import Path
 from typing import Optional, TypedDict
@@ -96,7 +97,7 @@ def _get_gpu_info_pynvml() -> Optional[list[GpuInfo]]:
                     {
                         "id": i,
                         "name": name,
-                        "load": float(util.gpu),
+                        "load": _gpu_load(util.gpu),
                         "memory_total": mem.total / (1024 * 1024),
                         "memory_used": mem.used / (1024 * 1024),
                         "temperature": temp,
@@ -118,20 +119,36 @@ def _get_gpu_info_gputil() -> Optional[list[GpuInfo]]:
         if not gpus:
             return None
 
-        return [
-            {
-                "id": gpu.id,
-                "name": gpu.name,
-                "load": gpu.load * 100,
-                "memory_total": gpu.memoryTotal,
-                "memory_used": gpu.memoryUsed,
-                "temperature": gpu.temperature,
-                "backend": "gputil",
-            }
-            for gpu in gpus
-        ]
+        rows: list[GpuInfo] = []
+        for gpu in gpus:
+            try:
+                raw_load = getattr(gpu, "load", None)
+                load = _gpu_load(None if raw_load is None else float(raw_load) * 100)
+                rows.append(
+                    {
+                        "id": gpu.id,
+                        "name": gpu.name,
+                        "load": load,
+                        "memory_total": gpu.memoryTotal,
+                        "memory_used": gpu.memoryUsed,
+                        "temperature": gpu.temperature,
+                        "backend": "gputil",
+                    }
+                )
+            except Exception:
+                continue
+        return rows or None
     except Exception:
         return None
+
+
+def _gpu_load(value: object) -> float:
+    """Return a non-negative finite GPU load percent, or zero."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0.0
+    if not math.isfinite(value) or value < 0:
+        return 0.0
+    return float(value)
 
 
 def _read_sysfs_text(path: Path) -> str | None:
@@ -201,7 +218,7 @@ def _get_gpu_info_sysfs() -> Optional[list[GpuInfo]]:
             {
                 "id": index,
                 "name": label,
-                "load": float(busy) if busy >= 0 else 0.0,
+                "load": _gpu_load(busy),
                 "memory_total": vram_total / (1024 * 1024),
                 "memory_used": vram_used / (1024 * 1024),
                 "temperature": _hwmon_temp_c(device),
