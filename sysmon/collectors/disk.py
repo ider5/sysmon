@@ -92,7 +92,19 @@ def _resolve_mounts(selected: Iterable[str] | None) -> list[str]:
     """Resolve configured mount list; None uses primary mount only."""
     if selected is None:
         return [_primary_mount()]
-    mounts = [item.strip() for item in selected if isinstance(item, str) and item.strip()]
+    mounts: list[str] = []
+    seen: set[str] = set()
+    for item in selected:
+        if not isinstance(item, str):
+            continue
+        text = item.strip()
+        if not text:
+            continue
+        key = _mount_key(text)
+        if key in seen:
+            continue
+        seen.add(key)
+        mounts.append(text)
     if not mounts:
         return list_mount_points() or [_primary_mount()]
     return mounts
