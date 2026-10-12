@@ -383,7 +383,7 @@ def print_brief(
 
 def run_brief_watch(
     console: Console,
-    refresh_rate: float = 1.0,
+    refresh_rate: float | None = None,
     no_color: bool = False,
     no_gpu: bool = False,
     interfaces: Iterable[str] | None = None,
@@ -399,7 +399,8 @@ def run_brief_watch(
         except Exception:
             pass
         else:
-            time.sleep(min(0.5, refresh_rate))
+            delay = settings.brief_refresh_interval if refresh_rate is None else refresh_rate
+            time.sleep(min(0.5, delay))
 
     with Live(
         build_brief_line(
@@ -411,7 +412,9 @@ def run_brief_watch(
     ) as live:
         try:
             while True:
-                time.sleep(refresh_rate)
+                current = load_config()
+                delay = current.brief_refresh_interval if refresh_rate is None else refresh_rate
+                time.sleep(delay)
                 try:
                     live.update(
                         build_brief_line(

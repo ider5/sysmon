@@ -619,7 +619,7 @@ def brief(
     elif watch:
         run_brief_watch(
             console,
-            refresh_rate=refresh_rate,
+            refresh_rate=refresh,
             no_color=no_color,
             no_gpu=not include_gpu,
         )
