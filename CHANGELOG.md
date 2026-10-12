@@ -143,6 +143,7 @@ All notable changes to SysMon are documented in this file.
 - An unrecognized process sort key orders by CPU, matching the native scanner. It previously fell back to memory on the psutil path
 - Process sort keys accept `CPU` and `MEMORY` in any letter case before the native or psutil scan
 - `get_top_processes(limit=None)` uses the default of 10
+- A process limit of zero or below returns an empty list instead of scanning or raising
 - Process name filters ignore surrounding spaces, and a blank filter matches every process
 - Processes with the same CPU or memory stay ordered by pid, including rows from the native scanner, and a non-numeric sort value does not fail the list
 - Linux DRM GPUs are ordered by card number, so `card10` no longer sorts before `card2`

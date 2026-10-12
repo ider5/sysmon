@@ -78,6 +78,11 @@ def test_get_top_processes_sorts_by_cpu():
     assert result[0]["cpu_percent"] == 50.0
 
 
+def test_get_top_processes_non_positive_limit_is_empty():
+    assert process_module.get_top_processes(limit=0) == []
+    assert process_module.get_top_processes(limit=-3) == []
+
+
 def test_get_top_processes_none_limit_uses_ten(monkeypatch):
     monkeypatch.setattr(process_module, "_try_native_processes", lambda *a, **k: None)
     monkeypatch.setattr(process_module.psutil, "process_iter", lambda *a, **k: [])

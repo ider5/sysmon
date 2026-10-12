@@ -159,6 +159,11 @@ def get_top_processes(
     """
     if limit is None:
         limit = 10
+    if isinstance(limit, bool) or not isinstance(limit, (int, float)) or not math.isfinite(limit):
+        limit = 10
+    limit = int(limit)
+    if limit <= 0:
+        return []
     if isinstance(sort_by, str) and sort_by.strip().lower() in ("cpu", "memory"):
         sort_by = sort_by.strip().lower()
     else:
