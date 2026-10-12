@@ -260,6 +260,22 @@ def format_prometheus(data: dict[str, Any]) -> str:
             "mount",
             total_samples,
         )
+        info_samples: list[tuple[str, str]] = []
+        if isinstance(mounts, list):
+            for mount in mounts:
+                if not isinstance(mount, dict):
+                    continue
+                fstype = mount.get("fstype")
+                if isinstance(fstype, str) and fstype:
+                    info_samples.append((str(mount.get("mount", "")), fstype))
+        if info_samples:
+            lines.append("# HELP sysmon_disk_mount_info Filesystem type by mount")
+            lines.append("# TYPE sysmon_disk_mount_info gauge")
+            for mount, fstype in info_samples:
+                lines.append(
+                    "sysmon_disk_mount_info"
+                    f'{{mount="{_escape_label(mount)}",fstype="{_escape_label(fstype)}"}} 1.0'
+                )
         read_speed = _first_number(disk, "read_speed")
         write_speed = _first_number(disk, "write_speed")
         if read_speed is not None:

@@ -154,6 +154,18 @@ def test_format_prometheus_includes_mount_inodes():
     assert text.count("# TYPE sysmon_disk_mount_inode_percent gauge") == 1
 
 
+def test_format_prometheus_includes_mount_filesystem_type():
+    text = format_prometheus(
+        {
+            "disk": {
+                "percent": 1.0,
+                "mounts": [{"mount": "/data", "percent": 1.0, "fstype": "ext4"}],
+            }
+        }
+    )
+    assert 'sysmon_disk_mount_info{mount="/data",fstype="ext4"} 1.0' in text
+
+
 def test_format_prometheus_includes_mount_bytes():
     text = format_prometheus(
         {
