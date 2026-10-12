@@ -7,6 +7,13 @@ from sysmon.collectors import network as network_module
 from sysmon.collectors.network import format_bytes, format_speed, get_network_info
 
 
+def test_error_counts_ignore_non_finite_values():
+    counts = network_module._error_counts(
+        SimpleNamespace(errin=float("inf"), errout=2, dropin=float("nan"), dropout=4)
+    )
+    assert counts == {"errin": 0, "errout": 2, "dropin": 0, "dropout": 4}
+
+
 def test_format_bytes():
     assert format_bytes(512) == "512.0 B"
     assert format_bytes(1536) == "1.5 KB"

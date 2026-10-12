@@ -55,7 +55,7 @@ def _error_counts(obj: object) -> dict[str, int]:
     counts: dict[str, int] = {}
     for name in ("errin", "errout", "dropin", "dropout"):
         value = getattr(obj, name, 0) if obj is not None else 0
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
             value = 0
         counts[name] = int(value)
     return counts
