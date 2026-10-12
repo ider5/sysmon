@@ -26,6 +26,11 @@ _FAKE_ALL = {
 }
 
 
+def test_format_prometheus_includes_collected_at():
+    text = format_prometheus({"collected_at": 100.5, "cpu": {"percent": 1.0}})
+    assert "sysmon_collected_at_seconds 100.5" in text
+
+
 def test_format_prometheus_includes_core_gauges():
     text = format_prometheus(_FAKE_ALL)
     assert "sysmon_cpu_percent 12.5" in text

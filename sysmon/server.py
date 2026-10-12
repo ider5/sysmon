@@ -100,6 +100,13 @@ def format_prometheus(data: dict[str, Any]) -> str:
         lines.append(f"{name} {_fmt(value)}")
 
     gauge("sysmon_up", 1, "1 when the sysmon metrics endpoint is serving")
+    collected_at = _first_number(data, "collected_at")
+    if collected_at is not None:
+        gauge(
+            "sysmon_collected_at_seconds",
+            collected_at,
+            "Unix time when this sample was taken",
+        )
     cpu = data.get("cpu")
     if isinstance(cpu, dict) and "percent" in cpu:
         gauge("sysmon_cpu_percent", cpu["percent"], "CPU utilization percent")
