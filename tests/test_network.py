@@ -57,6 +57,10 @@ def test_get_network_info_when_counters_unavailable():
         "speed_down": 0.0,
         "packets_sent": 0,
         "packets_recv": 0,
+        "errin": 0,
+        "errout": 0,
+        "dropin": 0,
+        "dropout": 0,
     }
     assert network_module._prev_net_io is None
 

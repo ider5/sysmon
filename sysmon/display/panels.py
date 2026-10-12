@@ -222,6 +222,14 @@ def build_network_text(
             style="dim",
         )
 
+    errin = int(_as_number(info.get("errin")))
+    errout = int(_as_number(info.get("errout")))
+    dropin = int(_as_number(info.get("dropin")))
+    dropout = int(_as_number(info.get("dropout")))
+    if errin or errout or dropin or dropout:
+        text.append(f"  {'Errors':<14}", style="bold")
+        text.append(f"in {errin} out {errout} drop {dropin}/{dropout}\n", style="yellow")
+
     return text
 
 

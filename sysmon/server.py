@@ -241,6 +241,15 @@ def format_prometheus(data: dict[str, Any]) -> str:
             counter("sysmon_network_bytes_sent", sent, "Bytes sent since boot")
         if recv is not None:
             counter("sysmon_network_bytes_recv", recv, "Bytes received since boot")
+        for key, metric, help_text in (
+            ("errin", "sysmon_network_errin", "Inbound packets with errors"),
+            ("errout", "sysmon_network_errout", "Outbound packets with errors"),
+            ("dropin", "sysmon_network_dropin", "Inbound packets dropped"),
+            ("dropout", "sysmon_network_dropout", "Outbound packets dropped"),
+        ):
+            value = _first_number(network, key)
+            if value is not None:
+                counter(metric, value, help_text)
         up_samples: list[tuple[str, float]] = []
         down_samples: list[tuple[str, float]] = []
         interfaces = network.get("interfaces")

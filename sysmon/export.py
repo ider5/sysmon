@@ -85,6 +85,10 @@ def _network_payload(
         "speed_down": info["speed_down"],
         "packets_sent": info["packets_sent"],
         "packets_recv": info["packets_recv"],
+        "errin": int(info.get("errin") or 0),
+        "errout": int(info.get("errout") or 0),
+        "dropin": int(info.get("dropin") or 0),
+        "dropout": int(info.get("dropout") or 0),
     }
     if "interfaces" in info:
         payload["interfaces"] = info["interfaces"]

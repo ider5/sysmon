@@ -15,6 +15,17 @@ _prev_iface_time: float | None = None
 _net_lock = threading.Lock()
 
 
+def _error_counts(obj: object) -> dict[str, int]:
+    """Read NIC error and drop counters, using zero when a field is absent."""
+    counts: dict[str, int] = {}
+    for name in ("errin", "errout", "dropin", "dropout"):
+        value = getattr(obj, name, 0) if obj is not None else 0
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            value = 0
+        counts[name] = int(value)
+    return counts
+
+
 def _delta_rate(current: float, previous: float, dt: float) -> float:
     if dt <= 0:
         return 0.0
@@ -77,6 +88,7 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
                             "speed_down": 0.0,
                             "packets_sent": 0,
                             "packets_recv": 0,
+                            **_error_counts(None),
                         }
                     )
                     continue
@@ -97,6 +109,7 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
                         "speed_down": speed_down,
                         "packets_sent": counters.packets_sent,
                         "packets_recv": counters.packets_recv,
+                        **_error_counts(counters),
                     }
                 )
                 _prev_iface_io[name] = counters
@@ -109,6 +122,10 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
             "speed_down": sum(item["speed_down"] for item in iface_entries),
             "packets_sent": sum(item["packets_sent"] for item in iface_entries),
             "packets_recv": sum(item["packets_recv"] for item in iface_entries),
+            "errin": sum(item["errin"] for item in iface_entries),
+            "errout": sum(item["errout"] for item in iface_entries),
+            "dropin": sum(item["dropin"] for item in iface_entries),
+            "dropout": sum(item["dropout"] for item in iface_entries),
         }
         if iface_entries:
             result["interfaces"] = iface_entries
@@ -126,6 +143,7 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
             "speed_down": 0.0,
             "packets_sent": 0,
             "packets_recv": 0,
+            **_error_counts(None),
         }
 
     with _net_lock:
@@ -147,6 +165,7 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
         "speed_down": speed_down,
         "packets_sent": current.packets_sent,
         "packets_recv": current.packets_recv,
+        **_error_counts(current),
     }
 
 

@@ -92,6 +92,23 @@ def test_build_memory_text_includes_ram():
     assert "Available" in rendered
 
 
+def test_build_network_text_shows_nonzero_errors():
+    text = build_network_text(
+        {
+            "speed_up": 0,
+            "speed_down": 0,
+            "bytes_sent": 0,
+            "bytes_recv": 0,
+            "errin": 2,
+            "errout": 0,
+            "dropin": 1,
+            "dropout": 0,
+        }
+    )
+    assert "Errors" in text.plain
+    assert "in 2 out 0 drop 1/0" in text.plain
+
+
 def test_build_network_text_tolerates_partial_record():
     text = build_network_text({"interfaces": [{"name": "eth0"}]}, show_packets=True)
     rendered = text.plain
