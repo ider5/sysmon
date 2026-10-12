@@ -26,18 +26,23 @@ def _cpu_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     snapshot = info if info is not None else collect("cpu", cfg)
-    status = metric_status(
-        snapshot["percent"],
-        cfg.thresholds.cpu_warn,
-        cfg.thresholds.cpu_critical,
-    )
+
+    def _number(key: str, default: float = 0.0) -> float:
+        value = snapshot.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return default
+        return float(value)
+
+    percent = _number("percent")
+    status = metric_status(percent, cfg.thresholds.cpu_warn, cfg.thresholds.cpu_critical)
+    cores = snapshot.get("cores")
     payload = {
-        "percent": snapshot["percent"],
-        "cores": snapshot["cores"],
-        "count_logical": snapshot["count_logical"],
-        "count_physical": snapshot["count_physical"],
-        "freq_current_mhz": snapshot["freq_current"],
-        "freq_max_mhz": snapshot["freq_max"],
+        "percent": percent,
+        "cores": cores if isinstance(cores, list) else [],
+        "count_logical": int(_number("count_logical")),
+        "count_physical": int(_number("count_physical")),
+        "freq_current_mhz": _number("freq_current"),
+        "freq_max_mhz": _number("freq_max"),
         "status": status,
     }
     load_avg = snapshot.get("load_avg")
@@ -56,16 +61,24 @@ def _memory_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     info = info if info is not None else collect("memory", cfg)
+
+    def _number(key: str, default: float = 0.0) -> float:
+        value = info.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return default
+        return float(value)
+
+    percent = _number("percent")
     return {
-        "total": info["total"],
-        "used": info["used"],
-        "available": info["available"],
-        "percent": info["percent"],
-        "swap_total": info["swap_total"],
-        "swap_used": info["swap_used"],
-        "swap_percent": info["swap_percent"],
+        "total": int(_number("total")),
+        "used": int(_number("used")),
+        "available": int(_number("available")),
+        "percent": percent,
+        "swap_total": int(_number("swap_total")),
+        "swap_used": int(_number("swap_used")),
+        "swap_percent": _number("swap_percent"),
         "status": metric_status(
-            info["percent"],
+            percent,
             cfg.thresholds.memory_warn,
             cfg.thresholds.memory_critical,
         ),

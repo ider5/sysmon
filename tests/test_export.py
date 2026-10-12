@@ -107,6 +107,25 @@ def test_collect_brief_respects_modules(monkeypatch):
     assert data["sensors"]["battery"]["percent"] == 12.0
 
 
+def test_cpu_and_memory_payloads_tolerate_partial_records(monkeypatch):
+    def fake_collect(name, settings=None):
+        if name == "cpu":
+            return {"percent": 12.5}
+        if name == "memory":
+            return {"percent": 40.0, "total": 100}
+        raise AssertionError(name)
+
+    monkeypatch.setattr("sysmon.export.collect", fake_collect)
+    cpu = collect_section("cpu")["cpu"]
+    memory = collect_section("memory")["memory"]
+    assert cpu["percent"] == 12.5
+    assert cpu["cores"] == []
+    assert cpu["freq_current_mhz"] == 0.0
+    assert memory["percent"] == 40.0
+    assert memory["used"] == 0
+    assert memory["swap_total"] == 0
+
+
 def test_cpu_payload_includes_load_average(monkeypatch):
     monkeypatch.setattr(
         "sysmon.export.collect",
