@@ -146,6 +146,15 @@ def test_gpu_payload_tolerates_partial_record(monkeypatch):
     assert gpu["temperature_c"] == 0.0
 
 
+def test_gpu_payload_hides_negative_temperature(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: [{"load": 1, "temperature": -1}],
+    )
+    data = collect_section("gpu")
+    assert data["gpu"][0]["temperature_c"] is None
+
+
 def test_cpu_and_memory_payloads_tolerate_partial_records(monkeypatch):
     def fake_collect(name, settings=None):
         if name == "cpu":

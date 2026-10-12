@@ -224,7 +224,12 @@ def _gpu_payload(
         if not isinstance(gpu, dict):
             continue
         temperature = gpu.get("temperature")
-        if isinstance(temperature, bool) or not isinstance(temperature, (int, float)):
+        if (
+            isinstance(temperature, bool)
+            or not isinstance(temperature, (int, float))
+            or not math.isfinite(temperature)
+            or temperature < 0
+        ):
             temperature_c = None
         else:
             temperature_c = float(temperature)
