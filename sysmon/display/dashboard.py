@@ -40,6 +40,7 @@ def build_dashboard(
     cpu_history: HistoryBuffer | None = None,
     mem_history: HistoryBuffer | None = None,
     net_history: HistoryBuffer | None = None,
+    net_up_history: HistoryBuffer | None = None,
     disk_read_history: HistoryBuffer | None = None,
     disk_write_history: HistoryBuffer | None = None,
     snapshot: dict | None = None,
@@ -132,6 +133,7 @@ def build_dashboard(
                         net_info,
                         show_packets=True,
                         download_history=net_history.values() if net_history else None,
+                        upload_history=net_up_history.values() if net_up_history else None,
                     ),
                 )
             )
@@ -263,6 +265,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
     cpu_history = HistoryBuffer(maxlen=60)
     mem_history = HistoryBuffer(maxlen=60)
     net_history = HistoryBuffer(maxlen=60)
+    net_up_history = HistoryBuffer(maxlen=60)
     disk_read_history = HistoryBuffer(maxlen=60)
     disk_write_history = HistoryBuffer(maxlen=60)
 
@@ -289,6 +292,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                 cpu_history=cpu_history,
                 mem_history=mem_history,
                 net_history=net_history,
+                net_up_history=net_up_history,
                 disk_read_history=disk_read_history,
                 disk_write_history=disk_write_history,
                 snapshot=service.get_snapshot(),
@@ -310,6 +314,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                     net = snapshot.get("network")
                     if net is not None:
                         net_history.add(net["speed_down"])
+                        net_up_history.add(net["speed_up"])
                     disk = snapshot.get("disk")
                     if disk is not None:
                         disk_read_history.add(disk["read_speed"])
@@ -321,6 +326,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                             cpu_history=cpu_history,
                             mem_history=mem_history,
                             net_history=net_history,
+                            net_up_history=net_up_history,
                             disk_read_history=disk_read_history,
                             disk_write_history=disk_write_history,
                             snapshot=snapshot,

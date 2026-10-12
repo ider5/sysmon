@@ -6,6 +6,7 @@ from sysmon.display.panels import (
     build_cpu_text,
     build_disk_text,
     build_memory_text,
+    build_network_text,
     build_sensors_text,
     process_panel,
 )
@@ -53,6 +54,22 @@ def test_build_memory_text_includes_ram():
     rendered = str(text)
     assert "8.0 / 16.0 GB" in rendered
     assert "Available" in rendered
+
+
+def test_build_network_text_includes_upload_history():
+    info = {
+        "speed_up": 2048,
+        "speed_down": 1024,
+        "bytes_sent": 10,
+        "bytes_recv": 20,
+        "packets_sent": 1,
+        "packets_recv": 2,
+    }
+    text = build_network_text(info, upload_history=[0.0, 2048.0])
+    rendered = text.plain
+    assert "2.0 KB/s" in rendered
+    assert "▁" in rendered
+    assert "█" in rendered
 
 
 def test_build_disk_text_includes_speed_history():

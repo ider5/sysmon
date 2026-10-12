@@ -145,6 +145,7 @@ def build_network_text(
     *,
     show_packets: bool = False,
     download_history: list[float] | None = None,
+    upload_history: list[float] | None = None,
 ) -> Text:
     """Build network metrics text."""
     text = Text()
@@ -163,11 +164,17 @@ def build_network_text(
         text.append("  " + "─" * 30 + "\n", style="dim")
         text.append(f"  {'Total ↑':<14}", style="bold")
         text.append(format_speed(info["speed_up"]) + "\n", style="green")
+        if upload_history:
+            text.append(f"  {'':14}")
+            text.append(render_sparkline(upload_history, width=25) + "\n", style="green")
         text.append(f"  {'Total ↓':<14}", style="bold")
         text.append(format_speed(info["speed_down"]) + "\n", style="cyan")
     else:
         text.append(f"  {'↑ Upload':<14}", style="bold")
         text.append(format_speed(info["speed_up"]) + "\n", style="green")
+        if upload_history:
+            text.append(f"  {'':14}")
+            text.append(render_sparkline(upload_history, width=25) + "\n", style="green")
 
         text.append(f"  {'↓ Download':<14}", style="bold")
         text.append(format_speed(info["speed_down"]) + "\n", style="cyan")
@@ -199,11 +206,15 @@ def network_panel(
     *,
     show_packets: bool = False,
     download_history: list[float] | None = None,
+    upload_history: list[float] | None = None,
 ) -> Panel:
     """Build network metrics panel."""
     return Panel(
         build_network_text(
-            info, show_packets=show_packets, download_history=download_history
+            info,
+            show_packets=show_packets,
+            download_history=download_history,
+            upload_history=upload_history,
         ),
         title="[bold green]🌐 Network[/bold green]",
         border_style="green",
