@@ -12,7 +12,7 @@ from sysmon.collectors.network import format_speed
 from sysmon.collectors.registry import collect
 from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import load_config
-from sysmon.display.components import celsius
+from sysmon.display.components import _finite_number, celsius
 from sysmon.paths import get_log_dir
 
 WORKER_MARKER = "sysmon.title_worker"
@@ -60,18 +60,25 @@ def set_title(title: str) -> None:
     _write_osc(osc_title_sequence(title))
 
 
+def _num(info: object, key: str, default: float = 0.0) -> float:
+    if not isinstance(info, dict):
+        return default
+    value = _finite_number(info.get(key))
+    return default if value is None else value
+
+
 def build_title(no_gpu: bool) -> str:
     """Build plain-text title string."""
     settings = load_config()
     parts: list[str] = []
     if settings.modules.cpu:
         cpu = collect("cpu", settings)
-        parts.append(f"CPU {cpu['percent']:.0f}%")
+        parts.append(f"CPU {_num(cpu, 'percent'):.0f}%")
     if settings.modules.memory:
         mem = collect("memory", settings)
         ram = (
-            f"RAM {bytes_to_gb(mem['used'])}/{bytes_to_gb(mem['total'])}G "
-            f"({mem['percent']:.0f}%)"
+            f"RAM {bytes_to_gb(_num(mem, 'used'))}/{bytes_to_gb(_num(mem, 'total'))}G "
+            f"({_num(mem, 'percent'):.0f}%)"
         )
         swap_total = mem.get("swap_total") or 0
         swap_percent = mem.get("swap_percent") or 0
@@ -81,7 +88,7 @@ def build_title(no_gpu: bool) -> str:
     if settings.modules.network:
         net = collect("network", settings)
         parts.append(
-            f"↑{format_speed(net['speed_up'])} ↓{format_speed(net['speed_down'])}"
+            f"↑{format_speed(_num(net, 'speed_up'))} ↓{format_speed(_num(net, 'speed_down'))}"
         )
     if settings.modules.disk:
         disk = collect("disk", settings)
@@ -95,10 +102,12 @@ def build_title(no_gpu: bool) -> str:
     if settings.modules.gpu and settings.enable_gpu and not no_gpu:
         gpus = collect("gpu", settings)
         if gpus:
-            gpu = gpus[0]
+            gpu = gpus[0] if isinstance(gpus, list) and gpus and isinstance(gpus[0], dict) else None
+            if gpu is None:
+                gpu = {}
             gpu_str = (
-                f"GPU {gpu['load']:.0f}% "
-                f"{gpu['memory_used']/1024:.1f}/{gpu['memory_total']/1024:.1f}G"
+                f"GPU {_num(gpu, 'load'):.0f}% "
+                f"{_num(gpu, 'memory_used')/1024:.1f}/{_num(gpu, 'memory_total')/1024:.1f}G"
             )
             temp = celsius(gpu.get("temperature"))
             if temp is not None:

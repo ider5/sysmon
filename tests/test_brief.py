@@ -70,6 +70,10 @@ class _DeadProc:
         return 1
 
 
+def test_format_cpu_tolerates_empty_record():
+    assert brief_mod._format_cpu({}, no_color=True).plain == "CPU 0%"
+
+
 def test_build_brief_line_passes_network_interfaces(monkeypatch):
     seen = _stub_brief_collectors(monkeypatch)
     brief_mod.build_brief_line(no_gpu=True, interfaces=("eth0",))

@@ -21,6 +21,26 @@ def test_osc_title_sequence_wraps_sanitized_text():
     assert "RAM 1/2G" in seq
 
 
+def test_build_title_tolerates_empty_cpu_record(monkeypatch):
+    monkeypatch.setattr(title_worker, "collect", lambda name, settings=None: {})
+    monkeypatch.setattr(
+        title_worker,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=True,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    assert title_worker.build_title(no_gpu=True) == "CPU 0%"
+
+
 def test_build_title_shows_zero_gpu_temperature(monkeypatch):
     def fake_collect(name, settings=None):
         assert name == "gpu"

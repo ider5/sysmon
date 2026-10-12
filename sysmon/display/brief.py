@@ -19,7 +19,7 @@ from sysmon.collectors.network import format_speed
 from sysmon.collectors.registry import collect
 from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import ThresholdConfig, load_config, metric_status
-from sysmon.display.components import celsius
+from sysmon.display.components import _finite_number, celsius
 from sysmon.display.title_worker import WORKER_MARKER
 
 _STATUS_COLORS = {
@@ -39,6 +39,13 @@ _LOCK_FILE = Path.home() / ".sysmon_title.lock"
 _WORKER_START_GRACE = 0.2
 
 
+def _num(info: object, key: str, default: float = 0.0) -> float:
+    if not isinstance(info, dict):
+        return default
+    value = _finite_number(info.get(key))
+    return default if value is None else value
+
+
 def _format_cpu(
     info: dict,
     no_color: bool = False,
@@ -48,14 +55,15 @@ def _format_cpu(
     """Format CPU info as compact text."""
     text = Text()
     text.append("CPU ")
-    pct = info["percent"]
+    pct = _num(info, "percent")
     if no_color:
         text.append(f"{pct:.0f}%")
     else:
         text.append(f"{pct:.0f}%", style=_threshold_color(pct, warn, critical))
 
-    if info["freq_current"]:
-        text.append(f" {info['freq_current']:.0f}M")
+    freq = _num(info, "freq_current")
+    if freq:
+        text.append(f" {freq:.0f}M")
     return text
 
 
@@ -68,9 +76,9 @@ def _format_memory(
     """Format memory info as compact text."""
     text = Text()
     text.append("RAM ")
-    used = bytes_to_gb(info["used"])
-    total = bytes_to_gb(info["total"])
-    pct = info["percent"]
+    used = bytes_to_gb(_num(info, "used"))
+    total = bytes_to_gb(_num(info, "total"))
+    pct = _num(info, "percent")
 
     if no_color:
         text.append(f"{used}/{total}G ({pct:.0f}%)")
@@ -92,13 +100,15 @@ def _format_memory(
 def _format_network(info: dict, no_color: bool = False) -> Text:
     """Format network info as compact text."""
     text = Text()
+    up = format_speed(_num(info, "speed_up"))
+    down = format_speed(_num(info, "speed_down"))
     if no_color:
-        text.append(f"↑{format_speed(info['speed_up'])} ↓{format_speed(info['speed_down'])}")
+        text.append(f"↑{up} ↓{down}")
     else:
         text.append("↑", style="green")
-        text.append(format_speed(info["speed_up"]), style="green")
+        text.append(up, style="green")
         text.append(" ↓", style="cyan")
-        text.append(format_speed(info["speed_down"]), style="cyan")
+        text.append(down, style="cyan")
     return text
 
 
@@ -109,21 +119,21 @@ def _format_gpu(
     critical: float = 95.0,
 ) -> Text | None:
     """Format GPU info as compact text."""
-    if not gpus:
+    if not isinstance(gpus, list) or not gpus or not isinstance(gpus[0], dict):
         return None
 
     gpu = gpus[0]
     text = Text()
     text.append("GPU ")
 
-    load = gpu["load"]
+    load = _num(gpu, "load")
     if no_color:
         text.append(f"{load:.0f}%")
     else:
         text.append(f"{load:.0f}%", style=_threshold_color(load, warn, critical))
 
-    mem_used = gpu["memory_used"] / 1024
-    mem_total = gpu["memory_total"] / 1024
+    mem_used = _num(gpu, "memory_used") / 1024
+    mem_total = _num(gpu, "memory_total") / 1024
     text.append(f" {mem_used:.1f}/{mem_total:.1f}G")
 
     temp = celsius(gpu.get("temperature"))
