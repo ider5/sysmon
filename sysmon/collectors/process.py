@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import heapq
+import math
 import os
 import threading
 import time
@@ -162,23 +163,31 @@ def get_top_processes(
             info = getattr(proc, "info", {}) or {}
             key = _proc_key(proc, info)
             alive.add(key)
-            name = info.get("name") or "unknown"
+            raw_name = info.get("name") or "unknown"
+            name = raw_name if isinstance(raw_name, str) else str(raw_name)
             pid = info.get("pid", proc.pid)
             if is_idle_process(name, pid) or is_self_process(pid):
                 continue
             if needle is not None and needle not in name.lower():
                 continue
             mem_info = _memory_info(proc, info)
+            memory_percent = info.get("memory_percent")
+            if (
+                isinstance(memory_percent, bool)
+                or not isinstance(memory_percent, (int, float))
+                or not math.isfinite(memory_percent)
+            ):
+                memory_percent = 0.0
             processes.append(
                 {
                     "pid": info.get("pid", proc.pid),
                     "name": name,
                     "cpu_percent": _cpu_percent_from_times(key, _cpu_times(proc, info)),
-                    "memory_percent": info.get("memory_percent") or 0.0,
+                    "memory_percent": float(memory_percent),
                     "memory_mb": mem_info.rss / (1024 * 1024),
                 }
             )
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except Exception:
             continue
 
     _evict_stale_cpu_cache(alive)

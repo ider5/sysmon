@@ -28,6 +28,26 @@ def _proc(pid: int, cpu: float, mem: float, name: str) -> MagicMock:
     return mock
 
 
+def test_get_top_processes_skips_unreadable_process():
+    good = _proc(2, 0.0, 3.0, "good")
+    bad = _proc(1, 0.0, 1.0, "bad")
+    bad.info["create_time"] = "nope"
+    weird = _proc(3, 0.0, 4.0, "weird")
+    weird.info["memory_percent"] = "high"
+    weird.info["name"] = 5
+
+    with patch(
+        "sysmon.collectors.process.psutil.process_iter",
+        return_value=[bad, good, weird],
+    ):
+        rows = process_module.get_top_processes(limit=10)
+
+    by_name = {row["name"]: row for row in rows}
+    assert "bad" not in by_name
+    assert by_name["good"]["memory_percent"] == 3.0
+    assert by_name["5"]["memory_percent"] == 0.0
+
+
 def test_get_top_processes_requests_batch_attrs():
     with patch("sysmon.collectors.process.psutil.process_iter", return_value=[]) as mock_iter:
         process_module.get_top_processes(limit=2)
