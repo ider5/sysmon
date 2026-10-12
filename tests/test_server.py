@@ -49,6 +49,14 @@ def test_format_prometheus_includes_collected_at():
     assert "sysmon_collected_at_seconds 100.5" in text
 
 
+def test_format_prometheus_includes_load_average():
+    text = format_prometheus({"cpu": {"percent": 10.0, "load_avg": [1.0, 0.5, 0.25]}})
+    assert 'sysmon_load_average{window="1m"} 1.0' in text
+    assert 'sysmon_load_average{window="5m"} 0.5' in text
+    assert 'sysmon_load_average{window="15m"} 0.25' in text
+    assert text.count("# TYPE sysmon_load_average gauge") == 1
+
+
 def test_format_prometheus_includes_core_gauges():
     text = format_prometheus(_FAKE_ALL)
     assert "sysmon_cpu_percent 12.5" in text

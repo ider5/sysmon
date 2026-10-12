@@ -31,7 +31,7 @@ def _cpu_payload(
         cfg.thresholds.cpu_warn,
         cfg.thresholds.cpu_critical,
     )
-    return {
+    payload = {
         "percent": snapshot["percent"],
         "cores": snapshot["cores"],
         "count_logical": snapshot["count_logical"],
@@ -40,6 +40,14 @@ def _cpu_payload(
         "freq_max_mhz": snapshot["freq_max"],
         "status": status,
     }
+    load_avg = snapshot.get("load_avg")
+    if (
+        isinstance(load_avg, (list, tuple))
+        and len(load_avg) == 3
+        and all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in load_avg)
+    ):
+        payload["load_avg"] = [float(item) for item in load_avg]
+    return payload
 
 
 def _memory_payload(

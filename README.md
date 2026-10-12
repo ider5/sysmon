@@ -15,6 +15,7 @@ A beautiful system monitoring CLI tool built with Python.
 - **Disk Monitoring** - Disk usage and read/write I/O speeds
 - **Configuration File** - Persistent defaults via a platform config file (`sysmon config path`)
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
+- **Load average** - 1, 5, and 15 minute load on the CPU panel, in JSON, and as `sysmon_load_average` when the OS provides it
 - **GPU Monitoring** - NVIDIA via pynvml/GPUtil, merged with Linux DRM sysfs (AMD and other cards that expose `gpu_busy_percent`)
 - **Local metrics server** - `sysmon serve` exposes JSON and Prometheus text on loopback (`/json`, `/metrics`, `/health`)
 - **Optional sensors** - Battery and temperatures when `[modules] sensors = true` (default off; shown on the dashboard when enabled)

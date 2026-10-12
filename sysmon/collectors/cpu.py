@@ -137,6 +137,18 @@ def _get_freq_fields() -> tuple[float, float]:
     return freq_current, freq_max
 
 
+def _load_average() -> tuple[float, float, float] | None:
+    """Return 1, 5, and 15 minute load averages when the OS provides them."""
+    getloadavg = getattr(psutil, "getloadavg", None)
+    if getloadavg is None:
+        return None
+    try:
+        one, five, fifteen = getloadavg()
+    except (OSError, RuntimeError, NotImplementedError, AttributeError):
+        return None
+    return (float(one), float(five), float(fifteen))
+
+
 def get_cpu_snapshot(interval: float = 0.1) -> dict:
     """Get CPU metrics in a single sampling pass.
 
@@ -161,6 +173,7 @@ def get_cpu_snapshot(interval: float = 0.1) -> dict:
         "count_physical": physical,
         "freq_current": freq_current,
         "freq_max": freq_max,
+        "load_avg": _load_average(),
     }
 
 

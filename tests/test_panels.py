@@ -21,6 +21,19 @@ def test_build_cpu_and_memory_text_tolerate_empty_records():
     assert "Swap" not in memory.plain
 
 
+def test_build_cpu_text_shows_load_average():
+    info = {
+        "percent": 10.0,
+        "count_physical": 2,
+        "count_logical": 4,
+        "freq_current": 0,
+        "load_avg": (1.5, 1.0, 0.5),
+    }
+    text = build_cpu_text(info)
+    assert "Load" in text.plain
+    assert "1.50 1.00 0.50" in text.plain
+
+
 def test_build_cpu_text_includes_usage():
     info = {
         "percent": 42.0,

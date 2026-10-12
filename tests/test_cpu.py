@@ -57,6 +57,25 @@ def test_get_cpu_snapshot_physical_count_falls_back_to_logical():
     assert snapshot["count_physical"] == 4
 
 
+def test_load_average_none_when_unavailable(monkeypatch):
+    monkeypatch.delattr(cpu_mod.psutil, "getloadavg", raising=False)
+    assert cpu_mod._load_average() is None
+
+
+def test_get_cpu_snapshot_includes_load_average(monkeypatch):
+    monkeypatch.setattr(cpu_mod.psutil, "getloadavg", lambda: (1.0, 0.5, 0.25))
+    with patch("sysmon.collectors.cpu.psutil.cpu_percent", return_value=[10.0]):
+        with patch("sysmon.collectors.cpu.psutil.cpu_count", return_value=2):
+            with patch("sysmon.collectors.cpu.platform.system", return_value="Linux"):
+                with patch(
+                    "sysmon.collectors.cpu.psutil.cpu_freq",
+                    return_value=None,
+                    create=True,
+                ):
+                    snapshot = get_cpu_snapshot(interval=0)
+    assert snapshot["load_avg"] == (1.0, 0.5, 0.25)
+
+
 def test_get_freq_fields_when_cpu_freq_missing(monkeypatch):
     monkeypatch.setattr(cpu_mod.platform, "system", lambda: "Darwin")
     monkeypatch.delattr(cpu_mod.psutil, "cpu_freq", raising=False)

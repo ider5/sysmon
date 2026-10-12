@@ -6,6 +6,7 @@ All notable changes to SysMon are documented in this file.
 
 ### Added
 - Dashboard shows battery charge, power state, and temperatures when `[modules] sensors = true`
+- CPU snapshots, the CPU panel, JSON, and Prometheus include the 1, 5, and 15 minute load average when the OS provides it
 - `sysmon cpu` and the CPU snapshot show per-core usage, not only the dashboard's compact panel
 - The snapshot header includes the sysmon version
 - `sysmon memory` and the memory snapshot show available RAM, matching the dashboard

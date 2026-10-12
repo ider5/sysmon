@@ -45,6 +45,18 @@ def build_cpu_text(
         text.append(f"  {'Frequency':<14}", style="bold")
         text.append(f"{freq:.0f} MHz\n", style="bold white")
 
+    load_avg = info.get("load_avg")
+    if (
+        isinstance(load_avg, (list, tuple))
+        and len(load_avg) == 3
+        and all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in load_avg)
+    ):
+        text.append(f"  {'Load':<14}", style="bold")
+        text.append(
+            f"{float(load_avg[0]):.2f} {float(load_avg[1]):.2f} {float(load_avg[2]):.2f}\n",
+            style="bold white",
+        )
+
     if cores:
         text.append("\n  ", style="bold")
         text.append("Per-core Usage\n", style="bold underline")

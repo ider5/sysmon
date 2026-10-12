@@ -122,6 +122,16 @@ def format_prometheus(data: dict[str, Any]) -> str:
     cpu = data.get("cpu")
     if isinstance(cpu, dict) and "percent" in cpu:
         gauge("sysmon_cpu_percent", cpu["percent"], "CPU utilization percent")
+        load_avg = cpu.get("load_avg")
+        if (
+            isinstance(load_avg, (list, tuple))
+            and len(load_avg) == 3
+            and all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in load_avg)
+        ):
+            lines.append("# HELP sysmon_load_average Load average by window")
+            lines.append("# TYPE sysmon_load_average gauge")
+            for window, value in zip(("1m", "5m", "15m"), load_avg):
+                lines.append(f'sysmon_load_average{{window="{window}"}} {_fmt(float(value))}')
     memory = data.get("memory")
     if isinstance(memory, dict) and isinstance(memory.get("percent"), (int, float)):
         if not isinstance(memory.get("percent"), bool):
