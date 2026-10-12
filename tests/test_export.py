@@ -107,6 +107,23 @@ def test_collect_brief_respects_modules(monkeypatch):
     assert data["sensors"]["battery"]["percent"] == 12.0
 
 
+def test_cpu_payload_includes_load_average(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "percent": 1.0,
+            "cores": [1.0],
+            "count_logical": 2,
+            "count_physical": 1,
+            "freq_current": 0,
+            "freq_max": 0,
+            "load_avg": (0.1, 0.2, 0.3),
+        },
+    )
+    data = collect_section("cpu")
+    assert data["cpu"]["load_avg"] == [0.1, 0.2, 0.3]
+
+
 def test_collect_section_cpu():
     data = collect_section("cpu")
     assert "cpu" in data
