@@ -215,6 +215,15 @@ def test_collect_section_disk():
     assert data["disk"]["status"] in ("ok", "warn", "critical")
 
 
+def test_process_payload_drops_non_records(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: [None, {"pid": 1, "name": "a"}, "bad"],
+    )
+    data = collect_section("process")
+    assert data["processes"] == [{"pid": 1, "name": "a"}]
+
+
 def test_collect_section_process():
     data = collect_section("process")
     assert "processes" in data

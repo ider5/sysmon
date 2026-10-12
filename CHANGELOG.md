@@ -65,6 +65,7 @@ All notable changes to SysMon are documented in this file.
 - Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled. Swap usage is appended only while swap is actually in use, and disk usage is appended only at or above the disk warn threshold
 - Process memory percentages use the memory warn/critical thresholds. CPU bars still use the CPU thresholds
 - The process table ignores rows that are not records instead of raising, and shows the empty state when none remain
+- JSON process lists drop entries that are not records
 - `sysmon brief --format json` uses those same module switches and includes `sensors` when the module is enabled
 
 ### Fixed

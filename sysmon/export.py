@@ -216,8 +216,12 @@ def _process_payload(
     if name_filter is not None:
         from sysmon.collectors.registry import collect_processes
 
-        return collect_processes(cfg, name_filter=name_filter)
-    return collect("process", cfg)
+        rows = collect_processes(cfg, name_filter=name_filter)
+    else:
+        rows = collect("process", cfg)
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
 
 
 def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
