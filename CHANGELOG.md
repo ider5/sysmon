@@ -56,6 +56,7 @@ All notable changes to SysMon are documented in this file.
 - GPU panels tolerate a partial record instead of raising
 - NVIDIA collection keeps the GPUs it can read when one device query fails
 - A negative or non-numeric GPU load is shown as 0% on the NVIDIA, GPUtil, and DRM paths, and one bad GPUtil card no longer drops the rest
+- A negative GPU temperature is treated as missing, so a driver sentinel such as -1°C is not shown. 0°C is kept
 - `sysmon network` and the network snapshot show packet counts, matching the dashboard
 - `sysmon snapshot sensors` prints that same panel; the full snapshot includes it when the module is enabled
 - `sysmon sensors` prints battery and temperatures, with the same JSON section as the other metric commands

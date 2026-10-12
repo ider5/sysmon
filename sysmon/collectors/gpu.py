@@ -100,7 +100,7 @@ def _get_gpu_info_pynvml() -> Optional[list[GpuInfo]]:
                         "load": _gpu_load(util.gpu),
                         "memory_total": mem.total / (1024 * 1024),
                         "memory_used": mem.used / (1024 * 1024),
-                        "temperature": temp,
+                        "temperature": _gpu_temperature(temp),
                         "backend": "pynvml",
                     }
                 )
@@ -131,7 +131,7 @@ def _get_gpu_info_gputil() -> Optional[list[GpuInfo]]:
                         "load": load,
                         "memory_total": gpu.memoryTotal,
                         "memory_used": gpu.memoryUsed,
-                        "temperature": gpu.temperature,
+                        "temperature": _gpu_temperature(getattr(gpu, "temperature", None)),
                         "backend": "gputil",
                     }
                 )
@@ -140,6 +140,15 @@ def _get_gpu_info_gputil() -> Optional[list[GpuInfo]]:
         return rows or None
     except Exception:
         return None
+
+
+def _gpu_temperature(value: object) -> float | None:
+    """Return a non-negative finite temperature, or None when it is missing."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or value < 0:
+        return None
+    return float(value)
 
 
 def _gpu_load(value: object) -> float:
@@ -221,7 +230,7 @@ def _get_gpu_info_sysfs() -> Optional[list[GpuInfo]]:
                 "load": _gpu_load(busy),
                 "memory_total": vram_total / (1024 * 1024),
                 "memory_used": vram_used / (1024 * 1024),
-                "temperature": _hwmon_temp_c(device),
+                "temperature": _gpu_temperature(_hwmon_temp_c(device)),
                 "backend": "sysfs",
             }
         )
