@@ -368,8 +368,12 @@ def print_brief(
     if interfaces is not None:
         settings = replace(settings, network_interfaces=tuple(interfaces))
     if settings.modules.network:
-        collect("network", settings)
-        time.sleep(sample_interval)
+        try:
+            collect("network", settings)
+        except Exception:
+            pass
+        else:
+            time.sleep(sample_interval)
     console.print(
         build_brief_line(
             no_color, no_gpu, interfaces=interfaces, thresholds=thresholds
@@ -390,8 +394,12 @@ def run_brief_watch(
     if interfaces is not None:
         settings = replace(settings, network_interfaces=tuple(interfaces))
     if settings.modules.network:
-        collect("network", settings)
-        time.sleep(min(0.5, refresh_rate))
+        try:
+            collect("network", settings)
+        except Exception:
+            pass
+        else:
+            time.sleep(min(0.5, refresh_rate))
 
     with Live(
         build_brief_line(

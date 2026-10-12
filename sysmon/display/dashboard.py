@@ -321,11 +321,16 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
     from sysmon.collectors.registry import collect
 
     primed = False
-    if config.modules.network:
-        collect("network", config)
-        primed = True
-    if config.modules.disk:
-        collect("disk", config)
+    for name, enabled in (
+        ("network", config.modules.network),
+        ("disk", config.modules.disk),
+    ):
+        if not enabled:
+            continue
+        try:
+            collect(name, config)
+        except Exception:
+            continue
         primed = True
     if primed:
         time.sleep(0.5)

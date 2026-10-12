@@ -42,11 +42,16 @@ def _prime_rate_collectors(settings: SysmonConfig) -> None:
     from sysmon.collectors.registry import collect
 
     primed = False
-    if settings.modules.network:
-        collect("network", settings)
-        primed = True
-    if settings.modules.disk:
-        collect("disk", settings)
+    for name, enabled in (
+        ("network", settings.modules.network),
+        ("disk", settings.modules.disk),
+    ):
+        if not enabled:
+            continue
+        try:
+            collect(name, settings)
+        except Exception:
+            continue
         primed = True
     if primed:
         time.sleep(min(_RATE_PRIME_SLEEP, settings.refresh_interval))

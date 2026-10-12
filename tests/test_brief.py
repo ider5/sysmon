@@ -531,6 +531,21 @@ def test_run_brief_watch_survives_a_bad_refresh(monkeypatch):
     assert any(getattr(item, "plain", "") == "brief error: bad brief" for item in updates)
 
 
+def test_print_brief_survives_failed_network_prime(monkeypatch):
+    monkeypatch.setattr(
+        brief_mod,
+        "collect",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("down")),
+    )
+    monkeypatch.setattr(brief_mod, "build_brief_line", lambda *_args, **_kwargs: "ok")
+    monkeypatch.setattr(
+        brief_mod.time,
+        "sleep",
+        lambda _seconds: (_ for _ in ()).throw(AssertionError("slept")),
+    )
+    brief_mod.print_brief(Console(), no_gpu=True)
+
+
 def test_print_brief_skips_sample_wait_when_network_disabled(monkeypatch):
     slept: list[float] = []
     monkeypatch.setattr(brief_mod, "collect", lambda *a, **k: None)

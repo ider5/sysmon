@@ -568,6 +568,20 @@ def test_prime_rate_collectors_samples_network_and_disk(monkeypatch):
     assert slept == [0.5]
 
 
+def test_prime_rate_collectors_continues_when_one_sample_fails(monkeypatch):
+    from sysmon.config import SysmonConfig
+    from sysmon.server import _prime_rate_collectors
+
+    def fake_collect(name, settings=None):
+        if name == "network":
+            raise RuntimeError("network down")
+        return None
+
+    monkeypatch.setattr("sysmon.collectors.registry.collect", fake_collect)
+    monkeypatch.setattr("sysmon.server.time.sleep", lambda _seconds: None)
+    _prime_rate_collectors(SysmonConfig(refresh_interval=2.0))
+
+
 def test_prime_rate_collectors_skips_disabled_modules(monkeypatch):
     from sysmon.config import ModuleConfig, SysmonConfig
     from sysmon.server import _prime_rate_collectors

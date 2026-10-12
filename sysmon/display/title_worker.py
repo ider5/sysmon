@@ -155,8 +155,12 @@ def run_loop(refresh_rate: float, no_gpu: bool) -> None:
     """Main title update loop."""
     settings = load_config()
     if settings.modules.network:
-        collect("network", settings)
-        time.sleep(0.5)
+        try:
+            collect("network", settings)
+        except Exception:
+            pass
+        else:
+            time.sleep(0.5)
 
     failures = 0
     while True:
