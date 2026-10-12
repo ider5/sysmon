@@ -434,6 +434,14 @@ def _format_remaining(seconds: int) -> str:
     return f"{minutes}m"
 
 
+def _temperature_rank(item: tuple[str, dict]) -> tuple[int, float]:
+    """Sort hottest finite readings first and leave missing values last."""
+    current = _finite_number(item[1].get("current"))
+    if current is None:
+        return (1, 0.0)
+    return (0, -current)
+
+
 def _temperature_style(current: float, entry: dict) -> str:
     critical = _finite_number(entry.get("critical"))
     high = _finite_number(entry.get("high"))
@@ -476,6 +484,7 @@ def build_sensors_text(info: dict) -> Text:
             if isinstance(entry, dict):
                 label = str(entry.get("label") or group or "temp")
                 readings.append((label, entry))
+    readings.sort(key=_temperature_rank)
 
     if readings:
         if battery is not None:

@@ -7,6 +7,7 @@ All notable changes to SysMon are documented in this file.
 ### Added
 - Dashboard shows battery charge, power state, and temperatures when `[modules] sensors = true`
 - The sensors panel keeps drawing when a battery or temperature field is missing or not a number
+- The sensors panel lists the hottest temperatures first, so the eight visible rows are the highest readings
 - CPU snapshots, the CPU panel, JSON, and Prometheus include the 1, 5, and 15 minute load average when the OS provides it
 - Prometheus exports logical and physical CPU counts so load average can be compared with the machine size
 - Prometheus output skips a metric whose value is missing or non-finite instead of failing the whole scrape

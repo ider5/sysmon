@@ -429,6 +429,21 @@ def test_build_sensors_text_tolerates_partial_record():
     assert "Remaining" not in plain
 
 
+def test_build_sensors_text_shows_hottest_readings_first():
+    temperatures = {
+        "group": [{"label": f"t{index}", "current": 10.0 + index} for index in range(8)]
+    }
+    temperatures["group"].append({"label": "hottest", "current": 99.0})
+    temperatures["group"].append({"label": "missing", "current": None})
+    text = build_sensors_text({"battery": None, "temperatures": temperatures})
+    plain = text.plain
+    assert plain.index("hottest") < plain.index("t7")
+    assert "99.0°C" in plain
+    assert "t0" not in plain
+    assert "missing" not in plain
+    assert "+2 more" in plain
+
+
 def test_build_sensors_text_rejects_non_record():
     text = build_sensors_text(None)  # type: ignore[arg-type]
     assert "No battery or temperature sensors" in text.plain
