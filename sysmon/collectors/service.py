@@ -19,10 +19,12 @@ class CollectorService:
         include_gpu: bool = True,
         include_sensors: bool | None = None,
         config: SysmonConfig | None = None,
+        reload_config: bool = False,
     ) -> None:
         self._interval = interval
         self._include_gpu = include_gpu
         self._include_sensors = include_sensors
+        self._reload_config = reload_config
         self._config = config or load_config()
         self._lock = threading.Lock()
         self._snapshot: dict[str, Any] = {}
@@ -92,9 +94,14 @@ class CollectorService:
             keys.append("sensors")
         return keys
 
+    def _refresh_config(self) -> None:
+        if self._reload_config:
+            self._config = load_config()
+
     def _collect_once(self) -> None:
         from sysmon.collectors.registry import collect
 
+        self._refresh_config()
         with self._lock:
             prev = dict(self._snapshot)
 

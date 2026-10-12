@@ -379,4 +379,5 @@ def test_run_dashboard_follows_sensor_module_config(monkeypatch):
     run_dashboard(refresh_rate=1.0, include_gpu=False)
     assert captured["include_sensors"] is None
     assert captured["include_gpu"] is False
+    assert captured["reload_config"] is True
     assert captured["config"].modules.sensors is True

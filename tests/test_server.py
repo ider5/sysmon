@@ -252,9 +252,11 @@ def test_serve_forever_primes_before_starting_service(monkeypatch):
 
     order = []
 
+    created = {}
+
     class FakeService:
-        def __init__(self, **_kwargs):
-            pass
+        def __init__(self, **kwargs):
+            created.update(kwargs)
 
         def start(self):
             order.append("start")
@@ -286,5 +288,6 @@ def test_serve_forever_primes_before_starting_service(monkeypatch):
     monkeypatch.setattr("sysmon.server.start_server", lambda *_a, **_k: FakeHttpd())
     serve_forever(host="127.0.0.1", port=0)
     assert order[:2] == ["prime", "start"]
+    assert created["reload_config"] is True
     assert "serve" in order
     assert "stop" in order

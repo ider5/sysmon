@@ -335,13 +335,19 @@ def serve_forever(
     _prime_rate_collectors(settings)
     service = CollectorService(
         interval=settings.refresh_interval,
-        include_gpu=settings.enable_gpu and settings.modules.gpu,
+        include_gpu=True,
         config=settings,
+        reload_config=True,
     )
     service.start()
 
     def payload() -> dict[str, Any]:
-        return collect_all_from_snapshot(service.get_snapshot(), settings=settings)
+        current = load_config()
+        return collect_all_from_snapshot(
+            service.get_snapshot(),
+            include_gpu=current.enable_gpu and current.modules.gpu,
+            settings=current,
+        )
 
     httpd = start_server(host, port, payload_fn=payload)
     bound_host, bound_port = httpd.server_address[:2]

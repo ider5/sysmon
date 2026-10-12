@@ -86,10 +86,7 @@ def _launch_dashboard(refresh: float | None, no_gpu: bool) -> None:
 
     settings = load_config()
     refresh_rate = refresh if refresh is not None else settings.refresh_interval
-    run_dashboard(
-        refresh_rate=refresh_rate,
-        include_gpu=_resolve_gpu_enabled(no_gpu, settings),
-    )
+    run_dashboard(refresh_rate=refresh_rate, include_gpu=not no_gpu)
 
 
 def _wait_for_rate_sampling(

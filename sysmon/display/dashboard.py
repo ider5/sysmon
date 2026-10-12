@@ -271,6 +271,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
         include_gpu=include_gpu,
         include_sensors=None,
         config=config,
+        reload_config=True,
     )
     service.start()
 
@@ -290,6 +291,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
         ) as live:
             try:
                 while True:
+                    config = load_config()
                     snapshot = service.get_snapshot()
                     cpu = snapshot.get("cpu")
                     if cpu is not None:

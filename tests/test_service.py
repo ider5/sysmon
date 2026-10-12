@@ -38,6 +38,54 @@ def test_collector_service_caches_snapshot():
     assert not service.running
 
 
+def test_collector_service_reloads_config_between_samples(monkeypatch):
+    cpu_only = SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": True,
+                "memory": False,
+                "network": False,
+                "disk": False,
+                "gpu": False,
+                "process": False,
+            }
+        }
+    )
+    memory_only = SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": False,
+                "memory": True,
+                "network": False,
+                "disk": False,
+                "gpu": False,
+                "process": False,
+            }
+        }
+    )
+    phase = {"memory": False}
+
+    def load() -> SysmonConfig:
+        return memory_only if phase["memory"] else cpu_only
+
+    monkeypatch.setattr("sysmon.collectors.service.load_config", load)
+    service = CollectorService(
+        interval=0.05,
+        include_gpu=False,
+        config=cpu_only,
+        reload_config=True,
+    )
+    service.start()
+    try:
+        _wait_until(lambda: service.get("cpu") is not None)
+        phase["memory"] = True
+        _wait_until(
+            lambda: "memory" in service.get_snapshot() and "cpu" not in service.get_snapshot()
+        )
+    finally:
+        service.stop()
+
+
 def test_collector_service_respects_disabled_modules():
     config = SysmonConfig.from_mapping(
         {
