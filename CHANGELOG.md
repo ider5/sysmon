@@ -28,6 +28,7 @@ All notable changes to SysMon are documented in this file.
 - Network collection reports inbound and outbound errors and drops. The panel, brief line, and terminal title show them when any are non-zero, and Prometheus exports them as counters
 - Network interfaces include link speed in Mb/s when the OS reports it, on the panel and as `sysmon_network_interface_speed_mbps`
 - The network panel ignores a non-finite or absurd link speed instead of failing the frame
+- Network collection ignores a non-finite link speed instead of failing the sample
 - CPU and memory panels tolerate a partial record instead of raising
 - Brief mode and the terminal title tolerate a partial CPU, memory, network, or GPU record instead of raising
 - GPU panels tolerate a partial record instead of raising

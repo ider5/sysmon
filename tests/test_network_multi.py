@@ -82,6 +82,32 @@ def test_interface_includes_link_speed():
     assert result["interfaces"][0]["speed_mbps"] == 1000
 
 
+def test_non_finite_link_speed_is_omitted():
+    pernic = {
+        "bad0": SimpleNamespace(
+            bytes_sent=1, bytes_recv=1, packets_sent=0, packets_recv=0,
+            errin=0, errout=0, dropin=0, dropout=0,
+        ),
+        "eth0": SimpleNamespace(
+            bytes_sent=1, bytes_recv=2, packets_sent=1, packets_recv=1,
+            errin=0, errout=0, dropin=0, dropout=0,
+        ),
+    }
+    stats = {
+        "bad0": SimpleNamespace(isup=True, speed=float("inf")),
+        "eth0": SimpleNamespace(isup=True, speed=1000),
+    }
+    network_module._prev_iface_io = {}
+    network_module._prev_iface_time = None
+    with patch("sysmon.collectors.network.psutil.net_io_counters", return_value=pernic):
+        with patch("sysmon.collectors.network.psutil.net_if_stats", return_value=stats):
+            with patch("sysmon.collectors.network.time.time", return_value=1.0):
+                result = get_network_info(interfaces=["bad0", "eth0"])
+    by_name = {item["name"]: item for item in result["interfaces"]}
+    assert "speed_mbps" not in by_name["bad0"]
+    assert by_name["eth0"]["speed_mbps"] == 1000
+
+
 def test_missing_interface_is_listed_at_zero():
     network_module._prev_iface_io = {"nope": SimpleNamespace(bytes_sent=5, bytes_recv=5)}
     network_module._prev_iface_time = 0.0

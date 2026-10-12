@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import threading
 import time
 from typing import Iterable
@@ -24,7 +25,13 @@ def _interface_link() -> dict[str, dict[str, int | bool]]:
     links: dict[str, dict[str, int | bool]] = {}
     for name, info in stats.items():
         speed = getattr(info, "speed", 0) or 0
-        if isinstance(speed, bool) or not isinstance(speed, (int, float)) or speed <= 0:
+        if (
+            isinstance(speed, bool)
+            or not isinstance(speed, (int, float))
+            or not math.isfinite(speed)
+            or speed <= 0
+            or speed > 1_000_000_000
+        ):
             continue
         links[name] = {
             "speed_mbps": int(speed),
