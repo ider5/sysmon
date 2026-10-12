@@ -86,12 +86,20 @@ def _delta_rate(current: float, previous: float, dt: float) -> float:
 
 def list_network_interfaces() -> list[str]:
     """Return non-loopback network interface names."""
-    stats = psutil.net_if_stats()
-    return sorted(
-        name
-        for name, info in stats.items()
-        if info.isup and not name.lower().startswith("lo")
-    )
+    try:
+        stats = psutil.net_if_stats()
+    except (OSError, RuntimeError, NotImplementedError, AttributeError):
+        return []
+    if not isinstance(stats, dict):
+        return []
+    names: list[str] = []
+    for name, info in stats.items():
+        if not isinstance(name, str) or name.lower().startswith("lo"):
+            continue
+        if not bool(getattr(info, "isup", False)):
+            continue
+        names.append(name)
+    return sorted(names)
 
 
 def _resolve_interfaces(selected: Iterable[str] | None) -> list[str] | None:

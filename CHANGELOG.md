@@ -41,6 +41,7 @@ All notable changes to SysMon are documented in this file.
 - Network interfaces include whether the link is up, and the panel says `down` when it is not. Prometheus exports `sysmon_network_interface_up`. The brief line and terminal title append `DOWN` plus the interface name
 - The network panel ignores a non-finite or absurd link speed instead of failing the frame
 - Network collection ignores a non-finite link speed instead of failing the sample
+- Listing network interfaces returns an empty list when interface stats are unavailable
 - CPU and memory panels tolerate a partial record instead of raising
 - Byte formatters print zero for a non-finite or non-numeric size instead of `inf`, `nan`, or an exception
 - CPU, memory, and network panels still draw when the section is not a record
