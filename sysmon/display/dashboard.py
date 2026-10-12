@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import platform
 import time
 
@@ -73,6 +74,8 @@ def snapshot_is_stale(snapshot: dict | None, refresh_rate: float, now: float | N
     timestamp = snapshot.get("timestamp")
     if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)):
         return False
+    if not math.isfinite(timestamp):
+        return True
     current = time.time() if now is None else now
     return current - float(timestamp) > max(3.0, refresh_rate * 3)
 

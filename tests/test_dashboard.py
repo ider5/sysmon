@@ -55,6 +55,8 @@ def test_snapshot_is_stale_after_several_refreshes():
     assert snapshot_is_stale({"timestamp": 100.0}, 1.0, now=110.0) is True
     assert snapshot_is_stale({"timestamp": 100.0}, 1.0, now=102.0) is False
     assert snapshot_is_stale({}, 1.0, now=200.0) is False
+    assert snapshot_is_stale({"timestamp": float("inf")}, 1.0, now=110.0) is True
+    assert snapshot_is_stale({"timestamp": float("nan")}, 1.0, now=110.0) is True
 
 
 def test_build_dashboard_shows_stale_notice():
