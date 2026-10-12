@@ -181,7 +181,7 @@ def get_top_processes(
 
     _evict_stale_cpu_cache(alive)
 
-    sort_key = "cpu_percent" if sort_by == "cpu" else "memory_percent"
+    sort_key = "memory_percent" if sort_by == "memory" else "cpu_percent"
     if limit <= 0:
         return []
     return heapq.nlargest(limit, processes, key=lambda item: item[sort_key])

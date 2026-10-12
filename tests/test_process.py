@@ -58,6 +58,22 @@ def test_get_top_processes_sorts_by_cpu():
     assert result[0]["cpu_percent"] == 50.0
 
 
+def test_unknown_sort_key_orders_by_cpu():
+    process_module.clear_process_cpu_cache()
+    procs = [
+        _proc(1, 0.0, 90.0, "high-mem"),
+        _proc(2, 0.0, 1.0, "high-cpu"),
+    ]
+    with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
+        with patch("sysmon.collectors.process.time.monotonic", return_value=1.0):
+            process_module.get_top_processes(limit=2, sort_by="cpu")
+        procs[0].cpu_times.return_value = SimpleNamespace(user=0.1, system=0.0)
+        procs[1].cpu_times.return_value = SimpleNamespace(user=0.9, system=0.0)
+        with patch("sysmon.collectors.process.time.monotonic", return_value=2.0):
+            result = process_module.get_top_processes(limit=2, sort_by="nope")
+    assert [item["pid"] for item in result] == [2, 1]
+
+
 def test_get_top_processes_name_filter():
     procs = [
         _proc(1, 10.0, 5.0, "chrome"),
