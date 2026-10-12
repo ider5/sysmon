@@ -61,6 +61,22 @@ def _error_counts(obj: object) -> dict[str, int]:
     return counts
 
 
+def _finite_counter(value: object) -> float:
+    """Return a finite counter, or zero when the sample is unusable."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return 0.0
+    return float(value)
+
+
+def _prev_bytes(prev: object) -> tuple[float, float]:
+    if isinstance(prev, tuple):
+        return float(prev[0]), float(prev[1])
+    return (
+        _finite_counter(getattr(prev, "bytes_sent", 0)),
+        _finite_counter(getattr(prev, "bytes_recv", 0)),
+    )
+
+
 def _delta_rate(current: float, previous: float, dt: float) -> float:
     if dt <= 0:
         return 0.0
@@ -129,28 +145,31 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
                         }
                     )
                     continue
+                sent = _finite_counter(getattr(counters, "bytes_sent", 0))
+                recv = _finite_counter(getattr(counters, "bytes_recv", 0))
                 prev = _prev_iface_io.get(name)
                 if prev is not None and _prev_iface_time is not None:
                     dt = now - _prev_iface_time
-                    speed_up = _delta_rate(counters.bytes_sent, prev.bytes_sent, dt)
-                    speed_down = _delta_rate(counters.bytes_recv, prev.bytes_recv, dt)
+                    prev_sent, prev_recv = _prev_bytes(prev)
+                    speed_up = _delta_rate(sent, prev_sent, dt)
+                    speed_down = _delta_rate(recv, prev_recv, dt)
                 else:
                     speed_up = 0.0
                     speed_down = 0.0
                 iface_entries.append(
                     {
                         "name": name,
-                        "bytes_sent": counters.bytes_sent,
-                        "bytes_recv": counters.bytes_recv,
+                        "bytes_sent": sent,
+                        "bytes_recv": recv,
                         "speed_up": speed_up,
                         "speed_down": speed_down,
-                        "packets_sent": counters.packets_sent,
-                        "packets_recv": counters.packets_recv,
+                        "packets_sent": _finite_counter(getattr(counters, "packets_sent", 0)),
+                        "packets_recv": _finite_counter(getattr(counters, "packets_recv", 0)),
                         **_error_counts(counters),
                         **_link_fields(name, links),
                     }
                 )
-                _prev_iface_io[name] = counters
+                _prev_iface_io[name] = (sent, recv)
             _prev_iface_time = now
 
         result = {
@@ -184,25 +203,28 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
             **_error_counts(None),
         }
 
+    sent = _finite_counter(getattr(current, "bytes_sent", 0))
+    recv = _finite_counter(getattr(current, "bytes_recv", 0))
     with _net_lock:
         if _prev_net_io is not None and _prev_time is not None:
             dt = now - _prev_time
-            speed_up = _delta_rate(current.bytes_sent, _prev_net_io.bytes_sent, dt)
-            speed_down = _delta_rate(current.bytes_recv, _prev_net_io.bytes_recv, dt)
+            prev_sent, prev_recv = _prev_bytes(_prev_net_io)
+            speed_up = _delta_rate(sent, prev_sent, dt)
+            speed_down = _delta_rate(recv, prev_recv, dt)
         else:
             speed_up = 0.0
             speed_down = 0.0
 
-        _prev_net_io = current
+        _prev_net_io = (sent, recv)
         _prev_time = now
 
     return {
-        "bytes_sent": current.bytes_sent,
-        "bytes_recv": current.bytes_recv,
+        "bytes_sent": sent,
+        "bytes_recv": recv,
         "speed_up": speed_up,
         "speed_down": speed_down,
-        "packets_sent": current.packets_sent,
-        "packets_recv": current.packets_recv,
+        "packets_sent": _finite_counter(getattr(current, "packets_sent", 0)),
+        "packets_recv": _finite_counter(getattr(current, "packets_recv", 0)),
         **_error_counts(current),
     }
 
