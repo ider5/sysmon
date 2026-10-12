@@ -18,6 +18,7 @@ All notable changes to SysMon are documented in this file.
 
 ### Fixed
 - Aggregate network collection returns zero counters instead of crashing when the OS exposes no I/O counters
+- The native process scanner drops idle placeholders and the current process before applying the top-N limit, so the list is not shortened by those rows
 
 ## [0.4.0] - 2026-08-14
 

@@ -199,7 +199,7 @@ def _try_native_processes(
         return None
     try:
         fetch = 0 if limit <= 0 else limit + IDLE_FETCH_EXTRA
-        rows = list_processes(fetch, sort_by, name_filter)
+        rows = list_processes(fetch, sort_by, name_filter, os.getpid())
         return [
             row
             for row in rows

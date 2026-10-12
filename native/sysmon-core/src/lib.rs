@@ -19,7 +19,25 @@ struct ProcessRow {
     mem_mb: f64,
 }
 
-fn scan_processes(limit: usize, sort_by: &str, name_filter: Option<&str>) -> Vec<ProcessRow> {
+fn is_placeholder_process(name: &str, pid: u32) -> bool {
+    if pid == 0 {
+        return true;
+    }
+    let trimmed = name.trim().to_lowercase();
+    let normalized = trimmed.strip_suffix(".exe").unwrap_or(&trimmed);
+    matches!(
+        normalized,
+        "idle" | "system idle process" | "system interrupts" | "swapper"
+    ) || normalized.starts_with("swapper/")
+}
+
+
+fn scan_processes(
+    limit: usize,
+    sort_by: &str,
+    name_filter: Option<&str>,
+    skip_pid: Option<u32>,
+) -> Vec<ProcessRow> {
     let mut sys = system()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -36,6 +54,10 @@ fn scan_processes(limit: usize, sort_by: &str, name_filter: Option<&str>) -> Vec
             continue;
         }
         let name = proc.name().to_string_lossy().into_owned();
+        let pid_u32 = pid.as_u32();
+        if is_placeholder_process(&name, pid_u32) || skip_pid == Some(pid_u32) {
+            continue;
+        }
         if let Some(ref needle) = needle {
             if !name.to_lowercase().contains(needle) {
                 continue;
@@ -64,12 +86,13 @@ fn scan_processes(limit: usize, sort_by: &str, name_filter: Option<&str>) -> Vec
 }
 
 #[pyfunction]
-#[pyo3(signature = (limit, sort_by, name_filter=None))]
+#[pyo3(signature = (limit, sort_by, name_filter=None, skip_pid=None))]
 fn list_processes(
     py: Python<'_>,
     limit: usize,
     sort_by: &str,
     name_filter: Option<&str>,
+    skip_pid: Option<u32>,
 ) -> PyResult<Vec<Py<PyAny>>> {
     if limit == 0 {
         return Ok(Vec::new());
@@ -78,7 +101,7 @@ fn list_processes(
     let sort_by = sort_by.to_owned();
     let name_filter = name_filter.map(str::to_owned);
     let rows = py.allow_threads(move || {
-        scan_processes(limit, &sort_by, name_filter.as_deref())
+        scan_processes(limit, &sort_by, name_filter.as_deref(), skip_pid)
     });
 
     let mut out = Vec::with_capacity(rows.len());

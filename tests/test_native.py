@@ -52,8 +52,9 @@ def test_get_top_processes_uses_native_when_available(monkeypatch):
 def test_native_backend_drops_idle_before_limit(monkeypatch):
     captured = {}
 
-    def fake_list(limit, sort_by, name_filter):
+    def fake_list(limit, sort_by, name_filter, skip_pid=None):
         captured["limit"] = limit
+        captured["skip_pid"] = skip_pid
         return [
             {
                 "pid": 0,
@@ -83,8 +84,9 @@ def test_native_backend_drops_self_before_limit(monkeypatch):
     monkeypatch.setattr(process_module.os, "getpid", lambda: 14260)
     captured = {}
 
-    def fake_list(limit, sort_by, name_filter):
+    def fake_list(limit, sort_by, name_filter, skip_pid=None):
         captured["limit"] = limit
+        captured["skip_pid"] = skip_pid
         return [
             {
                 "pid": 14260,
@@ -107,6 +109,7 @@ def test_native_backend_drops_self_before_limit(monkeypatch):
     monkeypatch.setitem(sys.modules, "sysmon._core", fake)
     result = process_module._try_native_processes(1, "cpu", None)
     assert captured["limit"] > 1
+    assert captured["skip_pid"] == 14260
     assert [row["name"] for row in result] == ["chrome"]
 
 
@@ -114,8 +117,8 @@ def test_try_native_calls_list_processes(monkeypatch):
     captured = {}
     fake = ModuleType("sysmon._core")
 
-    def list_processes(limit, sort_by, name_filter):
-        captured["args"] = (limit, sort_by, name_filter)
+    def list_processes(limit, sort_by, name_filter, skip_pid=None):
+        captured["args"] = (limit, sort_by, name_filter, skip_pid)
         return [{"pid": 1, "name": "a", "cpu_percent": 0.0, "memory_percent": 0.0, "memory_mb": 0.0}]
 
     fake.list_processes = list_processes
@@ -125,6 +128,7 @@ def test_try_native_calls_list_processes(monkeypatch):
         4 + process_module.IDLE_FETCH_EXTRA,
         "memory",
         "chrome",
+        process_module.os.getpid(),
     )
     assert result[0]["pid"] == 1
 
@@ -170,6 +174,16 @@ def test_native_list_processes_payload_shape():
         }
         assert isinstance(row["pid"], int)
         assert isinstance(row["name"], str)
+
+
+def test_native_list_processes_omits_idle_and_self_before_limit():
+    core = pytest.importorskip("sysmon._core")
+    self_pid = process_module.os.getpid()
+    rows = core.list_processes(8, "memory", None, self_pid)
+    assert len(rows) == 8
+    for row in rows:
+        assert row["pid"] != self_pid
+        assert not process_module.is_idle_process(str(row["name"]), row["pid"])
 
 
 def test_native_list_processes_name_filter():
