@@ -52,6 +52,37 @@ def test_build_title_shows_zero_gpu_temperature(monkeypatch):
     assert "0°C" in title_worker.build_title(no_gpu=False)
 
 
+def test_build_title_includes_swap_when_in_use(monkeypatch):
+    def fake_collect(name, settings=None):
+        assert name == "memory"
+        return {
+            "used": 1,
+            "total": 2,
+            "percent": 10.0,
+            "swap_total": 100,
+            "swap_percent": 25.0,
+        }
+
+    monkeypatch.setattr(title_worker, "collect", fake_collect)
+    monkeypatch.setattr(title_worker, "bytes_to_gb", lambda n: 1.0)
+    monkeypatch.setattr(
+        title_worker,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=True,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    assert title_worker.build_title(no_gpu=True) == "RAM 1.0/1.0G (10%) SWAP 25%"
+
+
 def test_build_title_follows_modules_and_battery(monkeypatch):
     def fake_collect(name, settings=None):
         assert name == "sensors"

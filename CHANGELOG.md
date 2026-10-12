@@ -18,7 +18,7 @@ All notable changes to SysMon are documented in this file.
 - The dashboard keeps sparklines for memory, disk read/write speed, and upload speed, next to the existing CPU and download history
 - The dashboard and `sysmon serve` reload `config.toml` when the file changes, without a restart
 - `sysmon snapshot` and `sysmon serve` only sample network and disk counters when those modules are enabled. Snapshot also skips that wait for sections that do not need it
-- Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled
+- Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled. Swap usage is appended only while swap is actually in use
 - `sysmon brief --format json` uses those same module switches and includes `sensors` when the module is enabled
 
 ### Fixed

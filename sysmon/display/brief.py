@@ -77,6 +77,15 @@ def _format_memory(
     else:
         text.append(f"{used}/{total}G", style="bold")
         text.append(f" ({pct:.0f}%)", style=_threshold_color(pct, warn, critical))
+    swap_total = info.get("swap_total") or 0
+    swap_percent = info.get("swap_percent") or 0
+    if swap_total > 0 and swap_percent > 0:
+        text.append(" SWAP ")
+        swap_label = f"{float(swap_percent):.0f}%"
+        if no_color:
+            text.append(swap_label)
+        else:
+            text.append(swap_label, style=_threshold_color(float(swap_percent), warn, critical))
     return text
 
 

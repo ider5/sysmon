@@ -84,6 +84,39 @@ def test_build_brief_line_cpu_color_uses_config_thresholds(monkeypatch):
     assert any("yellow" in style for style in styles)
 
 
+def test_build_brief_line_includes_swap_when_in_use(monkeypatch):
+    def fake_collect(name, settings=None):
+        if name == "memory":
+            return {
+                "used": 1,
+                "total": 2,
+                "percent": 10.0,
+                "swap_total": 100,
+                "swap_percent": 25.0,
+            }
+        raise AssertionError(name)
+
+    monkeypatch.setattr(brief_mod, "collect", fake_collect)
+    monkeypatch.setattr(brief_mod, "bytes_to_gb", lambda n: 1.0)
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=True,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    line = brief_mod.build_brief_line(no_color=True)
+    assert line.plain == "RAM 1.0/1.0G (10%) SWAP 25%"
+
+
 def test_build_brief_line_memory_color_uses_memory_thresholds(monkeypatch):
     _stub_brief_collectors(monkeypatch, cpu_percent=1.0, memory_percent=15.0)
     line = brief_mod.build_brief_line(

@@ -69,10 +69,15 @@ def build_title(no_gpu: bool) -> str:
         parts.append(f"CPU {cpu['percent']:.0f}%")
     if settings.modules.memory:
         mem = collect("memory", settings)
-        parts.append(
+        ram = (
             f"RAM {bytes_to_gb(mem['used'])}/{bytes_to_gb(mem['total'])}G "
             f"({mem['percent']:.0f}%)"
         )
+        swap_total = mem.get("swap_total") or 0
+        swap_percent = mem.get("swap_percent") or 0
+        if swap_total > 0 and swap_percent > 0:
+            ram += f" SWAP {float(swap_percent):.0f}%"
+        parts.append(ram)
     if settings.modules.network:
         net = collect("network", settings)
         parts.append(
