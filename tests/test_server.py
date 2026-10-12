@@ -85,6 +85,13 @@ def test_format_prometheus_skips_non_numeric_values():
     assert "sysmon_up 1.0" in text
 
 
+def test_format_prometheus_includes_build_info():
+    from sysmon import __version__
+
+    text = format_prometheus({})
+    assert f'sysmon_info{{version="{__version__}"}} 1.0' in text
+
+
 def test_format_prometheus_includes_core_gauges():
     text = format_prometheus(_FAKE_ALL)
     assert "sysmon_cpu_percent 12.5" in text

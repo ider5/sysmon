@@ -50,7 +50,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon serve` returns HTTP 500 JSON when a scrape fails, and later requests still succeed
 - `sysmon serve` accepts a trailing slash on `/json`, `/metrics`, and `/health`
 - `sysmon serve` answers HEAD with the same status and content length as GET, without a body
-- Metrics responses send `Cache-Control: no-store` and always include a `sysmon_up` gauge
+- Metrics responses send `Cache-Control: no-store` and always include a `sysmon_up` gauge and `sysmon_info` with the version label
 - Prometheus `/metrics` exports `sysmon_collected_at_seconds` and `sysmon_sample_age_seconds` when the payload has `collected_at`
 - Prometheus `/metrics` exports `sysmon_section_errors` when one or more sections failed
 - The dashboard stays open when one frame fails to render and shows that error until the next successful frame

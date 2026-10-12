@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
 
+from sysmon import __version__
 from sysmon.config import SysmonConfig
 from sysmon.export import collect_all, collect_all_from_snapshot, to_json
 
@@ -111,6 +112,9 @@ def format_prometheus(data: dict[str, Any]) -> str:
         _emit(name, value, help_text, "counter")
 
     gauge("sysmon_up", 1, "1 when the sysmon metrics endpoint is serving")
+    lines.append("# HELP sysmon_info Build information")
+    lines.append("# TYPE sysmon_info gauge")
+    lines.append(f'sysmon_info{{version="{_escape_label(__version__)}"}} 1.0')
     uptime_seconds = _first_number(data, "uptime_seconds")
     if uptime_seconds is not None:
         gauge("sysmon_uptime_seconds", uptime_seconds, "Time since boot in seconds")
