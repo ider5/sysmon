@@ -131,6 +131,7 @@ All notable changes to SysMon are documented in this file.
 - Memory collection keeps RAM data when swap is unavailable, and returns zeros instead of crashing when RAM itself cannot be read
 - The native process scanner drops idle placeholders and the current process before applying the top-N limit, so the list is not shortened by those rows
 - An unrecognized process sort key orders by CPU, matching the native scanner. It previously fell back to memory on the psutil path
+- Process sort keys accept `CPU` and `MEMORY` in any letter case before the native or psutil scan
 - `get_top_processes(limit=None)` uses the default of 10
 - Process name filters ignore surrounding spaces, and a blank filter matches every process
 - Processes with the same CPU or memory stay ordered by pid, including rows from the native scanner, and a non-numeric sort value does not fail the list

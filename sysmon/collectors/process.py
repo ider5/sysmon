@@ -159,6 +159,10 @@ def get_top_processes(
     """
     if limit is None:
         limit = 10
+    if isinstance(sort_by, str) and sort_by.strip().lower() in ("cpu", "memory"):
+        sort_by = sort_by.strip().lower()
+    else:
+        sort_by = "cpu"
     if isinstance(name_filter, str):
         name_filter = name_filter.strip()
         if not name_filter:

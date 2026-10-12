@@ -117,6 +117,18 @@ def test_get_top_processes_name_filter():
     assert names == {"chrome", "Chrome Helper"}
 
 
+def test_get_top_processes_sort_key_is_case_insensitive(monkeypatch):
+    captured = {}
+
+    def fake_native(limit, sort_by, name_filter):
+        captured["sort_by"] = sort_by
+        return []
+
+    monkeypatch.setattr(process_module, "_try_native_processes", fake_native)
+    assert process_module.get_top_processes(limit=2, sort_by="MEMORY") == []
+    assert captured["sort_by"] == "memory"
+
+
 def test_get_top_processes_orders_native_ties(monkeypatch):
     monkeypatch.setattr(
         process_module,
