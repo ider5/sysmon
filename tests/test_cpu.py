@@ -23,6 +23,21 @@ def test_get_cpu_snapshot_overall_from_cores():
     assert snapshot["count_physical"] == 2
 
 
+def test_get_cpu_snapshot_physical_count_falls_back_to_logical():
+    with patch("sysmon.collectors.cpu.psutil.cpu_percent", return_value=[10.0]):
+        with patch("sysmon.collectors.cpu.psutil.cpu_count", side_effect=[4, None]):
+            with patch("sysmon.collectors.cpu.platform.system", return_value="Linux"):
+                with patch(
+                    "sysmon.collectors.cpu.psutil.cpu_freq",
+                    return_value=None,
+                    create=True,
+                ):
+                    snapshot = get_cpu_snapshot(interval=0)
+
+    assert snapshot["count_logical"] == 4
+    assert snapshot["count_physical"] == 4
+
+
 def test_get_freq_fields_when_cpu_freq_missing(monkeypatch):
     monkeypatch.setattr(cpu_mod.platform, "system", lambda: "Darwin")
     monkeypatch.delattr(cpu_mod.psutil, "cpu_freq", raising=False)

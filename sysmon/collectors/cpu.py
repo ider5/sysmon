@@ -145,15 +145,17 @@ def get_cpu_snapshot(interval: float = 0.1) -> dict:
         freq_current, freq_max
     """
     _ensure_freq_collector()
-    cores = psutil.cpu_percent(interval=interval, percpu=True)
+    cores = psutil.cpu_percent(interval=interval, percpu=True) or []
     overall = sum(cores) / len(cores) if cores else 0.0
     freq_current, freq_max = _get_freq_fields()
+    logical = psutil.cpu_count(logical=True) or 0
+    physical = psutil.cpu_count(logical=False) or logical
 
     return {
         "percent": overall,
         "cores": cores,
-        "count_logical": psutil.cpu_count(logical=True),
-        "count_physical": psutil.cpu_count(logical=False),
+        "count_logical": logical,
+        "count_physical": physical,
         "freq_current": freq_current,
         "freq_max": freq_max,
     }
