@@ -7,6 +7,7 @@ All notable changes to SysMon are documented in this file.
 ### Added
 - Dashboard shows battery charge, power state, and temperatures when `[modules] sensors = true`
 - `sysmon snapshot sensors` prints that same panel; the full snapshot includes it when the module is enabled
+- Prometheus `/metrics` exports battery charge and sensor temperatures when they are present in the payload
 
 ### Changed
 - Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading is included when sensors are enabled

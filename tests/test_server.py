@@ -35,6 +35,35 @@ def test_format_prometheus_includes_core_gauges():
     assert "# TYPE sysmon_cpu_percent gauge" in text
 
 
+def test_format_prometheus_includes_sensors():
+    text = format_prometheus(
+        {
+            "sensors": {
+                "battery": {"percent": 80.0, "power_plugged": False, "secsleft": None},
+                "temperatures": {
+                    "coretemp": [
+                        {"label": 'Package "0"', "current": 45.5},
+                        {"label": "skipped", "current": None},
+                    ]
+                },
+            }
+        }
+    )
+    assert "sysmon_battery_percent 80.0" in text
+    assert "sysmon_battery_plugged 0.0" in text
+    assert text.count("# TYPE sysmon_temperature_celsius gauge") == 1
+    assert (
+        'sysmon_temperature_celsius{sensor="coretemp",label="Package \\"0\\""} 45.5'
+        in text
+    )
+    assert "skipped" not in text
+
+
+def test_format_prometheus_omits_sensors_when_absent():
+    assert "sysmon_battery" not in format_prometheus(_FAKE_ALL)
+    assert "sysmon_temperature" not in format_prometheus(_FAKE_ALL)
+
+
 def test_format_prometheus_emits_gpu_metadata_once():
     data = {
         "gpu": [

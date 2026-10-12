@@ -98,6 +98,45 @@ def format_prometheus(data: dict[str, Any]) -> str:
         lines.append("# TYPE sysmon_gpu_load gauge")
         for gpu_id, load in samples:
             lines.append(f'sysmon_gpu_load{{id="{_escape_label(gpu_id)}"}} {_fmt(load)}')
+
+    sensors = data.get("sensors")
+    if isinstance(sensors, dict):
+        battery = sensors.get("battery")
+        if isinstance(battery, dict) and isinstance(battery.get("percent"), (int, float)):
+            gauge(
+                "sysmon_battery_percent",
+                battery["percent"],
+                "Battery charge percent",
+            )
+            gauge(
+                "sysmon_battery_plugged",
+                1.0 if battery.get("power_plugged") else 0.0,
+                "1 when external power is connected",
+            )
+        temperatures = sensors.get("temperatures")
+        temp_samples: list[tuple[str, str, float]] = []
+        if isinstance(temperatures, dict):
+            for group, entries in temperatures.items():
+                if not isinstance(entries, list):
+                    continue
+                for entry in entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    current = entry.get("current")
+                    if not isinstance(current, (int, float)):
+                        continue
+                    temp_samples.append(
+                        (str(group), str(entry.get("label") or ""), float(current))
+                    )
+        if temp_samples:
+            lines.append("# HELP sysmon_temperature_celsius Sensor temperature in Celsius")
+            lines.append("# TYPE sysmon_temperature_celsius gauge")
+            for group, label, current in temp_samples:
+                lines.append(
+                    "sysmon_temperature_celsius"
+                    f'{{sensor="{_escape_label(group)}",label="{_escape_label(label)}"}} '
+                    f"{_fmt(current)}"
+                )
     return "\n".join(lines) + "\n"
 
 
