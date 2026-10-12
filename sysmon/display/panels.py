@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from rich import box
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -395,9 +396,9 @@ def process_panel(
     """Build a bordered top-processes table."""
     memory_warn = warn if mem_warn is None else mem_warn
     memory_critical = critical if mem_critical is None else mem_critical
-    title_suffix = f" (sort: {sort_by}"
+    title_suffix = f" (sort: {escape(str(sort_by))}"
     if name_filter:
-        title_suffix += f", filter: {name_filter}"
+        title_suffix += f", filter: {escape(str(name_filter))}"
     title_suffix += ")"
 
     table = Table(
@@ -427,10 +428,11 @@ def process_panel(
             mem = _as_number(proc.get("memory_percent"))
             rss = _as_number(proc.get("memory_mb"))
             mem_color = gradient_color(mem, warn=memory_warn, critical=memory_critical)
+            raw_name = " ".join(str(proc.get("name") or "unknown").split()) or "unknown"
             table.add_row(
                 str(index),
                 str(proc.get("pid", "")),
-                str(proc.get("name") or "unknown"),
+                escape(raw_name),
                 progress_bar(cpu, width=10, warn=warn, critical=critical),
                 Text(f"{mem:.1f}%", style=f"bold {mem_color}"),
                 f"{rss:.0f}M",
