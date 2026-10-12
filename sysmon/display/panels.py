@@ -28,22 +28,22 @@ def build_cpu_text(
     text = Text()
     usage_label = "Overall" if compact else "Usage"
     text.append(f"  {usage_label:<14}", style="bold")
-    text.append_text(progress_bar(info["percent"], width=25, warn=warn, critical=critical))
+    text.append_text(progress_bar(_as_number(info.get("percent")), width=25, warn=warn, critical=critical))
     text.append("\n")
 
     if history:
         text.append(f"  {'History':<14}", style="bold")
         text.append(render_sparkline(history, width=25) + "\n", style="cyan")
 
+    physical = int(_as_number(info.get("count_physical")))
+    logical = int(_as_number(info.get("count_logical")))
     text.append(f"  {'Cores':<14}", style="bold")
-    text.append(
-        f"{info['count_physical']} cores / {info['count_logical']} threads\n",
-        style="bold white",
-    )
+    text.append(f"{physical} cores / {logical} threads\n", style="bold white")
 
-    if info["freq_current"]:
+    freq = _as_number(info.get("freq_current"))
+    if freq:
         text.append(f"  {'Frequency':<14}", style="bold")
-        text.append(f"{info['freq_current']:.0f} MHz\n", style="bold white")
+        text.append(f"{freq:.0f} MHz\n", style="bold white")
 
     if cores:
         text.append("\n  ", style="bold")
@@ -91,29 +91,35 @@ def build_memory_text(
     """Build memory metrics text."""
     text = Text()
     text.append(f"  {'RAM':<14}", style="bold")
-    text.append_text(progress_bar(info["percent"], width=25, warn=warn, critical=critical))
+    text.append_text(progress_bar(_as_number(info.get("percent")), width=25, warn=warn, critical=critical))
     text.append("\n")
     if history:
         text.append(f"  {'History':<14}", style="bold")
         text.append(render_sparkline(history, width=25) + "\n", style="magenta")
     text.append(f"  {'':14}")
     text.append(
-        f"{bytes_to_gb(info['used'])} / {bytes_to_gb(info['total'])} GB",
+        f"{bytes_to_gb(_as_number(info.get('used')))} / {bytes_to_gb(_as_number(info.get('total')))} GB",
         style="bold white",
     )
     if show_available:
-        text.append(f"  (Available: {bytes_to_gb(info['available'])} GB)\n", style="dim")
+        text.append(
+            f"  (Available: {bytes_to_gb(_as_number(info.get('available')))} GB)\n",
+            style="dim",
+        )
     else:
         text.append("\n", style="bold white")
 
-    if info["swap_total"] > 0:
+    swap_total = _as_number(info.get("swap_total"))
+    if swap_total > 0:
         if show_available:
             text.append("\n")
         text.append(f"  {'Swap':<14}", style="bold")
-        text.append_text(progress_bar(info["swap_percent"], width=25, warn=warn, critical=critical))
+        text.append_text(
+            progress_bar(_as_number(info.get("swap_percent")), width=25, warn=warn, critical=critical)
+        )
         text.append(f"\n  {'':14}")
         text.append(
-            f"{bytes_to_gb(info['swap_used'])} / {bytes_to_gb(info['swap_total'])} GB\n",
+            f"{bytes_to_gb(_as_number(info.get('swap_used')))} / {bytes_to_gb(swap_total)} GB\n",
             style="bold white",
         )
 

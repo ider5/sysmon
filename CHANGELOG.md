@@ -10,6 +10,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon memory` and the memory snapshot show available RAM, matching the dashboard
 - Disk panels show free space next to used and total when the collector provides it, and a partial mount record does not crash the panel
 - Network panels tolerate a partial interface or totals record instead of raising
+- CPU and memory panels tolerate a partial record instead of raising
 - `sysmon network` and the network snapshot show packet counts, matching the dashboard
 - `sysmon snapshot sensors` prints that same panel; the full snapshot includes it when the module is enabled
 - `sysmon sensors` prints battery and temperatures, with the same JSON section as the other metric commands

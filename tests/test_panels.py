@@ -12,6 +12,15 @@ from sysmon.display.panels import (
 )
 
 
+def test_build_cpu_and_memory_text_tolerate_empty_records():
+    cpu = build_cpu_text({})
+    memory = build_memory_text({}, show_available=True)
+    assert "0 cores / 0 threads" in cpu.plain
+    assert "0.0 / 0.0 GB" in memory.plain
+    assert "Available" in memory.plain
+    assert "Swap" not in memory.plain
+
+
 def test_build_cpu_text_includes_usage():
     info = {
         "percent": 42.0,
