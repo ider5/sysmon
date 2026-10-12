@@ -403,6 +403,51 @@ def test_build_dashboard_sensors_waiting_and_error():
     assert "Collection error: sensor read failed" in console.export_text()
 
 
+def test_run_dashboard_skips_rate_prime_when_modules_off(monkeypatch):
+    calls: list[str] = []
+
+    class FakeService:
+        def __init__(self, **_kwargs):
+            return None
+
+        def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+        def get_snapshot(self) -> dict:
+            return {}
+
+    class FakeLive:
+        def __init__(self, renderable, **kwargs):
+            self.renderable = renderable
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def update(self, renderable) -> None:
+            self.renderable = renderable
+
+    def fake_sleep(_seconds: float) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("sysmon.display.dashboard.CollectorService", FakeService)
+    monkeypatch.setattr("sysmon.display.dashboard.Live", FakeLive)
+    monkeypatch.setattr("sysmon.display.dashboard.time.sleep", fake_sleep)
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect",
+        lambda name, *_args, **_kwargs: calls.append(name),
+    )
+    monkeypatch.setattr("sysmon.display.dashboard.load_config", lambda: _cpu_only_config())
+
+    run_dashboard(refresh_rate=1.0, include_gpu=False)
+    assert calls == []
+
+
 def test_run_dashboard_shows_display_error_and_continues(monkeypatch):
     builds = {"n": 0}
 

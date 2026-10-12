@@ -317,9 +317,15 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
 
     from sysmon.collectors.registry import collect
 
-    collect("network", config)
-    collect("disk", config)
-    time.sleep(0.5)
+    primed = False
+    if config.modules.network:
+        collect("network", config)
+        primed = True
+    if config.modules.disk:
+        collect("disk", config)
+        primed = True
+    if primed:
+        time.sleep(0.5)
 
     service = CollectorService(
         interval=refresh_rate,
