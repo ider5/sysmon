@@ -75,6 +75,49 @@ def test_format_prometheus_includes_load_average():
     assert text.count("# TYPE sysmon_load_average gauge") == 1
 
 
+def test_format_prometheus_skips_non_finite_labeled_samples():
+    text = format_prometheus(
+        {
+            "cpu": {"percent": 10.0, "load_avg": [1.0, float("inf"), 0.25]},
+            "disk": {
+                "percent": 10.0,
+                "mounts": [
+                    {"mount": "/bad", "percent": float("nan"), "inode_percent": float("inf")},
+                    {"mount": "/", "percent": 40.0, "inode_percent": 5.0},
+                ],
+            },
+            "network": {
+                "interfaces": [
+                    {"name": "bad0", "speed_up": True, "speed_down": float("nan")},
+                    {"name": "eth0", "speed_up": 100.0, "speed_down": 200.0},
+                ]
+            },
+            "sensors": {
+                "temperatures": {
+                    "coretemp": [
+                        {"label": "bad", "current": True},
+                        {"label": "hot", "current": float("inf")},
+                        {"label": "pkg", "current": 61.0},
+                    ]
+                }
+            },
+        }
+    )
+    assert 'sysmon_load_average{window="1m"} 1.0' in text
+    assert 'sysmon_load_average{window="15m"} 0.25' in text
+    assert 'window="5m"' not in text
+    assert 'sysmon_disk_mount_percent{mount="/"} 40.0' in text
+    assert 'mount="/bad"' not in text
+    assert "sysmon_disk_mount_inode_percent" in text
+    assert 'sysmon_network_interface_speed_up{device="eth0"} 100.0' in text
+    assert 'device="bad0"' not in text
+    assert 'sysmon_temperature_celsius{sensor="coretemp",label="pkg"} 61.0' in text
+    for line in text.splitlines():
+        if line.startswith("#") or not line:
+            continue
+        assert line.rsplit(" ", 1)[-1] not in {"inf", "-inf", "nan"}
+
+
 def test_format_prometheus_skips_non_numeric_values():
     text = format_prometheus(
         {"cpu": {"percent": None}, "disk": {"percent": float("nan"), "read_bytes": "nope"}}

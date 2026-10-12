@@ -63,12 +63,21 @@ def _escape_label(value: str) -> str:
     return value.replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
 
 
+def _number(value: object) -> float | None:
+    """Return a finite float, ignoring booleans and non-numeric values."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if not math.isfinite(number):
+        return None
+    return number
+
+
 def _first_number(payload: dict, *keys: str) -> float | None:
     for key in keys:
-        value = payload.get(key)
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            continue
-        return float(value)
+        number = _number(payload.get(key))
+        if number is not None:
+            return number
     return None
 
 
@@ -150,15 +159,19 @@ def format_prometheus(data: dict[str, Any]) -> str:
         if physical is not None:
             gauge("sysmon_cpu_physical", physical, "Physical CPU count")
         load_avg = cpu.get("load_avg")
-        if (
-            isinstance(load_avg, (list, tuple))
-            and len(load_avg) == 3
-            and all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in load_avg)
-        ):
-            lines.append("# HELP sysmon_load_average Load average by window")
-            lines.append("# TYPE sysmon_load_average gauge")
+        if isinstance(load_avg, (list, tuple)) and len(load_avg) == 3:
+            load_samples: list[tuple[str, float]] = []
             for window, value in zip(("1m", "5m", "15m"), load_avg):
-                lines.append(f'sysmon_load_average{{window="{window}"}} {_fmt(float(value))}')
+                number = _number(value)
+                if number is not None:
+                    load_samples.append((window, number))
+            if load_samples:
+                lines.append("# HELP sysmon_load_average Load average by window")
+                lines.append("# TYPE sysmon_load_average gauge")
+                for window, number in load_samples:
+                    lines.append(
+                        f'sysmon_load_average{{window="{window}"}} {_fmt(number)}'
+                    )
     memory = data.get("memory")
     if isinstance(memory, dict) and isinstance(memory.get("percent"), (int, float)):
         if not isinstance(memory.get("percent"), bool):
@@ -356,10 +369,12 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 if not isinstance(iface, dict):
                     continue
                 name = str(iface.get("name", ""))
-                if isinstance(iface.get("speed_up"), (int, float)):
-                    up_samples.append((name, float(iface["speed_up"])))
-                if isinstance(iface.get("speed_down"), (int, float)):
-                    down_samples.append((name, float(iface["speed_down"])))
+                speed_up = _number(iface.get("speed_up"))
+                speed_down = _number(iface.get("speed_down"))
+                if speed_up is not None:
+                    up_samples.append((name, speed_up))
+                if speed_down is not None:
+                    down_samples.append((name, speed_down))
         if up_samples:
             lines.append(
                 "# HELP sysmon_network_interface_speed_up "
@@ -462,11 +477,11 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 for entry in entries:
                     if not isinstance(entry, dict):
                         continue
-                    current = entry.get("current")
-                    if not isinstance(current, (int, float)):
+                    current = _number(entry.get("current"))
+                    if current is None:
                         continue
                     temp_samples.append(
-                        (str(group), str(entry.get("label") or ""), float(current))
+                        (str(group), str(entry.get("label") or ""), current)
                     )
         hottest = _first_number(sensors, "hottest_c")
         if hottest is not None:
