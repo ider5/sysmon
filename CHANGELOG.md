@@ -103,6 +103,7 @@ All notable changes to SysMon are documented in this file.
 ### Fixed
 - Aggregate network collection returns zero counters instead of crashing when the OS exposes no I/O counters or the call raises. Disk I/O uses the same fallback, and usage for selected mounts is still reported
 - A non-numeric disk byte counter is treated as zero instead of failing the disk sample
+- Disk usage fields that are missing or not finite become zero instead of failing the sample
 - CPU physical core count falls back to the logical count when the OS does not report it, instead of rendering "None cores"
 - Uptime is 0 when the boot time is in the future, and "unknown" when the boot time cannot be read
 - CPU collection returns a zero snapshot instead of crashing when percent sampling is not implemented

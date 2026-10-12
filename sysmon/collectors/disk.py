@@ -147,10 +147,10 @@ def _mount_usage(mount: str) -> dict | None:
         return None
     entry = {
         "mount": mount,
-        "total": usage.total,
-        "used": usage.used,
-        "free": usage.free,
-        "percent": usage.percent,
+        "total": _counter(getattr(usage, "total", 0)),
+        "used": _counter(getattr(usage, "used", 0)),
+        "free": _counter(getattr(usage, "free", 0)),
+        "percent": _counter(getattr(usage, "percent", 0)),
     }
     inode_percent = _inode_percent(mount)
     if inode_percent is not None:
