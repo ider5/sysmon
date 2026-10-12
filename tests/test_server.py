@@ -154,6 +154,20 @@ def test_format_prometheus_includes_mount_inodes():
     assert text.count("# TYPE sysmon_disk_mount_inode_percent gauge") == 1
 
 
+def test_format_prometheus_includes_mount_bytes():
+    text = format_prometheus(
+        {
+            "disk": {
+                "percent": 50.0,
+                "mounts": [{"mount": "/data", "percent": 50.0, "used": 5, "free": 5, "total": 10}],
+            }
+        }
+    )
+    assert 'sysmon_disk_mount_used_bytes{mount="/data"} 5.0' in text
+    assert 'sysmon_disk_mount_free_bytes{mount="/data"} 5.0' in text
+    assert 'sysmon_disk_mount_total_bytes{mount="/data"} 10.0' in text
+
+
 def test_format_prometheus_includes_disk_bytes():
     text = format_prometheus({"disk": {"percent": 25.0, "used": 25, "free": 75, "total": 100}})
     assert "sysmon_disk_used_bytes 25.0" in text

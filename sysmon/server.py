@@ -198,6 +198,9 @@ def format_prometheus(data: dict[str, Any]) -> str:
             )
         mount_samples: list[tuple[str, float]] = []
         inode_samples: list[tuple[str, float]] = []
+        used_samples: list[tuple[str, float]] = []
+        free_samples: list[tuple[str, float]] = []
+        total_samples: list[tuple[str, float]] = []
         mounts = disk.get("mounts")
         if isinstance(mounts, list):
             for mount in mounts:
@@ -206,10 +209,19 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 name = str(mount.get("mount", ""))
                 percent = _first_number(mount, "percent")
                 inode = _first_number(mount, "inode_percent")
+                used = _first_number(mount, "used")
+                free = _first_number(mount, "free")
+                total = _first_number(mount, "total")
                 if percent is not None:
                     mount_samples.append((name, percent))
                 if inode is not None:
                     inode_samples.append((name, inode))
+                if used is not None:
+                    used_samples.append((name, used))
+                if free is not None:
+                    free_samples.append((name, free))
+                if total is not None:
+                    total_samples.append((name, total))
         if mount_samples:
             lines.append("# HELP sysmon_disk_mount_percent Disk utilization percent by mount")
             lines.append("# TYPE sysmon_disk_mount_percent gauge")
@@ -227,6 +239,27 @@ def format_prometheus(data: dict[str, Any]) -> str:
                     "sysmon_disk_mount_inode_percent"
                     f'{{mount="{_escape_label(mount)}"}} {_fmt(inode)}'
                 )
+        _labeled_gauge(
+            lines,
+            "sysmon_disk_mount_used_bytes",
+            "Disk bytes used by mount",
+            "mount",
+            used_samples,
+        )
+        _labeled_gauge(
+            lines,
+            "sysmon_disk_mount_free_bytes",
+            "Disk bytes free by mount",
+            "mount",
+            free_samples,
+        )
+        _labeled_gauge(
+            lines,
+            "sysmon_disk_mount_total_bytes",
+            "Disk bytes total by mount",
+            "mount",
+            total_samples,
+        )
         read_speed = _first_number(disk, "read_speed")
         write_speed = _first_number(disk, "write_speed")
         if read_speed is not None:
