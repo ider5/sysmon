@@ -57,6 +57,28 @@ def test_get_cpu_snapshot_physical_count_falls_back_to_logical():
     assert snapshot["count_physical"] == 4
 
 
+def test_get_cpu_snapshot_drops_non_numeric_cores():
+    with patch(
+        "sysmon.collectors.cpu.psutil.cpu_percent",
+        return_value=[20.0, None, float("nan"), 40.0],
+    ):
+        with patch("sysmon.collectors.cpu.psutil.cpu_count", return_value=2):
+            with patch("sysmon.collectors.cpu.platform.system", return_value="Linux"):
+                with patch(
+                    "sysmon.collectors.cpu.psutil.cpu_freq",
+                    return_value=None,
+                    create=True,
+                ):
+                    snapshot = get_cpu_snapshot(interval=0)
+    assert snapshot["cores"] == [20.0, 40.0]
+    assert snapshot["percent"] == 30.0
+
+
+def test_load_average_none_when_values_are_not_numbers(monkeypatch):
+    monkeypatch.setattr(cpu_mod.psutil, "getloadavg", lambda: ("bad", 1.0, 0.5))
+    assert cpu_mod._load_average() is None
+
+
 def test_load_average_none_when_unavailable(monkeypatch):
     monkeypatch.delattr(cpu_mod.psutil, "getloadavg", raising=False)
     assert cpu_mod._load_average() is None

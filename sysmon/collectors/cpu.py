@@ -1,5 +1,6 @@
 """CPU metrics collector."""
 
+import math
 import platform
 import re
 import subprocess
@@ -144,9 +145,12 @@ def _load_average() -> tuple[float, float, float] | None:
         return None
     try:
         one, five, fifteen = getloadavg()
-    except (OSError, RuntimeError, NotImplementedError, AttributeError):
+        values = (float(one), float(five), float(fifteen))
+    except (OSError, RuntimeError, NotImplementedError, AttributeError, TypeError, ValueError):
         return None
-    return (float(one), float(five), float(fifteen))
+    if not all(math.isfinite(item) for item in values):
+        return None
+    return values
 
 
 def get_cpu_snapshot(interval: float = 0.1) -> dict:
@@ -158,9 +162,18 @@ def get_cpu_snapshot(interval: float = 0.1) -> dict:
     """
     _ensure_freq_collector()
     try:
-        cores = psutil.cpu_percent(interval=interval, percpu=True) or []
+        raw_cores = psutil.cpu_percent(interval=interval, percpu=True) or []
     except (OSError, RuntimeError, NotImplementedError):
-        cores = []
+        raw_cores = []
+    if not isinstance(raw_cores, list):
+        raw_cores = []
+    cores = [
+        float(core)
+        for core in raw_cores
+        if isinstance(core, (int, float))
+        and not isinstance(core, bool)
+        and math.isfinite(core)
+    ]
     overall = sum(cores) / len(cores) if cores else 0.0
     freq_current, freq_max = _get_freq_fields()
     logical = psutil.cpu_count(logical=True) or 0
