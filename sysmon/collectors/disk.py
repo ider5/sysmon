@@ -85,14 +85,20 @@ def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
     mount_entries: list[dict] = []
     for mount in resolved:
         entry = _mount_usage(mount)
-        if entry is not None:
-            mount_entries.append(entry)
+        if entry is None:
+            entry = {
+                "mount": mount,
+                "total": 0,
+                "used": 0,
+                "free": 0,
+                "percent": 0.0,
+            }
+        mount_entries.append(entry)
 
     if not mount_entries:
-        primary = _primary_mount()
         mount_entries = [
             {
-                "mount": primary,
+                "mount": _primary_mount(),
                 "total": 0,
                 "used": 0,
                 "free": 0,

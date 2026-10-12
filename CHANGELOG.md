@@ -26,6 +26,7 @@ All notable changes to SysMon are documented in this file.
 - CI runs on `master` only
 - Interactive `sysmon top --watch` treats `c`, `m`, `q`, and `/` as text while a name filter is being typed
 - A GPU temperature of 0°C is shown instead of being treated as missing
+- An unreadable selected disk mount stays in the result at zero usage instead of being replaced by the primary disk
 
 ## [0.4.0] - 2026-08-14
 

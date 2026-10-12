@@ -21,6 +21,19 @@ def test_get_disk_info_includes_mounts_list():
     assert result["mount"] == "/data"
 
 
+def test_get_disk_info_keeps_unreadable_selected_mount():
+    io = SimpleNamespace(read_bytes=0, write_bytes=0)
+    with patch("sysmon.collectors.disk.psutil.disk_usage", side_effect=OSError("denied")):
+        with patch("sysmon.collectors.disk.psutil.disk_io_counters", return_value=io):
+            with patch("sysmon.collectors.disk.time.time", return_value=1.0):
+                result = get_disk_info(mounts=["/missing", "/data"])
+
+    assert [item["mount"] for item in result["mounts"]] == ["/missing", "/data"]
+    assert result["mount"] == "/missing"
+    assert result["percent"] == 0.0
+    assert all(item["total"] == 0 for item in result["mounts"])
+
+
 def test_list_mount_points_skips_inaccessible():
     parts = [
         SimpleNamespace(mountpoint="/", device="/dev/sda1"),
