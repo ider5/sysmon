@@ -55,6 +55,30 @@ def _escape_label(value: str) -> str:
     return value.replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
 
 
+def _first_number(payload: dict, *keys: str) -> float | None:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        return float(value)
+    return None
+
+
+def _labeled_gauge(
+    lines: list[str],
+    name: str,
+    help_text: str,
+    label: str,
+    samples: list[tuple[str, float]],
+) -> None:
+    if not samples:
+        return
+    lines.append(f"# HELP {name} {help_text}")
+    lines.append(f"# TYPE {name} gauge")
+    for label_value, value in samples:
+        lines.append(f'{name}{{{label}="{_escape_label(label_value)}"}} {_fmt(value)}')
+
+
 def format_prometheus(data: dict[str, Any]) -> str:
     """Render a Prometheus text exposition from a collect_all payload."""
     lines: list[str] = []
@@ -136,15 +160,53 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 )
     gpus = data.get("gpu")
     samples: list[tuple[str, float]] = []
+    memory_used: list[tuple[str, float]] = []
+    memory_total: list[tuple[str, float]] = []
+    gpu_temps: list[tuple[str, float]] = []
     if isinstance(gpus, list):
         for gpu in gpus:
-            if isinstance(gpu, dict) and "load" in gpu:
-                samples.append((str(gpu.get("id", 0)), float(gpu["load"])))
-    if samples:
-        lines.append("# HELP sysmon_gpu_load GPU utilization percent")
-        lines.append("# TYPE sysmon_gpu_load gauge")
-        for gpu_id, load in samples:
-            lines.append(f'sysmon_gpu_load{{id="{_escape_label(gpu_id)}"}} {_fmt(load)}')
+            if not isinstance(gpu, dict):
+                continue
+            gpu_id = str(gpu.get("id", 0))
+            if isinstance(gpu.get("load"), (int, float)) and not isinstance(gpu.get("load"), bool):
+                samples.append((gpu_id, float(gpu["load"])))
+            used = _first_number(gpu, "memory_used_mb", "memory_used")
+            total = _first_number(gpu, "memory_total_mb", "memory_total")
+            temp = _first_number(gpu, "temperature_c", "temperature")
+            if used is not None:
+                memory_used.append((gpu_id, used))
+            if total is not None:
+                memory_total.append((gpu_id, total))
+            if temp is not None:
+                gpu_temps.append((gpu_id, temp))
+    _labeled_gauge(
+        lines,
+        "sysmon_gpu_load",
+        "GPU utilization percent",
+        "id",
+        samples,
+    )
+    _labeled_gauge(
+        lines,
+        "sysmon_gpu_memory_used_mb",
+        "GPU memory used in megabytes",
+        "id",
+        memory_used,
+    )
+    _labeled_gauge(
+        lines,
+        "sysmon_gpu_memory_total_mb",
+        "GPU memory total in megabytes",
+        "id",
+        memory_total,
+    )
+    _labeled_gauge(
+        lines,
+        "sysmon_gpu_temperature_celsius",
+        "GPU temperature in Celsius",
+        "id",
+        gpu_temps,
+    )
 
     sensors = data.get("sensors")
     if isinstance(sensors, dict):

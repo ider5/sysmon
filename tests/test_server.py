@@ -91,6 +91,35 @@ def test_format_prometheus_omits_sensors_when_absent():
     assert "sysmon_temperature" not in format_prometheus(_FAKE_ALL)
 
 
+def test_format_prometheus_includes_gpu_memory_and_temperature():
+    text = format_prometheus(
+        {
+            "gpu": [
+                {
+                    "id": 0,
+                    "load": 12.0,
+                    "memory_used_mb": 512.0,
+                    "memory_total_mb": 8192.0,
+                    "temperature_c": 70.0,
+                },
+                {
+                    "id": 1,
+                    "load": 0.0,
+                    "memory_used": 256.0,
+                    "memory_total": 1024.0,
+                    "temperature": None,
+                },
+            ]
+        }
+    )
+    assert 'sysmon_gpu_load{id="0"} 12.0' in text
+    assert 'sysmon_gpu_memory_used_mb{id="0"} 512.0' in text
+    assert 'sysmon_gpu_memory_total_mb{id="1"} 1024.0' in text
+    assert 'sysmon_gpu_temperature_celsius{id="0"} 70.0' in text
+    assert 'sysmon_gpu_temperature_celsius{id="1"}' not in text
+    assert text.count("# TYPE sysmon_gpu_load gauge") == 1
+
+
 def test_format_prometheus_emits_gpu_metadata_once():
     data = {
         "gpu": [
