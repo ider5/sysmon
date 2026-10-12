@@ -49,6 +49,14 @@ class CollectorService:
             self._thread = None
             raise
 
+    def set_interval(self, interval: float) -> None:
+        """Change the background sample period."""
+        if isinstance(interval, bool) or not isinstance(interval, (int, float)):
+            return
+        if interval <= 0:
+            return
+        self._interval = float(interval)
+
     def stop(self) -> None:
         """Stop background collection."""
         self._running = False

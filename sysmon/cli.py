@@ -85,9 +85,7 @@ def _emit_json(data: dict[str, Any]) -> None:
 def _launch_dashboard(refresh: float | None, no_gpu: bool) -> None:
     from sysmon.display.dashboard import run_dashboard
 
-    settings = load_config()
-    refresh_rate = refresh if refresh is not None else settings.refresh_interval
-    run_dashboard(refresh_rate=refresh_rate, include_gpu=not no_gpu)
+    run_dashboard(refresh_rate=refresh, include_gpu=not no_gpu)
 
 
 def _wait_for_rate_sampling(

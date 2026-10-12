@@ -446,6 +446,73 @@ def test_run_dashboard_survives_failed_rate_prime(monkeypatch):
     run_dashboard(refresh_rate=1.0, include_gpu=False)
 
 
+def test_run_dashboard_follows_config_interval(monkeypatch):
+    from sysmon.config import ModuleConfig
+
+    state = {"interval": 1.5}
+    slept: list[float] = []
+    intervals: list[float] = []
+
+    class FakeService:
+        def __init__(self, **kwargs):
+            intervals.append(kwargs["interval"])
+
+        def set_interval(self, interval: float) -> None:
+            intervals.append(interval)
+
+        def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+        def get_snapshot(self) -> dict:
+            return {}
+
+    class FakeLive:
+        def __init__(self, renderable, **kwargs):
+            self.renderable = renderable
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def update(self, renderable) -> None:
+            self.renderable = renderable
+
+    def fake_sleep(seconds: float) -> None:
+        slept.append(seconds)
+        state["interval"] = 2.5
+        if len(slept) >= 2:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr("sysmon.display.dashboard.CollectorService", FakeService)
+    monkeypatch.setattr("sysmon.display.dashboard.Live", FakeLive)
+    monkeypatch.setattr("sysmon.display.dashboard.time.sleep", fake_sleep)
+    monkeypatch.setattr("sysmon.collectors.registry.collect", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        "sysmon.display.dashboard.load_config",
+        lambda: SysmonConfig(
+            refresh_interval=state["interval"],
+            modules=ModuleConfig(
+                cpu=True,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            ),
+        ),
+    )
+    run_dashboard(include_gpu=False)
+    assert slept == [1.5, 2.5]
+    assert intervals[0] == 1.5
+    assert 2.5 in intervals
+
+
 def test_run_dashboard_skips_rate_prime_when_modules_off(monkeypatch):
     calls: list[str] = []
 

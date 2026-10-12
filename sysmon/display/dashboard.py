@@ -307,10 +307,11 @@ def build_dashboard(
     return layout
 
 
-def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
+def run_dashboard(refresh_rate: float | None = None, include_gpu: bool = True) -> None:
     """Run the real-time dashboard."""
     console = Console()
     config = load_config()
+    interval = config.refresh_interval if refresh_rate is None else refresh_rate
     cpu_history = HistoryBuffer(maxlen=60)
     mem_history = HistoryBuffer(maxlen=60)
     net_history = HistoryBuffer(maxlen=60)
@@ -336,7 +337,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
         time.sleep(0.5)
 
     service = CollectorService(
-        interval=refresh_rate,
+        interval=interval,
         include_gpu=include_gpu,
         include_sensors=None,
         config=config,
@@ -365,8 +366,13 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                 while True:
                     try:
                         config = load_config()
+                        interval = (
+                            config.refresh_interval if refresh_rate is None else refresh_rate
+                        )
+                        if hasattr(service, "set_interval"):
+                            service.set_interval(interval)
                         snapshot = service.get_snapshot()
-                        notice = "stale" if snapshot_is_stale(snapshot, refresh_rate) else None
+                        notice = "stale" if snapshot_is_stale(snapshot, interval) else None
                         record_dashboard_history(
                             snapshot,
                             cpu_history,
@@ -400,7 +406,7 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                                 border_style="red",
                             )
                         )
-                    time.sleep(refresh_rate)
+                    time.sleep(interval)
             except KeyboardInterrupt:
                 pass
     finally:

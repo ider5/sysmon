@@ -93,6 +93,7 @@ All notable changes to SysMon are documented in this file.
 - The dashboard and `sysmon serve` reload `config.toml` when the file changes, without a restart
 - `sysmon brief --watch` reloads thresholds and the selected network interfaces from `config.toml` on each frame
 - `sysmon brief --watch` also follows `brief_refresh_interval` from `config.toml` on each frame unless `-r` was passed
+- The dashboard follows `refresh_interval` from `config.toml` unless `-r` was passed
 - `sysmon top --watch` reloads CPU and memory thresholds from `config.toml` on each frame
 - The background collector keeps sampling after an unexpected collection error instead of stopping the thread
 - A failed section is left out of the new sample instead of being filled with the previous section's values
