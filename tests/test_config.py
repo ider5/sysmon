@@ -43,6 +43,8 @@ def test_metric_status():
     assert metric_status(85, 80, 95) == "warn"
     assert metric_status(80, 80, 95) == "warn"
     assert metric_status(95, 80, 95) == "critical"
+    assert metric_status(float("nan"), 80, 95) == "unknown"
+    assert metric_status(float("inf"), 80, 95) == "unknown"
 
 
 def test_from_mapping_modules_and_thresholds():

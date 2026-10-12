@@ -244,7 +244,9 @@ def metric_status(
     warn: float,
     critical: float,
 ) -> str:
-    """Return ok, warn, or critical for a percentage value."""
+    """Return ok, warn, critical, or unknown for a percentage value."""
+    if isinstance(percent, bool) or not isinstance(percent, (int, float)) or not math.isfinite(percent):
+        return "unknown"
     if percent >= critical:
         return "critical"
     if percent >= warn:
