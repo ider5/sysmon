@@ -296,9 +296,9 @@ def load_config() -> SysmonConfig:
 
     try:
         data = _load_toml(path)
-    except Exception:
+    except Exception as exc:
         print(
-            f"sysmon: failed to parse {path}, using defaults.",
+            f"sysmon: failed to parse {path} ({exc}), using defaults.",
             file=sys.stderr,
         )
         _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)
@@ -314,9 +314,9 @@ def load_config() -> SysmonConfig:
 
     try:
         config = SysmonConfig.from_mapping(data)
-    except Exception:
+    except Exception as exc:
         print(
-            f"sysmon: invalid values in {path}, using defaults.",
+            f"sysmon: invalid values in {path} ({exc}), using defaults.",
             file=sys.stderr,
         )
         _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)

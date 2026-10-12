@@ -177,6 +177,7 @@ def test_load_config_invalid_toml_falls_back(tmp_path: Path, monkeypatch, capsys
     assert config.enable_gpu is True
     err = capsys.readouterr().err
     assert "failed to parse" in err.lower()
+    assert "(" in err and ")" in err
 
 
 def test_load_config_bad_interval_keeps_other_settings(tmp_path: Path, monkeypatch):
