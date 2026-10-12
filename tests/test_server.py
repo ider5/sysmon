@@ -633,3 +633,37 @@ def test_serve_forever_primes_before_starting_service(monkeypatch):
     assert created["reload_config"] is True
     assert "serve" in order
     assert "stop" in order
+
+
+def test_serve_forever_stops_collector_when_bind_fails(monkeypatch):
+    import pytest
+
+    from sysmon.server import serve_forever
+
+    stopped = {"n": 0}
+
+    class FakeService:
+        def __init__(self, **_kwargs):
+            return None
+
+        def start(self):
+            return None
+
+        def stop(self):
+            stopped["n"] += 1
+
+        def get_snapshot(self):
+            return {}
+
+    monkeypatch.setattr("sysmon.server._prime_rate_collectors", lambda _settings: None)
+    monkeypatch.setattr("sysmon.collectors.service.CollectorService", FakeService)
+
+    def fail_bind(*_args, **_kwargs):
+        raise OSError("address in use")
+
+    monkeypatch.setattr("sysmon.server.start_server", fail_bind)
+    with pytest.raises(SystemExit) as exc:
+        serve_forever(host="127.0.0.1", port=9100)
+    assert stopped["n"] == 1
+    assert "address in use" in str(exc.value)
+    assert "9100" in str(exc.value)

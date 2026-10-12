@@ -78,6 +78,7 @@ All notable changes to SysMon are documented in this file.
 - JSON metric status is `unknown` for a NaN or infinite percentage instead of `ok`
 - JSON output replaces NaN and infinite numbers with null so one bad sample does not reject the whole document
 - `sysmon serve` returns HTTP 500 JSON when a scrape fails, and later requests still succeed
+- `sysmon serve` reports a bind failure and stops the background collector instead of leaving it running
 - `sysmon serve` accepts a trailing slash on `/json`, `/metrics`, and `/health`
 - `sysmon serve` answers HEAD with the same status and content length as GET, without a body
 - Metrics responses send `Cache-Control: no-store` and always include a `sysmon_up` gauge and `sysmon_info` with the version label

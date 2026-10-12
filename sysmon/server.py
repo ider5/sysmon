@@ -646,7 +646,11 @@ def serve_forever(
             settings=current,
         )
 
-    httpd = start_server(host, port, payload_fn=payload)
+    try:
+        httpd = start_server(host, port, payload_fn=payload)
+    except OSError as exc:
+        service.stop()
+        raise SystemExit(f"sysmon: could not bind {host}:{port} ({exc})") from exc
     bound_host, bound_port = httpd.server_address[:2]
     print(f"sysmon serving on http://{bound_host}:{bound_port}/json")
     try:
