@@ -621,8 +621,6 @@ def brief(
             refresh_rate=refresh_rate,
             no_color=no_color,
             no_gpu=not include_gpu,
-            interfaces=settings.network_interfaces,
-            thresholds=settings.thresholds,
         )
     else:
         print_brief(

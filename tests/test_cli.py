@@ -271,7 +271,7 @@ def test_brief_passes_config_thresholds(monkeypatch):
     assert captured["kwargs"]["thresholds"] is DEFAULT_CONFIG.thresholds
 
 
-def test_brief_watch_passes_config_thresholds(monkeypatch):
+def test_brief_watch_reloads_config_each_frame(monkeypatch):
     captured = {}
 
     monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
@@ -282,7 +282,8 @@ def test_brief_watch_passes_config_thresholds(monkeypatch):
     monkeypatch.setattr("sysmon.display.brief.run_brief_watch", fake_watch)
     result = runner.invoke(app, ["brief", "--watch", "--no-gpu"])
     assert result.exit_code == 0
-    assert captured["kwargs"]["thresholds"] is DEFAULT_CONFIG.thresholds
+    assert "thresholds" not in captured["kwargs"]
+    assert "interfaces" not in captured["kwargs"]
 
 
 def test_brief_json(monkeypatch):
