@@ -40,6 +40,8 @@ def build_dashboard(
     cpu_history: HistoryBuffer | None = None,
     mem_history: HistoryBuffer | None = None,
     net_history: HistoryBuffer | None = None,
+    disk_read_history: HistoryBuffer | None = None,
+    disk_write_history: HistoryBuffer | None = None,
     snapshot: dict | None = None,
 ) -> Layout:
     """Build the full dashboard layout from a cached snapshot."""
@@ -148,6 +150,8 @@ def build_dashboard(
                         disk_info,
                         warn=thresholds.disk_warn,
                         critical=thresholds.disk_critical,
+                        read_history=disk_read_history.values() if disk_read_history else None,
+                        write_history=disk_write_history.values() if disk_write_history else None,
                     ),
                 )
             )
@@ -259,6 +263,8 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
     cpu_history = HistoryBuffer(maxlen=60)
     mem_history = HistoryBuffer(maxlen=60)
     net_history = HistoryBuffer(maxlen=60)
+    disk_read_history = HistoryBuffer(maxlen=60)
+    disk_write_history = HistoryBuffer(maxlen=60)
 
     from sysmon.collectors.registry import collect
 
@@ -283,6 +289,8 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                 cpu_history=cpu_history,
                 mem_history=mem_history,
                 net_history=net_history,
+                disk_read_history=disk_read_history,
+                disk_write_history=disk_write_history,
                 snapshot=service.get_snapshot(),
             ),
             console=console,
@@ -302,6 +310,10 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                     net = snapshot.get("network")
                     if net is not None:
                         net_history.add(net["speed_down"])
+                    disk = snapshot.get("disk")
+                    if disk is not None:
+                        disk_read_history.add(disk["read_speed"])
+                        disk_write_history.add(disk["write_speed"])
                     live.update(
                         build_dashboard(
                             include_gpu=include_gpu,
@@ -309,6 +321,8 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                             cpu_history=cpu_history,
                             mem_history=mem_history,
                             net_history=net_history,
+                            disk_read_history=disk_read_history,
+                            disk_write_history=disk_write_history,
                             snapshot=snapshot,
                         )
                     )

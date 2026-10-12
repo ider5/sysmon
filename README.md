@@ -8,7 +8,7 @@ A beautiful system monitoring CLI tool built with Python.
 
 ## Features
 
-- **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, Disk, GPU, and top processes, plus sparklines for CPU, memory, and download speed
+- **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, Disk, GPU, and top processes, plus sparklines for CPU, memory, download speed, and disk read/write speed
 - **Snapshot Mode** - One-shot system info output with ASCII art logo
 - **Brief Mode** - Single-line status display, perfect for terminal prompts
 - **JSON Output** - Machine-readable payloads with `schema_version` **3** (`--format json`)

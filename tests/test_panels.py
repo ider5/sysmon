@@ -55,6 +55,23 @@ def test_build_memory_text_includes_ram():
     assert "Available" in rendered
 
 
+def test_build_disk_text_includes_speed_history():
+    info = {
+        "mount": "/",
+        "percent": 10.0,
+        "used": 10,
+        "total": 100,
+        "read_speed": 2048,
+        "write_speed": 1024,
+    }
+    text = build_disk_text(info, read_history=[0.0, 2048.0], write_history=[0.0, 1024.0])
+    rendered = text.plain
+    assert "2.0 KB/s" in rendered
+    assert "1.0 KB/s" in rendered
+    assert "▁" in rendered
+    assert "█" in rendered
+
+
 def test_build_disk_text_includes_mount():
     info = {
         "mount": "C:\\",

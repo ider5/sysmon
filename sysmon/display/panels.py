@@ -215,6 +215,8 @@ def build_disk_text(
     *,
     warn: float = 80.0,
     critical: float = 95.0,
+    read_history: list[float] | None = None,
+    write_history: list[float] | None = None,
 ) -> Text:
     """Build disk metrics text."""
     text = Text()
@@ -245,8 +247,14 @@ def build_disk_text(
     text.append("  " + "─" * 30 + "\n", style="dim")
     text.append(f"  {'Read':<14}", style="bold")
     text.append(format_speed(info["read_speed"]) + "\n", style="cyan")
+    if read_history:
+        text.append(f"  {'':14}")
+        text.append(render_sparkline(read_history, width=25) + "\n", style="cyan")
     text.append(f"  {'Write':<14}", style="bold")
     text.append(format_speed(info["write_speed"]) + "\n", style="magenta")
+    if write_history:
+        text.append(f"  {'':14}")
+        text.append(render_sparkline(write_history, width=25) + "\n", style="magenta")
     return text
 
 
@@ -255,10 +263,18 @@ def disk_panel(
     *,
     warn: float = 80.0,
     critical: float = 95.0,
+    read_history: list[float] | None = None,
+    write_history: list[float] | None = None,
 ) -> Panel:
     """Build disk metrics panel."""
     return Panel(
-        build_disk_text(info, warn=warn, critical=critical),
+        build_disk_text(
+            info,
+            warn=warn,
+            critical=critical,
+            read_history=read_history,
+            write_history=write_history,
+        ),
         title="[bold blue]💿 Disk[/bold blue]",
         border_style="blue",
     )
