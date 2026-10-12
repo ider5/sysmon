@@ -189,17 +189,35 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 "Primary disk inode utilization percent",
             )
         mount_samples: list[tuple[str, float]] = []
+        inode_samples: list[tuple[str, float]] = []
         mounts = disk.get("mounts")
         if isinstance(mounts, list):
             for mount in mounts:
-                if isinstance(mount, dict) and isinstance(mount.get("percent"), (int, float)):
-                    mount_samples.append((str(mount.get("mount", "")), float(mount["percent"])))
+                if not isinstance(mount, dict):
+                    continue
+                name = str(mount.get("mount", ""))
+                percent = _first_number(mount, "percent")
+                inode = _first_number(mount, "inode_percent")
+                if percent is not None:
+                    mount_samples.append((name, percent))
+                if inode is not None:
+                    inode_samples.append((name, inode))
         if mount_samples:
             lines.append("# HELP sysmon_disk_mount_percent Disk utilization percent by mount")
             lines.append("# TYPE sysmon_disk_mount_percent gauge")
             for mount, percent in mount_samples:
                 lines.append(
                     f'sysmon_disk_mount_percent{{mount="{_escape_label(mount)}"}} {_fmt(percent)}'
+                )
+        if inode_samples:
+            lines.append(
+                "# HELP sysmon_disk_mount_inode_percent Inode utilization percent by mount"
+            )
+            lines.append("# TYPE sysmon_disk_mount_inode_percent gauge")
+            for mount, inode in inode_samples:
+                lines.append(
+                    "sysmon_disk_mount_inode_percent"
+                    f'{{mount="{_escape_label(mount)}"}} {_fmt(inode)}'
                 )
         read_speed = _first_number(disk, "read_speed")
         write_speed = _first_number(disk, "write_speed")
