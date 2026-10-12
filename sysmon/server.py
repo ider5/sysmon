@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import socket
 import time
 from collections.abc import Callable
@@ -77,11 +78,16 @@ def _labeled_gauge(
     label: str,
     samples: list[tuple[str, float]],
 ) -> None:
-    if not samples:
+    emitted = [
+        (label_value, value)
+        for label_value, value in samples
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    ]
+    if not emitted:
         return
     lines.append(f"# HELP {name} {help_text}")
     lines.append(f"# TYPE {name} gauge")
-    for label_value, value in samples:
+    for label_value, value in emitted:
         lines.append(f'{name}{{{label}="{_escape_label(label_value)}"}} {_fmt(value)}')
 
 
@@ -89,15 +95,20 @@ def format_prometheus(data: dict[str, Any]) -> str:
     """Render a Prometheus text exposition from a collect_all payload."""
     lines: list[str] = []
 
-    def gauge(name: str, value: float, help_text: str) -> None:
+    def _emit(name: str, value: object, help_text: str, metric_type: str) -> None:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return
+        if not math.isfinite(float(value)):
+            return
         lines.append(f"# HELP {name} {help_text}")
-        lines.append(f"# TYPE {name} gauge")
-        lines.append(f"{name} {_fmt(value)}")
+        lines.append(f"# TYPE {name} {metric_type}")
+        lines.append(f"{name} {_fmt(float(value))}")
+
+    def gauge(name: str, value: float, help_text: str) -> None:
+        _emit(name, value, help_text, "gauge")
 
     def counter(name: str, value: float, help_text: str) -> None:
-        lines.append(f"# HELP {name} {help_text}")
-        lines.append(f"# TYPE {name} counter")
-        lines.append(f"{name} {_fmt(value)}")
+        _emit(name, value, help_text, "counter")
 
     gauge("sysmon_up", 1, "1 when the sysmon metrics endpoint is serving")
     errors = data.get("errors")

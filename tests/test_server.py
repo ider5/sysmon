@@ -65,6 +65,16 @@ def test_format_prometheus_includes_load_average():
     assert text.count("# TYPE sysmon_load_average gauge") == 1
 
 
+def test_format_prometheus_skips_non_numeric_values():
+    text = format_prometheus(
+        {"cpu": {"percent": None}, "disk": {"percent": float("nan"), "read_bytes": "nope"}}
+    )
+    assert "sysmon_cpu_percent" not in text
+    assert "sysmon_disk_percent" not in text
+    assert "sysmon_disk_read_bytes" not in text
+    assert "sysmon_up 1.0" in text
+
+
 def test_format_prometheus_includes_core_gauges():
     text = format_prometheus(_FAKE_ALL)
     assert "sysmon_cpu_percent 12.5" in text
