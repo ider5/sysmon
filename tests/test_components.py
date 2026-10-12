@@ -71,6 +71,20 @@ def test_gpu_panel_shows_zero_celsius():
     assert "0°C" in str(panel.renderable)
 
 
+def test_uptime_is_unknown_when_boot_time_fails(monkeypatch):
+    def boom() -> float:
+        raise OSError("boot")
+
+    monkeypatch.setattr(components.psutil, "boot_time", boom)
+    assert components._get_uptime() == "unknown"
+
+
+def test_uptime_is_zero_when_boot_time_is_ahead(monkeypatch):
+    monkeypatch.setattr(components.psutil, "boot_time", lambda: 200.0)
+    monkeypatch.setattr(components.time, "time", lambda: 100.0)
+    assert components._get_uptime() == "0m"
+
+
 def test_gpu_panel_empty_list_shows_unavailable():
     panel = gpu_panel([])
     assert "No GPU" in str(panel.renderable)

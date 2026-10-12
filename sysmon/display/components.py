@@ -33,8 +33,11 @@ def _get_os_name() -> str:
 
 def _get_uptime() -> str:
     """Get system uptime as a formatted string."""
-    boot_time = psutil.boot_time()
-    uptime_seconds = time.time() - boot_time
+    try:
+        boot_time = psutil.boot_time()
+    except (OSError, RuntimeError, NotImplementedError):
+        return "unknown"
+    uptime_seconds = max(0.0, time.time() - boot_time)
 
     days = int(uptime_seconds // 86400)
     hours = int((uptime_seconds % 86400) // 3600)
