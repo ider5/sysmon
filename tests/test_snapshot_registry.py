@@ -275,6 +275,51 @@ def test_refresh_wait_quits_when_q_arrives(monkeypatch):
     assert clock["t"] < 1.0
 
 
+def test_top_live_reloads_thresholds(monkeypatch):
+    configs = [
+        SysmonConfig(
+            thresholds=ThresholdConfig(
+                cpu_warn=11, cpu_critical=22, memory_warn=33, memory_critical=44
+            )
+        ),
+        SysmonConfig(
+            thresholds=ThresholdConfig(
+                cpu_warn=55, cpu_critical=66, memory_warn=77, memory_critical=88
+            )
+        ),
+    ]
+    seen: list[dict] = []
+
+    def fake_panel(*_args, **kwargs):
+        seen.append(kwargs)
+        return "panel"
+
+    class FakeLive:
+        def __init__(self, renderable, *a, **k):
+            self.renderable = renderable
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def update(self, renderable):
+            self.renderable = renderable
+
+    keys = iter([None, "q"])
+    monkeypatch.setattr(top_live_mod, "load_config", lambda: configs.pop(0))
+    monkeypatch.setattr(top_live_mod, "process_panel", fake_panel)
+    monkeypatch.setattr(top_live_mod, "collect_processes", lambda **_k: [])
+    monkeypatch.setattr(top_live_mod, "Live", FakeLive)
+    monkeypatch.setattr(top_live_mod, "_read_key", lambda: next(keys))
+    monkeypatch.setattr(top_live_mod.time, "sleep", lambda _s: None)
+
+    top_live_mod.run_top_live(limit=3)
+    assert [item["warn"] for item in seen] == [11, 55]
+    assert [item["mem_critical"] for item in seen] == [44, 88]
+
+
 def test_top_live_render_uses_collect_processes(monkeypatch):
     calls = []
 

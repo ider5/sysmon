@@ -11,6 +11,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from sysmon.collectors.registry import collect_processes
+from sysmon.config import load_config
 from sysmon.display.panels import process_panel
 
 
@@ -125,8 +126,8 @@ def run_top_live(
     sort_by: str = "cpu",
     refresh_rate: float = 1.0,
     name_filter: str | None = None,
-    warn: float = 80.0,
-    critical: float = 95.0,
+    warn: float | None = None,
+    critical: float | None = None,
     mem_warn: float | None = None,
     mem_critical: float | None = None,
 ) -> None:
@@ -135,6 +136,7 @@ def run_top_live(
     state = _TopState(sort_by, name_filter)
 
     def render() -> Group:
+        settings = load_config()
         processes = collect_processes(
             limit=limit,
             sort_by=state.sort_by,
@@ -144,10 +146,12 @@ def run_top_live(
             processes,
             sort_by=state.sort_by,
             name_filter=state.name_filter,
-            warn=warn,
-            critical=critical,
-            mem_warn=mem_warn,
-            mem_critical=mem_critical,
+            warn=settings.thresholds.cpu_warn if warn is None else warn,
+            critical=settings.thresholds.cpu_critical if critical is None else critical,
+            mem_warn=settings.thresholds.memory_warn if mem_warn is None else mem_warn,
+            mem_critical=(
+                settings.thresholds.memory_critical if mem_critical is None else mem_critical
+            ),
         )
         footer = Panel(
             _footer_text(state.filter_mode, state.filter_buffer),
