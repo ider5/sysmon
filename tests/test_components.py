@@ -31,6 +31,7 @@ def test_one_line_collapses_whitespace():
 
 def test_celsius_rejects_non_finite():
     assert celsius(0) == 0.0
+    assert celsius(-1) is None
     assert celsius(float("inf")) is None
     assert celsius(float("nan")) is None
     assert celsius(True) is None
