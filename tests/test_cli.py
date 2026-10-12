@@ -148,6 +148,23 @@ def test_cpu_rich_uses_registry_collect(monkeypatch):
     assert "cpu" in calls
 
 
+def test_cpu_rich_without_core_list(monkeypatch):
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect",
+        lambda name, settings=None: {
+            "percent": 12.5,
+            "cores": "nope",
+            "count_logical": 1,
+            "count_physical": 1,
+        },
+    )
+    result = runner.invoke(app, ["cpu"])
+    assert result.exit_code == 0
+    assert "12.5%" in result.stdout
+    assert "Per-core" not in result.stdout
+
+
 def test_wait_for_rate_sampling_uses_registry_collect(monkeypatch):
     calls = []
     monkeypatch.setattr("sysmon.cli.time.sleep", lambda _s: None)

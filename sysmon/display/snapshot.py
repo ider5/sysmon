@@ -97,8 +97,8 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
 def _print_cpu(console: Console, info: dict | None = None) -> None:
     """Print CPU information."""
     settings = load_config()
-    if info is None:
-        info = collect("cpu", settings)
+    if not isinstance(info, dict):
+        info = collect("cpu", settings) if info is None else {}
     console.print(
         cpu_panel(
             info,

@@ -377,9 +377,13 @@ def cpu(
     from sysmon.display.snapshot import _print_cpu
 
     snapshot_data = collect("cpu", settings)
+    if not isinstance(snapshot_data, dict):
+        snapshot_data = {}
     _print_cpu(console, snapshot_data)
 
-    cores = snapshot_data["cores"]
+    cores = snapshot_data.get("cores")
+    if not isinstance(cores, list) or not cores:
+        return
     console.print("\n[bold]Per-core usage:[/bold]")
     for i, pct in enumerate(cores):
         text = Text()

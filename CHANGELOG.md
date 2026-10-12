@@ -16,6 +16,7 @@ All notable changes to SysMon are documented in this file.
 - Prometheus load average, per-mount disk percent, per-interface throughput, and temperature series also skip non-finite and boolean samples instead of writing `inf` or `nan`
 - Brief mode and the terminal title append the 1-minute load when it is at least the logical CPU count
 - `sysmon cpu` and the CPU snapshot show per-core usage, not only the dashboard's compact panel
+- `sysmon cpu` still prints the CPU panel when the per-core list is missing or not a list
 - The CPU panel ignores a per-core list that is not a list instead of failing the frame
 - The snapshot header includes the sysmon version
 - `sysmon memory` and the memory snapshot show available RAM, matching the dashboard
