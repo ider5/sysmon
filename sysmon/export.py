@@ -199,6 +199,14 @@ def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
     return data
 
 
+def _snapshot_collected_at(snapshot: dict[str, Any]) -> float:
+    """Use the collector timestamp when the snapshot has one."""
+    timestamp = snapshot.get("timestamp")
+    if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)):
+        return time.time()
+    return float(timestamp)
+
+
 def _store(data: dict[str, Any], key: str, producer: Any) -> None:
     """Store one section, recording a failure instead of aborting the payload."""
     try:
@@ -254,7 +262,7 @@ def collect_all_from_snapshot(
         "os": _get_os_name(),
         "arch": platform.machine(),
         "uptime": _get_uptime(),
-        "collected_at": time.time(),
+        "collected_at": _snapshot_collected_at(snapshot),
     }
     if cfg.modules.cpu and snapshot.get("cpu") is not None:
         _store(data, "cpu", lambda: _cpu_payload(cfg, info=snapshot["cpu"]))

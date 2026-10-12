@@ -6,7 +6,7 @@ import time
 import pytest
 
 from sysmon.collectors import registry
-from sysmon.config import DEFAULT_CONFIG
+from sysmon.config import DEFAULT_CONFIG, ModuleConfig, SysmonConfig
 from sysmon.export import (
     SCHEMA_VERSION,
     collect_all,
@@ -192,6 +192,26 @@ def test_collect_all_isolates_section_errors(monkeypatch):
     assert "cpu" not in data
     assert data["errors"]["cpu"] == "cpu down"
     assert "percent" in data["memory"]
+
+
+def test_collect_all_from_snapshot_uses_collector_timestamp():
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=False,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    data = collect_all_from_snapshot(
+        {"timestamp": 123.5},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["collected_at"] == 123.5
 
 
 def test_collect_all_includes_collected_at():
