@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import platform
 import threading
 import time
@@ -83,18 +84,38 @@ def _resolve_mounts(selected: Iterable[str] | None) -> list[str]:
     return mounts
 
 
+def _inode_percent(mount: str) -> float | None:
+    """Return inode usage percent on platforms that expose statvfs."""
+    statvfs = getattr(os, "statvfs", None)
+    if statvfs is None:
+        return None
+    try:
+        stats = statvfs(mount)
+    except OSError:
+        return None
+    files = getattr(stats, "f_files", 0) or 0
+    if files <= 0:
+        return None
+    free = getattr(stats, "f_ffree", 0) or 0
+    return max(0.0, min(100.0, (files - free) / files * 100.0))
+
+
 def _mount_usage(mount: str) -> dict | None:
     try:
         usage = psutil.disk_usage(mount)
     except (OSError, PermissionError):
         return None
-    return {
+    entry = {
         "mount": mount,
         "total": usage.total,
         "used": usage.used,
         "free": usage.free,
         "percent": usage.percent,
     }
+    inode_percent = _inode_percent(mount)
+    if inode_percent is not None:
+        entry["inode_percent"] = inode_percent
+    return entry
 
 
 def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
@@ -163,7 +184,7 @@ def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
             _prev_time = now
 
     primary = mount_entries[0]
-    return {
+    result = {
         "mounts": mount_entries,
         "mount": primary["mount"],
         "total": primary["total"],
@@ -175,3 +196,6 @@ def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
         "read_speed": read_speed,
         "write_speed": write_speed,
     }
+    if "inode_percent" in primary:
+        result["inode_percent"] = primary["inode_percent"]
+    return result

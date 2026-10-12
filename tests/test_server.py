@@ -130,6 +130,11 @@ def test_format_prometheus_exports_byte_counters():
     assert "sysmon_disk_write_bytes 40.0" in text
 
 
+def test_format_prometheus_includes_inode_percent():
+    text = format_prometheus({"disk": {"percent": 10.0, "inode_percent": 75.0}})
+    assert "sysmon_disk_inode_percent 75.0" in text
+
+
 def test_format_prometheus_includes_disk_speeds():
     text = format_prometheus(
         {"disk": {"percent": 10.0, "read_speed": 4096.0, "write_speed": 0.0}}

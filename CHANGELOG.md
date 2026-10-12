@@ -14,6 +14,7 @@ All notable changes to SysMon are documented in this file.
 - The snapshot header includes the sysmon version
 - `sysmon memory` and the memory snapshot show available RAM, matching the dashboard
 - Disk panels show free space next to used and total when the collector provides it, and a partial mount or speed record does not crash the panel
+- Disk collection reports inode usage on platforms with `statvfs`, and the panel, JSON, and Prometheus include it
 - Network panels tolerate a partial interface or totals record instead of raising
 - CPU and memory panels tolerate a partial record instead of raising
 - Brief mode and the terminal title tolerate a partial CPU, memory, network, or GPU record instead of raising

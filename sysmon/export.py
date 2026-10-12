@@ -104,21 +104,23 @@ def _disk_payload(
     )
     mounts = []
     for mount_info in info.get("mounts", []):
-        mounts.append(
-            {
-                "mount": mount_info["mount"],
-                "total": mount_info["total"],
-                "used": mount_info["used"],
-                "free": mount_info["free"],
-                "percent": mount_info["percent"],
-                "status": metric_status(
-                    mount_info["percent"],
-                    cfg.thresholds.disk_warn,
-                    cfg.thresholds.disk_critical,
-                ),
-            }
-        )
-    return {
+        mount_payload = {
+            "mount": mount_info["mount"],
+            "total": mount_info["total"],
+            "used": mount_info["used"],
+            "free": mount_info["free"],
+            "percent": mount_info["percent"],
+            "status": metric_status(
+                mount_info["percent"],
+                cfg.thresholds.disk_warn,
+                cfg.thresholds.disk_critical,
+            ),
+        }
+        inode_percent = mount_info.get("inode_percent")
+        if isinstance(inode_percent, (int, float)) and not isinstance(inode_percent, bool):
+            mount_payload["inode_percent"] = float(inode_percent)
+        mounts.append(mount_payload)
+    payload = {
         "mounts": mounts,
         "mount": info["mount"],
         "total": info["total"],
@@ -131,6 +133,10 @@ def _disk_payload(
         "write_speed": info["write_speed"],
         "status": primary_status,
     }
+    inode_percent = info.get("inode_percent")
+    if isinstance(inode_percent, (int, float)) and not isinstance(inode_percent, bool):
+        payload["inode_percent"] = float(inode_percent)
+    return payload
 
 
 def _gpu_payload(

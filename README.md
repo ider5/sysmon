@@ -12,7 +12,7 @@ A beautiful system monitoring CLI tool built with Python.
 - **Snapshot Mode** - One-shot system info output with ASCII art logo
 - **Brief Mode** - Single-line status display, perfect for terminal prompts
 - **JSON Output** - Machine-readable payloads with `schema_version` **3** (`--format json`)
-- **Disk Monitoring** - Disk usage and read/write I/O speeds
+- **Disk Monitoring** - Disk usage, free space, inode usage where the OS exposes it, and read/write I/O speeds
 - **Configuration File** - Persistent defaults via a platform config file (`sysmon config path`)
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
 - **Load average** - 1, 5, and 15 minute load on the CPU panel, in JSON, and as `sysmon_load_average` when the OS provides it

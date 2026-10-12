@@ -133,6 +133,31 @@ def test_build_disk_text_includes_speed_history():
     assert "█" in rendered
 
 
+def test_build_disk_text_shows_inode_usage():
+    info = {
+        "mount": "/",
+        "percent": 10.0,
+        "used": 10,
+        "free": 90,
+        "total": 100,
+        "read_speed": 0,
+        "write_speed": 0,
+        "inode_percent": 75.0,
+        "mounts": [
+            {
+                "mount": "/",
+                "percent": 10.0,
+                "used": 10,
+                "free": 90,
+                "total": 100,
+                "inode_percent": 75.0,
+            }
+        ],
+    }
+    assert "Inodes" in build_disk_text(info).plain
+    assert "75.0%" in build_disk_text(info).plain
+
+
 def test_build_disk_text_shows_free_space():
     info = {
         "mount": "/",

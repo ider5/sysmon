@@ -181,6 +181,13 @@ def format_prometheus(data: dict[str, Any]) -> str:
     disk = data.get("disk")
     if isinstance(disk, dict) and "percent" in disk:
         gauge("sysmon_disk_percent", disk["percent"], "Primary disk utilization percent")
+        inode_percent = _first_number(disk, "inode_percent")
+        if inode_percent is not None:
+            gauge(
+                "sysmon_disk_inode_percent",
+                inode_percent,
+                "Primary disk inode utilization percent",
+            )
         mount_samples: list[tuple[str, float]] = []
         mounts = disk.get("mounts")
         if isinstance(mounts, list):

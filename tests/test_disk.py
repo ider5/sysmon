@@ -7,6 +7,17 @@ from sysmon.collectors import disk as disk_module
 from sysmon.collectors.disk import get_disk_info
 
 
+def test_inode_percent_from_statvfs(monkeypatch):
+    stats = SimpleNamespace(f_files=100, f_ffree=25)
+    monkeypatch.setattr(disk_module.os, "statvfs", lambda _mount: stats, raising=False)
+    assert disk_module._inode_percent("/data") == 75.0
+
+
+def test_inode_percent_missing_without_statvfs(monkeypatch):
+    monkeypatch.delattr(disk_module.os, "statvfs", raising=False)
+    assert disk_module._inode_percent("/") is None
+
+
 def test_get_disk_info_speed_calculation():
     usage = SimpleNamespace(total=100, used=50, free=50, percent=50.0)
     first_io = SimpleNamespace(read_bytes=1000, write_bytes=2000)

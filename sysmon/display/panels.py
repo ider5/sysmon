@@ -285,6 +285,13 @@ def build_disk_text(
         if isinstance(free, (int, float)) and not isinstance(free, bool):
             text.append(f"  {'Free':<14}", style="bold")
             text.append(format_bytes(free) + "\n", style="dim")
+        inode_percent = mount_info.get("inode_percent")
+        if isinstance(inode_percent, (int, float)) and not isinstance(inode_percent, bool):
+            text.append(f"  {'Inodes':<14}", style="bold")
+            text.append_text(
+                progress_bar(float(inode_percent), width=25, warn=warn, critical=critical)
+            )
+            text.append("\n")
 
     text.append("  " + "─" * 30 + "\n", style="dim")
     text.append(f"  {'Read':<14}", style="bold")
