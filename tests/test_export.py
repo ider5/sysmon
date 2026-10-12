@@ -107,6 +107,19 @@ def test_collect_brief_respects_modules(monkeypatch):
     assert data["sensors"]["battery"]["percent"] == 12.0
 
 
+def test_gpu_payload_tolerates_partial_record(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: [{"load": 12.5, "temperature": 0}],
+    )
+    data = collect_section("gpu")
+    gpu = data["gpu"][0]
+    assert gpu["load"] == 12.5
+    assert gpu["name"] == "GPU"
+    assert gpu["memory_used_mb"] == 0.0
+    assert gpu["temperature_c"] == 0.0
+
+
 def test_cpu_and_memory_payloads_tolerate_partial_records(monkeypatch):
     def fake_collect(name, settings=None):
         if name == "cpu":

@@ -176,20 +176,36 @@ def _gpu_payload(
 ) -> Optional[list[dict[str, Any]]]:
     cfg = _resolve_settings(settings)
     gpus = collect("gpu", cfg) if info is _MISSING else info
-    if not gpus:
+    if not isinstance(gpus, list) or not gpus:
         return None
-    return [
-        {
-            "id": gpu["id"],
-            "name": gpu["name"],
-            "load": gpu["load"],
-            "memory_total_mb": gpu["memory_total"],
-            "memory_used_mb": gpu["memory_used"],
-            "temperature_c": gpu["temperature"],
-            "backend": gpu.get("backend", "unknown"),
-        }
-        for gpu in gpus
-    ]
+
+    def _number(gpu: dict[str, Any], key: str, default: float = 0.0) -> float:
+        value = gpu.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return default
+        return float(value)
+
+    rows: list[dict[str, Any]] = []
+    for gpu in gpus:
+        if not isinstance(gpu, dict):
+            continue
+        temperature = gpu.get("temperature")
+        if isinstance(temperature, bool) or not isinstance(temperature, (int, float)):
+            temperature_c = None
+        else:
+            temperature_c = float(temperature)
+        rows.append(
+            {
+                "id": gpu.get("id", 0),
+                "name": str(gpu.get("name") or "GPU"),
+                "load": _number(gpu, "load"),
+                "memory_total_mb": _number(gpu, "memory_total"),
+                "memory_used_mb": _number(gpu, "memory_used"),
+                "temperature_c": temperature_c,
+                "backend": str(gpu.get("backend") or "unknown"),
+            }
+        )
+    return rows or None
 
 
 def _process_payload(

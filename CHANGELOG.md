@@ -18,6 +18,7 @@ All notable changes to SysMon are documented in this file.
 - JSON disk mounts tolerate a record that omits used, free, or total instead of dropping the disk section
 - JSON network totals tolerate a record that omits speeds, packets, or error counts instead of dropping the network section
 - JSON CPU and memory sections tolerate a partial record instead of dropping the section
+- JSON GPU entries tolerate a partial record. A temperature of 0°C is kept, and a missing temperature stays null
 - Network panels tolerate a partial interface or totals record instead of raising
 - Network collection reports inbound and outbound errors and drops. The panel, brief line, and terminal title show them when any are non-zero, and Prometheus exports them as counters
 - CPU and memory panels tolerate a partial record instead of raising
