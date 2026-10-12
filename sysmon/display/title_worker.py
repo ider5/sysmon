@@ -87,10 +87,10 @@ def build_title(no_gpu: bool) -> str:
             f"RAM {bytes_to_gb(_num(mem, 'used'))}/{bytes_to_gb(_num(mem, 'total'))}G "
             f"({_num(mem, 'percent'):.0f}%)"
         )
-        swap_total = mem.get("swap_total") or 0
-        swap_percent = mem.get("swap_percent") or 0
+        swap_total = _num(mem, "swap_total")
+        swap_percent = _num(mem, "swap_percent")
         if swap_total > 0 and swap_percent > 0:
-            ram += f" SWAP {float(swap_percent):.0f}%"
+            ram += f" SWAP {swap_percent:.0f}%"
         parts.append(ram)
     if settings.modules.network:
         net = collect("network", settings)
@@ -129,9 +129,12 @@ def build_title(no_gpu: bool) -> str:
     if settings.modules.sensors:
         sensors = collect("sensors", settings)
         battery = sensors.get("battery") if isinstance(sensors, dict) else None
-        if isinstance(battery, dict) and battery.get("percent") is not None:
+        battery_percent = (
+            _finite_number(battery.get("percent")) if isinstance(battery, dict) else None
+        )
+        if battery_percent is not None:
             plugged = " AC" if battery.get("power_plugged") else ""
-            parts.append(f"BAT {float(battery['percent']):.0f}%{plugged}")
+            parts.append(f"BAT {battery_percent:.0f}%{plugged}")
         hottest = hottest_temperature(sensors) if isinstance(sensors, dict) else None
         if hottest is not None:
             parts.append(f"TEMP {hottest[0]:.0f}°C")

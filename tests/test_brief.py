@@ -173,6 +173,35 @@ def test_build_brief_line_includes_swap_when_in_use(monkeypatch):
     assert line.plain == "RAM 1.0/1.0G (10%) SWAP 25%"
 
 
+def test_build_brief_line_ignores_non_numeric_swap_and_battery(monkeypatch):
+    def fake_collect(name, settings=None):
+        if name == "memory":
+            return {"used": 1, "total": 2, "percent": 10.0, "swap_total": "bad", "swap_percent": "bad"}
+        if name == "sensors":
+            return {"battery": {"percent": "bad", "power_plugged": False}, "temperatures": {}}
+        raise AssertionError(name)
+
+    monkeypatch.setattr(brief_mod, "collect", fake_collect)
+    monkeypatch.setattr(brief_mod, "bytes_to_gb", lambda n: 1.0)
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=True,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=True,
+            )
+        ),
+    )
+    line = brief_mod.build_brief_line(no_color=True)
+    assert line.plain == "RAM 1.0/1.0G (10%)"
+
+
 def test_build_brief_line_memory_color_uses_memory_thresholds(monkeypatch):
     _stub_brief_collectors(monkeypatch, cpu_percent=1.0, memory_percent=15.0)
     line = brief_mod.build_brief_line(

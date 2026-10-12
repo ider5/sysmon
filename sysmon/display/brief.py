@@ -114,15 +114,15 @@ def _format_memory(
     else:
         text.append(f"{used}/{total}G", style="bold")
         text.append(f" ({pct:.0f}%)", style=_threshold_color(pct, warn, critical))
-    swap_total = info.get("swap_total") or 0
-    swap_percent = info.get("swap_percent") or 0
+    swap_total = _num(info, "swap_total")
+    swap_percent = _num(info, "swap_percent")
     if swap_total > 0 and swap_percent > 0:
         text.append(" SWAP ")
-        swap_label = f"{float(swap_percent):.0f}%"
+        swap_label = f"{swap_percent:.0f}%"
         if no_color:
             text.append(swap_label)
         else:
-            text.append(swap_label, style=_threshold_color(float(swap_percent), warn, critical))
+            text.append(swap_label, style=_threshold_color(swap_percent, warn, critical))
     return text
 
 
@@ -229,10 +229,11 @@ def _format_sensors(info: dict, no_color: bool = False) -> Text | None:
     """Format battery charge and the hottest temperature for the compact line."""
     pieces: list[Text] = []
     battery = info.get("battery") if isinstance(info, dict) else None
-    if isinstance(battery, dict) and battery.get("percent") is not None:
+    battery_percent = _finite_number(battery.get("percent")) if isinstance(battery, dict) else None
+    if battery_percent is not None:
         text = Text()
         text.append("BAT ")
-        percent = f"{float(battery['percent']):.0f}%"
+        percent = f"{battery_percent:.0f}%"
         if no_color:
             text.append(percent)
         else:
