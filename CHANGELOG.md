@@ -32,7 +32,7 @@ All notable changes to SysMon are documented in this file.
 - Prometheus `/metrics` exports per-mount disk utilization and per-interface network speeds when those lists are present
 - Prometheus `/metrics` exports GPU memory and temperature alongside utilization
 - Prometheus `/metrics` exports swap utilization and size when swap is present
-- Prometheus `/metrics` exports aggregate disk read and write throughput
+- Prometheus `/metrics` exports aggregate disk read and write throughput, and primary disk used, free, and total bytes
 - Prometheus `/metrics` exports network and disk byte totals as counters
 - Prometheus `/metrics` exports memory used, available, and total bytes
 

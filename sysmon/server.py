@@ -181,6 +181,14 @@ def format_prometheus(data: dict[str, Any]) -> str:
     disk = data.get("disk")
     if isinstance(disk, dict) and "percent" in disk:
         gauge("sysmon_disk_percent", disk["percent"], "Primary disk utilization percent")
+        for key, metric, help_text in (
+            ("used", "sysmon_disk_used_bytes", "Primary disk bytes used"),
+            ("free", "sysmon_disk_free_bytes", "Primary disk bytes free"),
+            ("total", "sysmon_disk_total_bytes", "Primary disk bytes total"),
+        ):
+            value = _first_number(disk, key)
+            if value is not None:
+                gauge(metric, value, help_text)
         inode_percent = _first_number(disk, "inode_percent")
         if inode_percent is not None:
             gauge(
