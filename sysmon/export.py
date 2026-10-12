@@ -118,8 +118,9 @@ def _network_payload(
         "dropin": _count("dropin"),
         "dropout": _count("dropout"),
     }
-    if "interfaces" in info:
-        payload["interfaces"] = info["interfaces"]
+    interfaces = info.get("interfaces")
+    if isinstance(interfaces, list):
+        payload["interfaces"] = [row for row in interfaces if isinstance(row, dict)]
     return payload
 
 

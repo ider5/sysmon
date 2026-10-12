@@ -26,6 +26,7 @@ All notable changes to SysMon are documented in this file.
 - JSON disk mounts tolerate a record that omits used, free, or total instead of dropping the disk section
 - JSON disk section stays present when the primary record omits sizes or speeds, and a mount entry that is not a record is skipped
 - JSON network totals tolerate a record that omits speeds, packets, or error counts instead of dropping the network section
+- JSON network interfaces drop entries that are not records
 - JSON CPU and memory sections tolerate a partial record instead of dropping the section
 - JSON GPU entries tolerate a partial record. A temperature of 0°C is kept, and a missing temperature stays null
 - Network panels tolerate a partial interface or totals record instead of raising

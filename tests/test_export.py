@@ -203,6 +203,18 @@ def test_network_payload_tolerates_partial_record(monkeypatch):
     assert data["network"]["errin"] == 0
 
 
+def test_network_payload_drops_non_record_interfaces(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "bytes_sent": 1,
+            "interfaces": [None, {"name": "eth0", "isup": False}, "bad"],
+        },
+    )
+    data = collect_section("network")
+    assert data["network"]["interfaces"] == [{"name": "eth0", "isup": False}]
+
+
 def test_collect_section_network():
     data = collect_section("network")
     assert "network" in data
