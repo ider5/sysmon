@@ -1,11 +1,12 @@
 """Tests for structured JSON export."""
 
 import json
+import time
 
 import pytest
 
 from sysmon.collectors import registry
-from sysmon.config import DEFAULT_CONFIG
+from sysmon.config import DEFAULT_CONFIG, ModuleConfig, SysmonConfig
 from sysmon.export import (
     SCHEMA_VERSION,
     collect_all,
@@ -75,7 +76,131 @@ def test_collect_brief_loads_config_once(monkeypatch):
 
 def test_collect_brief_keys():
     data = collect_brief(include_gpu=False)
-    assert set(data.keys()) == {"cpu", "memory", "network"}
+    assert set(data.keys()) == {"cpu", "memory", "network", "collected_at"}
+
+
+def test_collect_brief_respects_modules(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=False,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=True,
+            process=False,
+            sensors=True,
+        ),
+        enable_gpu=False,
+    )
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda name, collect_settings=None: {
+            "battery": {"percent": 12.0, "power_plugged": False, "secsleft": None},
+            "temperatures": {},
+        },
+    )
+    data = collect_brief(include_gpu=True)
+    assert set(data) == {"sensors", "collected_at"}
+    assert data["sensors"]["battery"]["percent"] == 12.0
+
+
+def test_collect_brief_sensors_include_hottest_temperature(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=False,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=True,
+        )
+    )
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "battery": None,
+            "temperatures": {"cpu": [{"label": "pkg", "current": 62.0}]},
+        },
+    )
+    data = collect_brief(include_gpu=False)
+    assert data["sensors"]["hottest_c"] == 62.0
+
+
+def test_gpu_payload_tolerates_partial_record(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: [{"load": 12.5, "temperature": 0}],
+    )
+    data = collect_section("gpu")
+    gpu = data["gpu"][0]
+    assert gpu["load"] == 12.5
+    assert gpu["name"] == "GPU"
+    assert gpu["memory_used_mb"] == 0.0
+    assert gpu["temperature_c"] == 0.0
+
+
+def test_gpu_payload_hides_negative_temperature(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: [{"load": 1, "temperature": -1}],
+    )
+    data = collect_section("gpu")
+    assert data["gpu"][0]["temperature_c"] is None
+
+
+def test_cpu_and_memory_payloads_tolerate_partial_records(monkeypatch):
+    def fake_collect(name, settings=None):
+        if name == "cpu":
+            return {"percent": 12.5}
+        if name == "memory":
+            return {"percent": 40.0, "total": 100}
+        raise AssertionError(name)
+
+    monkeypatch.setattr("sysmon.export.collect", fake_collect)
+    cpu = collect_section("cpu")["cpu"]
+    memory = collect_section("memory")["memory"]
+    assert cpu["percent"] == 12.5
+    assert cpu["cores"] == []
+    assert cpu["freq_current_mhz"] == 0.0
+    assert memory["percent"] == 40.0
+    assert memory["used"] == 0
+    assert memory["swap_total"] == 0
+
+
+def test_cpu_payload_includes_load_average(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "percent": 1.0,
+            "cores": [1.0],
+            "count_logical": 2,
+            "count_physical": 1,
+            "freq_current": 0,
+            "freq_max": 0,
+            "load_avg": (0.1, 0.2, 0.3),
+        },
+    )
+    data = collect_section("cpu")
+    assert data["cpu"]["load_avg"] == [0.1, 0.2, 0.3]
+
+
+def test_metric_sections_tolerate_non_record(monkeypatch):
+    monkeypatch.setattr("sysmon.export.collect", lambda *_a, **_k: "bad")
+    cpu = collect_section("cpu")
+    memory = collect_section("memory")
+    network = collect_section("network")
+    assert cpu["cpu"]["percent"] == 0.0
+    assert cpu["cpu"]["cores"] == []
+    assert memory["memory"]["percent"] == 0.0
+    assert network["network"]["bytes_sent"] == 0
+    assert "errors" not in cpu
 
 
 def test_collect_section_cpu():
@@ -91,11 +216,71 @@ def test_collect_section_memory():
     assert data["memory"]["status"] in ("ok", "warn", "critical")
 
 
+def test_network_payload_tolerates_partial_record(monkeypatch):
+    monkeypatch.setattr("sysmon.export.collect", lambda *_a, **_k: {"bytes_sent": 5})
+    data = collect_section("network")
+    assert data["network"]["bytes_sent"] == 5
+    assert data["network"]["speed_down"] == 0.0
+    assert data["network"]["errin"] == 0
+
+
+def test_network_payload_drops_non_record_interfaces(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "bytes_sent": 1,
+            "interfaces": [None, {"name": "eth0", "isup": False}, "bad"],
+        },
+    )
+    data = collect_section("network")
+    assert data["network"]["interfaces"] == [{"name": "eth0", "isup": False}]
+
+
 def test_collect_section_network():
     data = collect_section("network")
     assert "network" in data
     assert "bytes_sent" in data["network"]
     assert "speed_down" in data["network"]
+
+
+def test_disk_payload_tolerates_partial_mount(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "mount": "/",
+            "percent": 10.0,
+            "total": 100,
+            "used": 10,
+            "free": 90,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "read_speed": 0,
+            "write_speed": 0,
+            "mounts": [{"mount": "/data", "percent": 5.0}],
+        },
+    )
+    data = collect_section("disk")
+    mount = data["disk"]["mounts"][0]
+    assert mount["mount"] == "/data"
+    assert mount["free"] == 0
+    assert mount["percent"] == 5.0
+
+
+def test_disk_payload_tolerates_partial_primary(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "mounts": ["bad", {"mount": "/data", "percent": 5.0}, None],
+        },
+    )
+    data = collect_section("disk")
+    disk = data["disk"]
+    assert disk["mount"] == ""
+    assert disk["percent"] == 0.0
+    assert disk["read_speed"] == 0.0
+    assert disk["total"] == 0
+    assert [mount["mount"] for mount in disk["mounts"]] == ["/data"]
+    assert "errors" not in data
 
 
 def test_collect_section_disk():
@@ -104,6 +289,33 @@ def test_collect_section_disk():
     assert "percent" in data["disk"]
     assert "mounts" in data["disk"]
     assert data["disk"]["status"] in ("ok", "warn", "critical")
+
+
+def test_process_payload_drops_non_records(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: [None, {"pid": 1, "name": "a"}, "bad"],
+    )
+    data = collect_section("process")
+    assert data["processes"] == [{"pid": 1, "name": "a"}]
+
+
+def test_snapshot_processes_drop_non_records():
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(modules=ModuleConfig(process=True, sensors=False))
+    data = collect_all_from_snapshot(
+        {"process": [None, {"pid": 4, "name": "ok"}, "bad"]},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["processes"] == [{"pid": 4, "name": "ok"}]
+    missing = collect_all_from_snapshot(
+        {"process": "unavailable"},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert missing["processes"] == []
 
 
 def test_collect_section_process():
@@ -140,6 +352,138 @@ def test_collect_all_gpu_with_mock(monkeypatch):
     assert data["gpu"][0]["name"] == "FakeGPU"
 
 
+def test_collect_all_isolates_section_errors(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=True,
+            memory=True,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    monkeypatch.setattr(
+        "sysmon.export._cpu_payload",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("cpu down")),
+    )
+    data = collect_all(include_gpu=False)
+    assert "cpu" not in data
+    assert data["errors"]["cpu"] == "cpu down"
+    assert "percent" in data["memory"]
+
+
+def test_collect_all_from_snapshot_uses_collector_timestamp():
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=False,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    data = collect_all_from_snapshot(
+        {"timestamp": 123.5},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["collected_at"] == 123.5
+
+
+def test_snapshot_preserves_collector_errors():
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=True,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    data = collect_all_from_snapshot(
+        {"timestamp": 10.0, "errors": {"cpu": "cpu down"}},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["errors"]["cpu"] == "cpu down"
+    assert "cpu" not in data
+
+
+def test_snapshot_errors_do_not_hide_formatting_errors(monkeypatch):
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("format")
+
+    monkeypatch.setattr("sysmon.export._cpu_payload", boom)
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=True,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    data = collect_all_from_snapshot(
+        {"cpu": {"percent": 1}, "errors": {"disk": "disk down"}},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["errors"]["cpu"] == "format"
+    assert data["errors"]["disk"] == "disk down"
+
+
+def test_snapshot_collected_at_ignores_non_finite(monkeypatch):
+    monkeypatch.setattr("sysmon.export.time.time", lambda: 1000.0)
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=False,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    data = collect_all_from_snapshot(
+        {"timestamp": float("inf")},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["collected_at"] == 1000.0
+
+
+def test_collect_all_includes_boot_time(monkeypatch):
+    boot = time.time() - 125
+    monkeypatch.setattr("psutil.boot_time", lambda: boot)
+    data = collect_all(include_gpu=False)
+    assert data["boot_time"] == pytest.approx(boot)
+    assert 120 <= data["uptime_seconds"] <= 130
+
+
+def test_collect_all_includes_uptime_seconds(monkeypatch):
+    monkeypatch.setattr("psutil.boot_time", lambda: time.time() - 125)
+    data = collect_all(include_gpu=False)
+    assert 120 <= data["uptime_seconds"] <= 130
+
+
+def test_collect_all_includes_collected_at():
+    before = time.time()
+    data = collect_all(include_gpu=False)
+    assert before <= data["collected_at"] <= time.time()
+
+
 def test_collect_all_respects_disabled_modules(monkeypatch):
     from sysmon.config import ModuleConfig, SysmonConfig
 
@@ -166,6 +510,67 @@ def test_collect_all_respects_disabled_modules(monkeypatch):
 def test_collect_section_unknown_raises():
     with pytest.raises(ValueError, match="Unknown section"):
         collect_section("invalid")
+
+
+def test_snapshot_sensors_include_hottest_temperature():
+    settings = SysmonConfig(modules=ModuleConfig(sensors=True))
+    data = collect_all_from_snapshot(
+        {
+            "sensors": {
+                "battery": None,
+                "temperatures": {"cpu": [{"label": "pkg", "current": 61.0}]},
+            }
+        },
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["sensors"]["hottest_c"] == 61.0
+
+
+def test_sensors_payload_includes_hottest_temperature(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "battery": None,
+            "temperatures": {
+                "coretemp": [
+                    {"label": "a", "current": 40.0},
+                    {"label": "b", "current": 55.5},
+                ]
+            },
+        },
+    )
+    data = collect_section("sensors")
+    assert data["sensors"]["hottest_c"] == 55.5
+
+
+def test_collect_section_sensors(monkeypatch):
+    payload = {"battery": None, "temperatures": {"coretemp": []}}
+
+    def fake_collect(name, settings=None):
+        assert name == "sensors"
+        return payload
+
+    monkeypatch.setattr("sysmon.export.collect", fake_collect)
+    data = collect_section("sensors")
+    assert data["sensors"] == payload
+    assert isinstance(data["collected_at"], float)
+
+
+def test_to_json_replaces_non_finite_numbers():
+    parsed = json.loads(
+        to_json(
+            {
+                "cpu": {"percent": float("nan"), "load_avg": (1.0, float("inf"), 0.25)},
+                "ok": 1,
+                "flag": True,
+            }
+        )
+    )
+    assert parsed["cpu"]["percent"] is None
+    assert parsed["cpu"]["load_avg"] == [1.0, None, 0.25]
+    assert parsed["ok"] == 1
+    assert parsed["flag"] is True
 
 
 def test_to_json_roundtrip():

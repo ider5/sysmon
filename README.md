@@ -8,19 +8,20 @@ A beautiful system monitoring CLI tool built with Python.
 
 ## Features
 
-- **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, Disk, GPU, and top processes
+- **Real-time Dashboard** - Live-updating terminal UI with CPU, Memory, Network, Disk, GPU, and top processes, plus sparklines for CPU, memory, upload and download speed, and disk read/write speed
 - **Snapshot Mode** - One-shot system info output with ASCII art logo
 - **Brief Mode** - Single-line status display, perfect for terminal prompts
 - **JSON Output** - Machine-readable payloads with `schema_version` **3** (`--format json`)
-- **Disk Monitoring** - Disk usage and read/write I/O speeds
+- **Disk Monitoring** - Disk usage, free space, inode usage where the OS exposes it, and read/write I/O speeds
 - **Configuration File** - Persistent defaults via a platform config file (`sysmon config path`)
 - **Real-time CPU Frequency** - Dynamic frequency detection using Windows Performance Counters
+- **Load average** - 1, 5, and 15 minute load on the CPU panel, in JSON, and as `sysmon_load_average` when the OS provides it
 - **GPU Monitoring** - NVIDIA via pynvml/GPUtil, merged with Linux DRM sysfs (AMD and other cards that expose `gpu_busy_percent`)
 - **Local metrics server** - `sysmon serve` exposes JSON and Prometheus text on loopback (`/json`, `/metrics`, `/health`)
-- **Optional sensors** - Battery and temperatures when `[modules] sensors = true` (default off; not shown on the dashboard yet)
+- **Optional sensors** - Battery and temperatures when `[modules] sensors = true` (default off; shown on the dashboard when enabled)
 - **Gradient Progress Bars** - Color-coded bars from config warn/critical thresholds
 - **Per-core CPU View** - Individual core usage visualization
-- **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats
+- **Multi-Disk / Multi-Network** - Monitor multiple mount points and per-interface network stats, including link speed, a down link, and packet errors and drops when they are non-zero
 - **Interactive Top** - Live process view with runtime sort and name filter; hides OS idle processes and the sysmon process itself
 - **Background Collection** - Parallel cached snapshots for smooth dashboard updates
 - **Optional native process scanner** - Compiles `sysmon._core` when Rust is available; otherwise uses psutil
@@ -84,8 +85,9 @@ sysmon snapshot network # Show only network info
 sysmon snapshot disk    # Show only disk info
 sysmon snapshot gpu     # Show only GPU info
 sysmon snapshot process # Show only top processes
-sysmon snapshot --format json   # JSON output for scripting (schema_version 3)
-sysmon snapshot -s 0.5          # Faster network/disk speed sampling
+sysmon snapshot sensors # Battery and temperatures (`[modules] sensors` for the all view)
+sysmon snapshot --format json   # JSON output for scripting (schema_version 3, includes collected_at). A failed section is reported under `errors` and the rest is still returned.
+sysmon snapshot -s 0.5          # Faster network/disk/process sampling; other sections do not wait
 sysmon snapshot --no-gpu        # Hide GPU section
 ```
 
@@ -97,9 +99,10 @@ sysmon memory           # Memory and swap usage
 sysmon network          # Network speed and totals
 sysmon disk             # Disk usage and I/O speeds
 sysmon gpu              # GPU utilization, VRAM, temperature
+sysmon sensors          # Battery and temperatures (also `sysmon sensors --format json`)
 sysmon top              # Top processes by CPU usage
 sysmon top -n 15 --sort memory
-sysmon top --watch      # Interactive: c/m sort, / filter, q quit
+sysmon top --watch      # Interactive: c/m sort, / filter, q quit (those keys are text while filtering)
 sysmon top --filter python
 sysmon cpu --format json
 ```
@@ -117,7 +120,7 @@ Endpoints: `GET /json` (schema v3), `GET /metrics` (Prometheus text), `GET /` or
 
 Binds loopback (`127.0.0.1`, `localhost`, `::1`) by default. Non-loopback addresses require `--allow-remote`. There is **no authentication**—do not expose it on a public interface.
 
-The server primes network/disk counters once so the first scrape is not stuck at 0 B/s.
+The server primes network/disk counters once so the first scrape is not stuck at 0 B/s. `/metrics` always includes `sysmon_up` and `sysmon_info` (version label) and sends `Cache-Control: no-store`. When the payload has `collected_at`, it also exports the sample time and age. It keeps the aggregate CPU, memory, disk, and network gauges, and adds swap gauges when swap is configured. When the payload includes them, it also exports per-mount `sysmon_disk_mount_percent`, per-interface network speeds and link state, the sampled process count and the busiest process CPU and memory, GPU memory and temperature, and — if sensors are enabled — `sysmon_battery_percent`, `sysmon_battery_plugged`, `sysmon_temperature_celsius`, and `sysmon_temperature_hottest_celsius`.
 
 ### Shell Completion
 
@@ -137,6 +140,7 @@ Requires `pip install shtab` or `pip install -e ".[dev]"`.
 sysmon config init      # Create the platform config file
 sysmon config init --force  # Overwrite an existing config
 sysmon config path      # Show config file location
+sysmon config show      # Print the resolved settings as JSON
 ```
 
 Config directory (first existing `config.toml` wins on Windows/macOS):
@@ -165,7 +169,7 @@ network = true
 disk = true
 gpu = true
 process = true
-sensors = false           # battery/temperatures; default off, not on the dashboard yet
+sensors = false           # battery/temperatures; dashboard panel when true
 
 [thresholds]
 cpu_warn = 80
@@ -178,7 +182,7 @@ gpu_warn = 80
 gpu_critical = 95
 ```
 
-CLI flags override config values.
+CLI flags override config values. The dashboard, `sysmon serve`, `sysmon brief --watch`, `sysmon top --watch`, and title mode reload this file when it changes. `-r` keeps the interval fixed.
 
 ### Brief Mode (Single-line)
 
@@ -190,13 +194,15 @@ sysmon brief -t         # Title mode (background, updates window title)
 sysmon brief --stop     # Stop title mode
 sysmon brief --no-color # No colors (for copy-paste)
 sysmon brief --no-gpu   # Hide GPU info
-sysmon brief --format json  # One-shot JSON (not with -w / -t)
+sysmon brief --format json  # One-shot JSON (not with -w / -t); honors [modules]; sensors include hottest_c
 ```
 
 Example output:
 ```
 CPU 15% 3176M │ RAM 8.2/16.0G (51%) │ ↑1.2 MB/s ↓5.8 MB/s │ GPU 32% 2.1/10.0G 65°C
 ```
+
+Modules set to `false` are left out of this line and out of title mode. A selected interface that is down adds `DOWN eth0`. Swap is added only while it is in use (`SWAP 25%`). Disk is added only at or above the disk warn threshold (`DISK 91%`). The 1-minute load average is added (`LD 2.50`) when it is at least the number of logical CPUs. With `sensors = true`, a battery reading adds `BAT 80%` (`AC` while plugged in) and the hottest temperature adds `TEMP 62°C`.
 
 **Title Mode (`-t`)** runs as a background process and updates the terminal window title. Completely non-blocking - terminal is free to use immediately. Use `sysmon brief --stop` to stop.
 
@@ -206,6 +212,7 @@ CPU 15% 3176M │ RAM 8.2/16.0G (51%) │ ↑1.2 MB/s ↓5.8 MB/s │ GPU 32% 2.
 
 ```bash
 sysmon --version        # Show version
+python -m sysmon --version
 sysmon --help           # Show help
 ```
 

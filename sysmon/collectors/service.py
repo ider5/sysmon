@@ -19,10 +19,14 @@ class CollectorService:
         include_gpu: bool = True,
         include_sensors: bool | None = None,
         config: SysmonConfig | None = None,
+        reload_config: bool = False,
+        follow_config_interval: bool = False,
     ) -> None:
         self._interval = interval
         self._include_gpu = include_gpu
         self._include_sensors = include_sensors
+        self._reload_config = reload_config
+        self._follow_config_interval = follow_config_interval
         self._config = config or load_config()
         self._lock = threading.Lock()
         self._snapshot: dict[str, Any] = {}
@@ -47,6 +51,14 @@ class CollectorService:
             self._thread = None
             raise
 
+    def set_interval(self, interval: float) -> None:
+        """Change the background sample period."""
+        if isinstance(interval, bool) or not isinstance(interval, (int, float)):
+            return
+        if interval <= 0:
+            return
+        self._interval = float(interval)
+
     def stop(self) -> None:
         """Stop background collection."""
         self._running = False
@@ -67,8 +79,12 @@ class CollectorService:
     def _loop(self) -> None:
         while self._running:
             time.sleep(self._interval)
-            if self._running:
+            if not self._running:
+                return
+            try:
                 self._collect_once()
+            except Exception:
+                continue
 
     def _enabled_keys(self) -> list[str]:
         modules = self._config.modules
@@ -92,12 +108,16 @@ class CollectorService:
             keys.append("sensors")
         return keys
 
+    def _refresh_config(self) -> None:
+        if self._reload_config:
+            self._config = load_config()
+            if self._follow_config_interval:
+                self.set_interval(self._config.refresh_interval)
+
     def _collect_once(self) -> None:
         from sysmon.collectors.registry import collect
 
-        with self._lock:
-            prev = dict(self._snapshot)
-
+        self._refresh_config()
         data: dict[str, Any] = {"timestamp": time.time()}
         keys = self._enabled_keys()
         if not keys:
@@ -118,8 +138,6 @@ class CollectorService:
                 except Exception as exc:
                     errors = data.setdefault("errors", {})
                     errors[key] = str(exc)
-                    if key in prev:
-                        data[key] = prev[key]
 
         with self._lock:
             self._snapshot = data

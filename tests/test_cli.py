@@ -71,6 +71,47 @@ def test_snapshot_json_cpu_section(monkeypatch):
     assert "status" in data["cpu"]
 
 
+def test_snapshot_sensors_json(monkeypatch):
+    monkeypatch.setattr("sysmon.cli._wait_for_rate_sampling", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda name, settings=None: {
+            "battery": {"percent": 55.0, "secsleft": None, "power_plugged": True},
+            "temperatures": {},
+        },
+    )
+    result = runner.invoke(app, ["snapshot", "sensors", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["sensors"]["battery"]["percent"] == 55.0
+
+
+def test_snapshot_section_is_case_insensitive(monkeypatch):
+    monkeypatch.setattr("sysmon.cli._wait_for_rate_sampling", lambda *a, **k: None)
+    result = runner.invoke(app, ["snapshot", "CPU", "--format", "json", "--sample-interval", "0.1"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "percent" in data["cpu"]
+
+
+def test_top_sort_is_case_insensitive(monkeypatch):
+    captured = {}
+
+    def fake_collect_processes(*_args, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect_processes", fake_collect_processes
+    )
+    result = runner.invoke(app, ["top", "--format", "json", "--sort", "MEMORY"])
+    assert result.exit_code == 0
+    assert captured["sort_by"] == "memory"
+    payload = json.loads(result.stdout)
+    assert isinstance(payload["collected_at"], float)
+
+
 def test_snapshot_unknown_section(monkeypatch):
     monkeypatch.setattr("sysmon.cli._wait_for_rate_sampling", lambda *a, **k: None)
     result = runner.invoke(app, ["snapshot", "bogus", "--format", "json"])
@@ -107,6 +148,23 @@ def test_cpu_rich_uses_registry_collect(monkeypatch):
     assert "cpu" in calls
 
 
+def test_cpu_rich_without_core_list(monkeypatch):
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect",
+        lambda name, settings=None: {
+            "percent": 12.5,
+            "cores": "nope",
+            "count_logical": 1,
+            "count_physical": 1,
+        },
+    )
+    result = runner.invoke(app, ["cpu"])
+    assert result.exit_code == 0
+    assert "12.5%" in result.stdout
+    assert "Per-core" not in result.stdout
+
+
 def test_wait_for_rate_sampling_uses_registry_collect(monkeypatch):
     calls = []
     monkeypatch.setattr("sysmon.cli.time.sleep", lambda _s: None)
@@ -118,6 +176,37 @@ def test_wait_for_rate_sampling_uses_registry_collect(monkeypatch):
 
     _wait_for_rate_sampling(0.1, DEFAULT_CONFIG)
     assert calls == ["network", "disk", "process"]
+
+
+def test_wait_for_rate_sampling_skips_unrelated_sections(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    calls = []
+    slept = []
+    monkeypatch.setattr("sysmon.cli.time.sleep", lambda seconds: slept.append(seconds))
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect",
+        lambda name, settings=None: calls.append(name),
+    )
+    from sysmon.cli import _wait_for_rate_sampling
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(network=False, disk=True, process=True)
+    )
+    _wait_for_rate_sampling(0.4, settings, "cpu")
+    assert calls == []
+    assert slept == []
+
+    _wait_for_rate_sampling(0.4, settings, "network")
+    assert calls == []
+    assert slept == []
+
+    _wait_for_rate_sampling(0.4, DEFAULT_CONFIG, "sensors")
+    assert calls == []
+
+    _wait_for_rate_sampling(0.4, DEFAULT_CONFIG, "disk")
+    assert calls == ["disk"]
+    assert slept == [0.4]
 
 
 def test_top_json_uses_collect_processes(monkeypatch):
@@ -147,6 +236,29 @@ def test_top_json_uses_collect_processes(monkeypatch):
     assert captured["sort_by"] == "memory"
 
 
+def test_python_module_entrypoint_shows_version():
+    import subprocess
+    import sys
+
+    from sysmon import __version__
+
+    result = subprocess.run(
+        [sys.executable, "-m", "sysmon", "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert __version__ in result.stdout
+
+
+def test_format_flag_is_case_insensitive():
+    result = runner.invoke(app, ["cpu", "--format", "JSON"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "cpu" in data
+
+
 def test_cpu_json():
     result = runner.invoke(app, ["cpu", "--format", "json"])
     assert result.exit_code == 0
@@ -161,6 +273,18 @@ def test_memory_json():
     data = json.loads(result.stdout)
     assert "memory" in data
     assert "percent" in data["memory"]
+
+
+def test_top_json_drops_non_records(monkeypatch):
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    monkeypatch.setattr(
+        "sysmon.collectors.registry.collect_processes",
+        lambda *_a, **_k: [None, {"pid": 7, "name": "ok"}, "bad"],
+    )
+    result = runner.invoke(app, ["top", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["processes"] == [{"pid": 7, "name": "ok"}]
 
 
 def test_top_json(monkeypatch):
@@ -187,7 +311,7 @@ def test_brief_passes_config_thresholds(monkeypatch):
     assert captured["kwargs"]["thresholds"] is DEFAULT_CONFIG.thresholds
 
 
-def test_brief_watch_passes_config_thresholds(monkeypatch):
+def test_brief_watch_reloads_config_each_frame(monkeypatch):
     captured = {}
 
     monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
@@ -198,7 +322,8 @@ def test_brief_watch_passes_config_thresholds(monkeypatch):
     monkeypatch.setattr("sysmon.display.brief.run_brief_watch", fake_watch)
     result = runner.invoke(app, ["brief", "--watch", "--no-gpu"])
     assert result.exit_code == 0
-    assert captured["kwargs"]["thresholds"] is DEFAULT_CONFIG.thresholds
+    assert "thresholds" not in captured["kwargs"]
+    assert "interfaces" not in captured["kwargs"]
 
 
 def test_brief_json(monkeypatch):
@@ -206,7 +331,32 @@ def test_brief_json(monkeypatch):
     result = runner.invoke(app, ["brief", "--format", "json", "--no-gpu"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert set(data.keys()) == {"cpu", "memory", "network"}
+    assert set(data.keys()) == {"cpu", "memory", "network", "collected_at"}
+
+
+def test_brief_json_skips_network_sample_when_module_disabled(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=True,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    slept: list[float] = []
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: settings)
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    monkeypatch.setattr("time.sleep", lambda seconds: slept.append(seconds))
+    result = runner.invoke(app, ["brief", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert set(data.keys()) == {"cpu", "collected_at"}
+    assert settings.sample_interval not in slept
 
 
 def test_network_json(monkeypatch):
@@ -229,6 +379,39 @@ def test_disk_json(monkeypatch):
     data = json.loads(result.stdout)
     assert "disk" in data
     assert "percent" in data["disk"]
+
+
+def test_sensors_json(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda name, settings=None: {
+            "battery": {"percent": 33.0, "secsleft": None, "power_plugged": False},
+            "temperatures": {},
+        },
+    )
+    result = runner.invoke(app, ["sensors", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["sensors"]["battery"]["percent"] == 33.0
+
+
+def test_sensors_rich_uses_registry_collect(monkeypatch):
+    calls = []
+    payload = {
+        "battery": {"percent": 33.0, "secsleft": None, "power_plugged": True},
+        "temperatures": {},
+    }
+
+    def fake_collect(name, settings=None):
+        calls.append(name)
+        return payload
+
+    monkeypatch.setattr("sysmon.collectors.registry.collect", fake_collect)
+    result = runner.invoke(app, ["sensors"])
+    assert result.exit_code == 0
+    assert calls == ["sensors"]
+    assert "33.0%" in result.stdout
+    assert "plugged in" in result.stdout
 
 
 def test_gpu_json():
@@ -277,6 +460,17 @@ def test_config_init(tmp_path, monkeypatch):
 
     forced = runner.invoke(app, ["config", "init", "--force"])
     assert forced.exit_code == 0
+
+
+def test_config_show_prints_resolved_json(monkeypatch):
+    monkeypatch.setattr("sysmon.cli.load_config", lambda: DEFAULT_CONFIG)
+    result = runner.invoke(app, ["config", "show"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["refresh_interval"] == 1.0
+    assert data["modules"]["sensors"] is False
+    assert data["thresholds"]["cpu_warn"] == 80.0
+    assert data["disk_mounts"] is None
 
 
 def test_config_path():

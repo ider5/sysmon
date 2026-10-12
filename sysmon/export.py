@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import math
 import platform
+import time
 from typing import Any, Optional
 
 from sysmon import __version__
 from sysmon.collectors.registry import collect
+from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import SysmonConfig, load_config, metric_status
 from sysmon.display.components import _get_os_name, _get_uptime
 
@@ -25,20 +28,35 @@ def _cpu_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     snapshot = info if info is not None else collect("cpu", cfg)
-    status = metric_status(
-        snapshot["percent"],
-        cfg.thresholds.cpu_warn,
-        cfg.thresholds.cpu_critical,
-    )
-    return {
-        "percent": snapshot["percent"],
-        "cores": snapshot["cores"],
-        "count_logical": snapshot["count_logical"],
-        "count_physical": snapshot["count_physical"],
-        "freq_current_mhz": snapshot["freq_current"],
-        "freq_max_mhz": snapshot["freq_max"],
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+
+    def _number(key: str, default: float = 0.0) -> float:
+        value = snapshot.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return default
+        return float(value)
+
+    percent = _number("percent")
+    status = metric_status(percent, cfg.thresholds.cpu_warn, cfg.thresholds.cpu_critical)
+    cores = snapshot.get("cores")
+    payload = {
+        "percent": percent,
+        "cores": cores if isinstance(cores, list) else [],
+        "count_logical": int(_number("count_logical")),
+        "count_physical": int(_number("count_physical")),
+        "freq_current_mhz": _number("freq_current"),
+        "freq_max_mhz": _number("freq_max"),
         "status": status,
     }
+    load_avg = snapshot.get("load_avg")
+    if (
+        isinstance(load_avg, (list, tuple))
+        and len(load_avg) == 3
+        and all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in load_avg)
+    ):
+        payload["load_avg"] = [float(item) for item in load_avg]
+    return payload
 
 
 def _memory_payload(
@@ -47,16 +65,26 @@ def _memory_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     info = info if info is not None else collect("memory", cfg)
+    if not isinstance(info, dict):
+        info = {}
+
+    def _number(key: str, default: float = 0.0) -> float:
+        value = info.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return default
+        return float(value)
+
+    percent = _number("percent")
     return {
-        "total": info["total"],
-        "used": info["used"],
-        "available": info["available"],
-        "percent": info["percent"],
-        "swap_total": info["swap_total"],
-        "swap_used": info["swap_used"],
-        "swap_percent": info["swap_percent"],
+        "total": int(_number("total")),
+        "used": int(_number("used")),
+        "available": int(_number("available")),
+        "percent": percent,
+        "swap_total": int(_number("swap_total")),
+        "swap_used": int(_number("swap_used")),
+        "swap_percent": _number("swap_percent"),
         "status": metric_status(
-            info["percent"],
+            percent,
             cfg.thresholds.memory_warn,
             cfg.thresholds.memory_critical,
         ),
@@ -69,17 +97,44 @@ def _network_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     info = info if info is not None else collect("network", cfg)
+    if not isinstance(info, dict):
+        info = {}
+
+    def _count(key: str) -> int:
+        value = info.get(key, 0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return 0
+        return int(value)
+
+    def _rate(key: str) -> float:
+        value = info.get(key, 0.0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return 0.0
+        return float(value)
+
     payload: dict[str, Any] = {
-        "bytes_sent": info["bytes_sent"],
-        "bytes_recv": info["bytes_recv"],
-        "speed_up": info["speed_up"],
-        "speed_down": info["speed_down"],
-        "packets_sent": info["packets_sent"],
-        "packets_recv": info["packets_recv"],
+        "bytes_sent": _count("bytes_sent"),
+        "bytes_recv": _count("bytes_recv"),
+        "speed_up": _rate("speed_up"),
+        "speed_down": _rate("speed_down"),
+        "packets_sent": _count("packets_sent"),
+        "packets_recv": _count("packets_recv"),
+        "errin": _count("errin"),
+        "errout": _count("errout"),
+        "dropin": _count("dropin"),
+        "dropout": _count("dropout"),
     }
-    if "interfaces" in info:
-        payload["interfaces"] = info["interfaces"]
+    interfaces = info.get("interfaces")
+    if isinstance(interfaces, list):
+        payload["interfaces"] = [row for row in interfaces if isinstance(row, dict)]
     return payload
+
+
+def _disk_number(value: object, default: float = 0.0) -> float:
+    """Use a numeric sample, or the default when it is missing or not a number."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    return value
 
 
 def _disk_payload(
@@ -88,40 +143,65 @@ def _disk_payload(
 ) -> dict[str, Any]:
     cfg = _resolve_settings(settings)
     info = info if info is not None else collect("disk", cfg)
+    if not isinstance(info, dict):
+        info = {}
+    percent = _disk_number(info.get("percent"))
     primary_status = metric_status(
-        info["percent"],
+        percent,
         cfg.thresholds.disk_warn,
         cfg.thresholds.disk_critical,
     )
     mounts = []
-    for mount_info in info.get("mounts", []):
-        mounts.append(
-            {
-                "mount": mount_info["mount"],
-                "total": mount_info["total"],
-                "used": mount_info["used"],
-                "free": mount_info["free"],
-                "percent": mount_info["percent"],
+    raw_mounts = info.get("mounts", [])
+    if isinstance(raw_mounts, list):
+        for mount_info in raw_mounts:
+            if not isinstance(mount_info, dict):
+                continue
+            mount_percent = _disk_number(mount_info.get("percent"))
+            mount_payload = {
+                "mount": str(mount_info.get("mount") or ""),
+                "total": _disk_number(mount_info.get("total"), 0),
+                "used": _disk_number(mount_info.get("used"), 0),
+                "free": _disk_number(mount_info.get("free"), 0),
+                "percent": mount_percent,
                 "status": metric_status(
-                    mount_info["percent"],
+                    mount_percent,
                     cfg.thresholds.disk_warn,
                     cfg.thresholds.disk_critical,
                 ),
             }
-        )
-    return {
+            fstype = mount_info.get("fstype")
+            if isinstance(fstype, str) and fstype:
+                mount_payload["fstype"] = fstype
+            inode_percent = mount_info.get("inode_percent")
+            if (
+                isinstance(inode_percent, (int, float))
+                and not isinstance(inode_percent, bool)
+                and math.isfinite(inode_percent)
+            ):
+                mount_payload["inode_percent"] = inode_percent
+            mounts.append(mount_payload)
+    payload = {
         "mounts": mounts,
-        "mount": info["mount"],
-        "total": info["total"],
-        "used": info["used"],
-        "free": info["free"],
-        "percent": info["percent"],
-        "read_bytes": info["read_bytes"],
-        "write_bytes": info["write_bytes"],
-        "read_speed": info["read_speed"],
-        "write_speed": info["write_speed"],
+        "mount": str(info.get("mount") or ""),
+        "total": _disk_number(info.get("total"), 0),
+        "used": _disk_number(info.get("used"), 0),
+        "free": _disk_number(info.get("free"), 0),
+        "percent": percent,
+        "read_bytes": _disk_number(info.get("read_bytes"), 0),
+        "write_bytes": _disk_number(info.get("write_bytes"), 0),
+        "read_speed": _disk_number(info.get("read_speed")),
+        "write_speed": _disk_number(info.get("write_speed")),
         "status": primary_status,
     }
+    inode_percent = info.get("inode_percent")
+    if (
+        isinstance(inode_percent, (int, float))
+        and not isinstance(inode_percent, bool)
+        and math.isfinite(inode_percent)
+    ):
+        payload["inode_percent"] = inode_percent
+    return payload
 
 
 def _gpu_payload(
@@ -130,20 +210,59 @@ def _gpu_payload(
 ) -> Optional[list[dict[str, Any]]]:
     cfg = _resolve_settings(settings)
     gpus = collect("gpu", cfg) if info is _MISSING else info
-    if not gpus:
+    if not isinstance(gpus, list) or not gpus:
         return None
-    return [
-        {
-            "id": gpu["id"],
-            "name": gpu["name"],
-            "load": gpu["load"],
-            "memory_total_mb": gpu["memory_total"],
-            "memory_used_mb": gpu["memory_used"],
-            "temperature_c": gpu["temperature"],
-            "backend": gpu.get("backend", "unknown"),
-        }
-        for gpu in gpus
-    ]
+
+    def _number(gpu: dict[str, Any], key: str, default: float = 0.0) -> float:
+        value = gpu.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return default
+        return float(value)
+
+    rows: list[dict[str, Any]] = []
+    for gpu in gpus:
+        if not isinstance(gpu, dict):
+            continue
+        temperature = gpu.get("temperature")
+        if (
+            isinstance(temperature, bool)
+            or not isinstance(temperature, (int, float))
+            or not math.isfinite(temperature)
+            or temperature < 0
+        ):
+            temperature_c = None
+        else:
+            temperature_c = float(temperature)
+        rows.append(
+            {
+                "id": gpu.get("id", 0),
+                "name": str(gpu.get("name") or "GPU"),
+                "load": _number(gpu, "load"),
+                "memory_total_mb": _number(gpu, "memory_total"),
+                "memory_used_mb": _number(gpu, "memory_used"),
+                "temperature_c": temperature_c,
+                "backend": str(gpu.get("backend") or "unknown"),
+            }
+        )
+    return rows or None
+
+
+def _sensors_payload(settings: SysmonConfig) -> Any:
+    info = collect("sensors", settings)
+    if not isinstance(info, dict):
+        return info
+    payload = dict(info)
+    hottest = hottest_temperature(payload)
+    if hottest is not None:
+        payload["hottest_c"] = hottest[0]
+    return payload
+
+
+def _process_rows(rows: Any) -> list[dict[str, Any]]:
+    """Keep process records and drop anything else, including a non-list."""
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
 
 
 def _process_payload(
@@ -154,38 +273,90 @@ def _process_payload(
     if name_filter is not None:
         from sysmon.collectors.registry import collect_processes
 
-        return collect_processes(cfg, name_filter=name_filter)
-    return collect("process", cfg)
+        rows = collect_processes(cfg, name_filter=name_filter)
+    else:
+        rows = collect("process", cfg)
+    return _process_rows(rows)
 
 
 def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
     """Collect metrics for a single section."""
     if section == "cpu":
-        return {"cpu": _cpu_payload()}
-    if section == "memory":
-        return {"memory": _memory_payload()}
-    if section == "network":
-        return {"network": _network_payload()}
-    if section == "disk":
-        return {"disk": _disk_payload()}
-    if section == "gpu":
-        return {"gpu": _gpu_payload() if include_gpu else None}
-    if section == "process":
-        return {"processes": _process_payload()}
-    raise ValueError(f"Unknown section: {section}")
+        payload: dict[str, Any] = {"cpu": _cpu_payload()}
+    elif section == "memory":
+        payload = {"memory": _memory_payload()}
+    elif section == "network":
+        payload = {"network": _network_payload()}
+    elif section == "disk":
+        payload = {"disk": _disk_payload()}
+    elif section == "gpu":
+        payload = {"gpu": _gpu_payload() if include_gpu else None}
+    elif section == "process":
+        payload = {"processes": _process_payload()}
+    elif section == "sensors":
+        payload = {"sensors": _sensors_payload(_resolve_settings(None))}
+    else:
+        raise ValueError(f"Unknown section: {section}")
+    payload["collected_at"] = time.time()
+    return payload
 
 
 def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
     """Collect compact metrics for brief mode."""
     settings = load_config()
-    data: dict[str, Any] = {
-        "cpu": _cpu_payload(settings),
-        "memory": _memory_payload(settings),
-        "network": _network_payload(settings),
-    }
-    if include_gpu:
+    data: dict[str, Any] = {}
+    if settings.modules.cpu:
+        data["cpu"] = _cpu_payload(settings)
+    if settings.modules.memory:
+        data["memory"] = _memory_payload(settings)
+    if settings.modules.network:
+        data["network"] = _network_payload(settings)
+    if include_gpu and settings.modules.gpu and settings.enable_gpu:
         data["gpu"] = _gpu_payload(settings)
+    if settings.modules.sensors:
+        data["sensors"] = _sensors_payload(settings)
+    data["collected_at"] = time.time()
     return data
+
+
+def _boot_time() -> float | None:
+    """Return the Unix boot time, or None when it cannot be read."""
+    try:
+        import psutil
+
+        return float(psutil.boot_time())
+    except (OSError, RuntimeError, NotImplementedError, ImportError, AttributeError, ValueError, TypeError):
+        return None
+
+
+def _uptime_seconds() -> float | None:
+    """Return uptime in seconds, or None when the boot time cannot be read."""
+    boot_time = _boot_time()
+    if boot_time is None:
+        return None
+    return max(0.0, time.time() - boot_time)
+
+
+def _snapshot_collected_at(snapshot: dict[str, Any]) -> float:
+    """Use the collector timestamp when the snapshot has one."""
+    timestamp = snapshot.get("timestamp")
+    if (
+        isinstance(timestamp, bool)
+        or not isinstance(timestamp, (int, float))
+        or not math.isfinite(timestamp)
+    ):
+        return time.time()
+    return float(timestamp)
+
+
+def _store(data: dict[str, Any], key: str, producer: Any) -> None:
+    """Store one section, recording a failure instead of aborting the payload."""
+    try:
+        data[key] = producer()
+    except Exception as exc:
+        errors = data.setdefault("errors", {})
+        if isinstance(errors, dict):
+            errors[key] = str(exc)
 
 
 def collect_all(include_gpu: bool = True) -> dict[str, Any]:
@@ -198,22 +369,29 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
         "os": _get_os_name(),
         "arch": platform.machine(),
         "uptime": _get_uptime(),
+        "collected_at": time.time(),
     }
+    uptime_seconds = _uptime_seconds()
+    if uptime_seconds is not None:
+        data["uptime_seconds"] = uptime_seconds
+    boot_time = _boot_time()
+    if boot_time is not None:
+        data["boot_time"] = boot_time
 
     if settings.modules.cpu:
-        data["cpu"] = _cpu_payload(settings)
+        _store(data, "cpu", lambda: _cpu_payload(settings))
     if settings.modules.memory:
-        data["memory"] = _memory_payload(settings)
+        _store(data, "memory", lambda: _memory_payload(settings))
     if settings.modules.network:
-        data["network"] = _network_payload(settings)
+        _store(data, "network", lambda: _network_payload(settings))
     if settings.modules.disk:
-        data["disk"] = _disk_payload(settings)
+        _store(data, "disk", lambda: _disk_payload(settings))
     if settings.modules.gpu and include_gpu:
-        data["gpu"] = _gpu_payload(settings)
+        _store(data, "gpu", lambda: _gpu_payload(settings))
     if settings.modules.process:
-        data["processes"] = _process_payload(settings=settings)
+        _store(data, "processes", lambda: _process_payload(settings=settings))
     if settings.modules.sensors:
-        data["sensors"] = collect("sensors", settings)
+        _store(data, "sensors", lambda: _sensors_payload(settings))
 
     return data
 
@@ -232,25 +410,61 @@ def collect_all_from_snapshot(
         "os": _get_os_name(),
         "arch": platform.machine(),
         "uptime": _get_uptime(),
+        "collected_at": _snapshot_collected_at(snapshot),
     }
+    uptime_seconds = _uptime_seconds()
+    if uptime_seconds is not None:
+        data["uptime_seconds"] = uptime_seconds
+    boot_time = _boot_time()
+    if boot_time is not None:
+        data["boot_time"] = boot_time
     if cfg.modules.cpu and snapshot.get("cpu") is not None:
-        data["cpu"] = _cpu_payload(cfg, info=snapshot["cpu"])
+        _store(data, "cpu", lambda: _cpu_payload(cfg, info=snapshot["cpu"]))
     if cfg.modules.memory and snapshot.get("memory") is not None:
-        data["memory"] = _memory_payload(cfg, info=snapshot["memory"])
+        _store(data, "memory", lambda: _memory_payload(cfg, info=snapshot["memory"]))
     if cfg.modules.network and snapshot.get("network") is not None:
-        data["network"] = _network_payload(cfg, info=snapshot["network"])
+        _store(data, "network", lambda: _network_payload(cfg, info=snapshot["network"]))
     if cfg.modules.disk and snapshot.get("disk") is not None:
-        data["disk"] = _disk_payload(cfg, info=snapshot["disk"])
+        _store(data, "disk", lambda: _disk_payload(cfg, info=snapshot["disk"]))
     if cfg.modules.gpu and include_gpu and "gpu" in snapshot:
-        data["gpu"] = _gpu_payload(cfg, info=snapshot["gpu"])
+        _store(data, "gpu", lambda: _gpu_payload(cfg, info=snapshot["gpu"]))
     processes = snapshot.get("process", snapshot.get("processes"))
     if cfg.modules.process and processes is not None:
-        data["processes"] = processes
+        data["processes"] = _process_rows(processes)
+    errors = snapshot.get("errors")
+    if isinstance(errors, dict) and errors:
+        merged = data.get("errors")
+        if not isinstance(merged, dict):
+            merged = {}
+        for key, value in errors.items():
+            merged.setdefault(str(key), str(value))
+        data["errors"] = merged
     if cfg.modules.sensors and "sensors" in snapshot:
-        data["sensors"] = snapshot["sensors"]
+        sensors = snapshot["sensors"]
+        if isinstance(sensors, dict):
+            sensors = dict(sensors)
+            hottest = hottest_temperature(sensors)
+            if hottest is not None:
+                sensors["hottest_c"] = hottest[0]
+        data["sensors"] = sensors
     return data
+
+
+def _json_ready(value: Any) -> Any:
+    """Replace NaN and infinity so the document is valid JSON."""
+    if isinstance(value, bool) or value is None or isinstance(value, str):
+        return value
+    if isinstance(value, (int, float)):
+        if not math.isfinite(value):
+            return None
+        return value
+    if isinstance(value, dict):
+        return {key: _json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_ready(item) for item in value]
+    return value
 
 
 def to_json(data: dict[str, Any]) -> str:
     """Serialize metrics to pretty-printed JSON."""
-    return json.dumps(data, ensure_ascii=False, indent=2)
+    return json.dumps(_json_ready(data), ensure_ascii=False, indent=2)

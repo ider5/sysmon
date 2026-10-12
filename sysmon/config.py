@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -65,6 +66,10 @@ class SysmonConfig:
         """Build config from a parsed TOML mapping."""
         modules_data = data.get("modules", {})
         thresholds_data = data.get("thresholds", {})
+        if not isinstance(modules_data, dict):
+            modules_data = {}
+        if not isinstance(thresholds_data, dict):
+            thresholds_data = {}
 
         modules = ModuleConfig(
             cpu=bool(modules_data.get("cpu", True)),
@@ -76,43 +81,56 @@ class SysmonConfig:
             sensors=bool(modules_data.get("sensors", False)),
         )
 
+        cpu_warn, cpu_critical = _ordered_thresholds(
+            thresholds_data.get("cpu_warn", 80.0),
+            thresholds_data.get("cpu_critical", 95.0),
+            80.0,
+            95.0,
+        )
+        memory_warn, memory_critical = _ordered_thresholds(
+            thresholds_data.get("memory_warn", 80.0),
+            thresholds_data.get("memory_critical", 95.0),
+            80.0,
+            95.0,
+        )
+        disk_warn, disk_critical = _ordered_thresholds(
+            thresholds_data.get("disk_warn", 80.0),
+            thresholds_data.get("disk_critical", 95.0),
+            80.0,
+            95.0,
+        )
+        gpu_warn, gpu_critical = _ordered_thresholds(
+            thresholds_data.get("gpu_warn", 80.0),
+            thresholds_data.get("gpu_critical", 95.0),
+            80.0,
+            95.0,
+        )
         thresholds = ThresholdConfig(
-            cpu_warn=float(thresholds_data.get("cpu_warn", 80.0)),
-            cpu_critical=float(thresholds_data.get("cpu_critical", 95.0)),
-            memory_warn=float(thresholds_data.get("memory_warn", 80.0)),
-            memory_critical=float(thresholds_data.get("memory_critical", 95.0)),
-            disk_warn=float(thresholds_data.get("disk_warn", 80.0)),
-            disk_critical=float(thresholds_data.get("disk_critical", 95.0)),
-            gpu_warn=float(thresholds_data.get("gpu_warn", 80.0)),
-            gpu_critical=float(thresholds_data.get("gpu_critical", 95.0)),
+            cpu_warn=cpu_warn,
+            cpu_critical=cpu_critical,
+            memory_warn=memory_warn,
+            memory_critical=memory_critical,
+            disk_warn=disk_warn,
+            disk_critical=disk_critical,
+            gpu_warn=gpu_warn,
+            gpu_critical=gpu_critical,
         )
 
-        disk_mounts_raw = data.get("disk_mounts")
-        network_ifaces_raw = data.get("network_interfaces")
-
-        disk_mounts: tuple[str, ...] | None = None
-        if disk_mounts_raw is not None:
-            disk_mounts = tuple(str(m) for m in disk_mounts_raw)
-
-        network_interfaces: tuple[str, ...] | None = None
-        if network_ifaces_raw is not None:
-            network_interfaces = tuple(str(n) for n in network_ifaces_raw)
-
+        refresh_interval = _clamp_interval(data.get("refresh_interval", 1.0), 1.0)
+        brief_default = data.get("brief_refresh_interval", data.get("refresh_interval", 2.0))
         return cls(
-            refresh_interval=float(data.get("refresh_interval", 1.0)),
-            sample_interval=float(data.get("sample_interval", 1.0)),
-            brief_refresh_interval=float(
-                data.get("brief_refresh_interval", data.get("refresh_interval", 2.0))
-            ),
+            refresh_interval=refresh_interval,
+            sample_interval=_clamp_interval(data.get("sample_interval", 1.0), 1.0),
+            brief_refresh_interval=_clamp_interval(brief_default, 2.0),
             enable_gpu=bool(data.get("enable_gpu", True)),
             default_format=_normalize_default_format(
                 str(data.get("default_format", "rich"))
             ),
             modules=modules,
             thresholds=thresholds,
-            process_limit=int(data.get("process_limit", 10)),
-            disk_mounts=disk_mounts,
-            network_interfaces=network_interfaces,
+            process_limit=_clamp_process_limit(data.get("process_limit", 10)),
+            disk_mounts=_string_tuple(data.get("disk_mounts")),
+            network_interfaces=_string_tuple(data.get("network_interfaces")),
         )
 
 
@@ -124,7 +142,71 @@ _CONFIG_CACHE: tuple[str, float | None, SysmonConfig] | None = None
 
 def _normalize_default_format(value: str) -> str:
     """Clamp unknown formats to the safe default."""
-    return value if value in ("rich", "json") else "rich"
+    text = value.strip().lower() if isinstance(value, str) else ""
+    return text if text in ("rich", "json") else "rich"
+
+
+def _clamp_interval(value: object, default: float) -> float:
+    """Keep refresh and sample intervals inside the CLI range."""
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+    if isinstance(value, bool) or not math.isfinite(number):
+        return default
+    return min(10.0, max(0.1, number))
+
+
+def _clamp_threshold(value: object, default: float) -> float:
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+    if isinstance(value, bool) or not math.isfinite(number):
+        return default
+    return min(100.0, max(0.0, number))
+
+
+def _ordered_thresholds(
+    warn: object,
+    critical: object,
+    default_warn: float,
+    default_critical: float,
+) -> tuple[float, float]:
+    warn_value = _clamp_threshold(warn, default_warn)
+    critical_value = _clamp_threshold(critical, default_critical)
+    if warn_value > critical_value:
+        return critical_value, warn_value
+    return warn_value, critical_value
+
+
+def _clamp_process_limit(value: object) -> int:
+    try:
+        number = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 10
+    if isinstance(value, bool):
+        return 10
+    return min(50, max(1, number))
+
+
+def _string_tuple(value: object) -> tuple[str, ...] | None:
+    """Accept a list or a single string; ignore other shapes."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return (text,) if text else None
+    if isinstance(value, (list, tuple)):
+        names: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            text = item.strip()
+            if text:
+                names.append(text)
+        return tuple(names)
+    return None
 
 
 DEFAULT_CONFIG_TEMPLATE = """\
@@ -151,6 +233,7 @@ network = true
 disk = true
 gpu = true
 process = true
+# Battery and temperatures. Shown on the dashboard when true.
 sensors = false
 
 [thresholds]
@@ -170,7 +253,9 @@ def metric_status(
     warn: float,
     critical: float,
 ) -> str:
-    """Return ok, warn, or critical for a percentage value."""
+    """Return ok, warn, critical, or unknown for a percentage value."""
+    if isinstance(percent, bool) or not isinstance(percent, (int, float)) or not math.isfinite(percent):
+        return "unknown"
     if percent >= critical:
         return "critical"
     if percent >= warn:
@@ -220,9 +305,9 @@ def load_config() -> SysmonConfig:
 
     try:
         data = _load_toml(path)
-    except Exception:
+    except Exception as exc:
         print(
-            f"sysmon: failed to parse {path}, using defaults.",
+            f"sysmon: failed to parse {path} ({exc}), using defaults.",
             file=sys.stderr,
         )
         _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)
@@ -238,9 +323,9 @@ def load_config() -> SysmonConfig:
 
     try:
         config = SysmonConfig.from_mapping(data)
-    except Exception:
+    except Exception as exc:
         print(
-            f"sysmon: invalid values in {path}, using defaults.",
+            f"sysmon: invalid values in {path} ({exc}), using defaults.",
             file=sys.stderr,
         )
         _CONFIG_CACHE = (path_key, mtime, DEFAULT_CONFIG)

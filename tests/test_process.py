@@ -28,6 +28,26 @@ def _proc(pid: int, cpu: float, mem: float, name: str) -> MagicMock:
     return mock
 
 
+def test_get_top_processes_skips_unreadable_process():
+    good = _proc(2, 0.0, 3.0, "good")
+    bad = _proc(1, 0.0, 1.0, "bad")
+    bad.info["create_time"] = "nope"
+    weird = _proc(3, 0.0, 4.0, "weird")
+    weird.info["memory_percent"] = "high"
+    weird.info["name"] = 5
+
+    with patch(
+        "sysmon.collectors.process.psutil.process_iter",
+        return_value=[bad, good, weird],
+    ):
+        rows = process_module.get_top_processes(limit=10)
+
+    by_name = {row["name"]: row for row in rows}
+    assert "bad" not in by_name
+    assert by_name["good"]["memory_percent"] == 3.0
+    assert by_name["5"]["memory_percent"] == 0.0
+
+
 def test_get_top_processes_requests_batch_attrs():
     with patch("sysmon.collectors.process.psutil.process_iter", return_value=[]) as mock_iter:
         process_module.get_top_processes(limit=2)
@@ -58,6 +78,33 @@ def test_get_top_processes_sorts_by_cpu():
     assert result[0]["cpu_percent"] == 50.0
 
 
+def test_get_top_processes_non_positive_limit_is_empty():
+    assert process_module.get_top_processes(limit=0) == []
+    assert process_module.get_top_processes(limit=-3) == []
+
+
+def test_get_top_processes_none_limit_uses_ten(monkeypatch):
+    monkeypatch.setattr(process_module, "_try_native_processes", lambda *a, **k: None)
+    monkeypatch.setattr(process_module.psutil, "process_iter", lambda *a, **k: [])
+    assert process_module.get_top_processes(limit=None) == []
+
+
+def test_unknown_sort_key_orders_by_cpu():
+    process_module.clear_process_cpu_cache()
+    procs = [
+        _proc(1, 0.0, 90.0, "high-mem"),
+        _proc(2, 0.0, 1.0, "high-cpu"),
+    ]
+    with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
+        with patch("sysmon.collectors.process.time.monotonic", return_value=1.0):
+            process_module.get_top_processes(limit=2, sort_by="cpu")
+        procs[0].cpu_times.return_value = SimpleNamespace(user=0.1, system=0.0)
+        procs[1].cpu_times.return_value = SimpleNamespace(user=0.9, system=0.0)
+        with patch("sysmon.collectors.process.time.monotonic", return_value=2.0):
+            result = process_module.get_top_processes(limit=2, sort_by="nope")
+    assert [item["pid"] for item in result] == [2, 1]
+
+
 def test_get_top_processes_name_filter():
     procs = [
         _proc(1, 10.0, 5.0, "chrome"),
@@ -73,6 +120,55 @@ def test_get_top_processes_name_filter():
     assert len(result) == 2
     names = {p["name"] for p in result}
     assert names == {"chrome", "Chrome Helper"}
+
+
+def test_get_top_processes_sort_key_is_case_insensitive(monkeypatch):
+    captured = {}
+
+    def fake_native(limit, sort_by, name_filter):
+        captured["sort_by"] = sort_by
+        return []
+
+    monkeypatch.setattr(process_module, "_try_native_processes", fake_native)
+    assert process_module.get_top_processes(limit=2, sort_by="MEMORY") == []
+    assert captured["sort_by"] == "memory"
+
+
+def test_get_top_processes_orders_native_ties(monkeypatch):
+    monkeypatch.setattr(
+        process_module,
+        "_try_native_processes",
+        lambda *_args, **_kwargs: [
+            {"pid": 9, "name": "c", "cpu_percent": 1.0, "memory_percent": 1.0, "memory_mb": 1.0},
+            {"pid": 2, "name": "a", "cpu_percent": 1.0, "memory_percent": 1.0, "memory_mb": 1.0},
+        ],
+    )
+    result = process_module.get_top_processes(limit=2, sort_by="cpu")
+    assert [row["pid"] for row in result] == [2, 9]
+
+
+def test_get_top_processes_tie_breaks_by_pid():
+    procs = [
+        _proc(5, 0.0, 1.0, "b"),
+        _proc(2, 0.0, 1.0, "a"),
+        _proc(9, 0.0, 1.0, "c"),
+    ]
+    procs[0].info["cpu_percent"] = "bad"
+    with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
+        result = process_module.get_top_processes(limit=3, sort_by="cpu")
+    assert [row["pid"] for row in result] == [2, 5, 9]
+
+
+def test_get_top_processes_strips_name_filter():
+    procs = [
+        _proc(1, 0.0, 1.0, "chrome"),
+        _proc(2, 0.0, 1.0, "python"),
+    ]
+    with patch("sysmon.collectors.process.psutil.process_iter", return_value=procs):
+        spaced = process_module.get_top_processes(limit=10, name_filter="  chrome  ")
+        blank = process_module.get_top_processes(limit=10, name_filter="   ")
+    assert [row["name"] for row in spaced] == ["chrome"]
+    assert {row["name"] for row in blank} == {"chrome", "python"}
 
 
 def test_get_top_processes_sample_interval_computes_cpu(monkeypatch):

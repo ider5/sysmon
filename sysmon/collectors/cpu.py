@@ -1,5 +1,8 @@
 """CPU metrics collector."""
 
+from __future__ import annotations
+
+import math
 import platform
 import re
 import subprocess
@@ -118,6 +121,15 @@ def _ensure_freq_collector() -> None:
                 _freq_cache["timestamp"] = time.time()
 
 
+def _freq_mhz(value: object) -> float:
+    """Return a non-negative finite frequency in MHz, or zero."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return 0.0
+    if value < 0:
+        return 0.0
+    return float(value)
+
+
 def _get_freq_fields() -> tuple[float, float]:
     """Return current and max CPU frequency in MHz."""
     freq_current = 0.0
@@ -126,15 +138,30 @@ def _get_freq_fields() -> tuple[float, float]:
     if platform.system() == "Windows":
         with _freq_lock:
             if _freq_cache["timestamp"] > 0 and (time.time() - _freq_cache["timestamp"]) < 3:
-                freq_current = _freq_cache["current"]
-                freq_max = _freq_cache["base"]
+                freq_current = _freq_mhz(_freq_cache["current"])
+                freq_max = _freq_mhz(_freq_cache["base"])
     else:
         freq = _psutil_cpu_freq()
         if freq and freq.current:
-            freq_current = freq.current
-            freq_max = freq.max if freq.max else 0
+            freq_current = _freq_mhz(freq.current)
+            freq_max = _freq_mhz(freq.max)
 
     return freq_current, freq_max
+
+
+def _load_average() -> tuple[float, float, float] | None:
+    """Return 1, 5, and 15 minute load averages when the OS provides them."""
+    getloadavg = getattr(psutil, "getloadavg", None)
+    if getloadavg is None:
+        return None
+    try:
+        one, five, fifteen = getloadavg()
+        values = (float(one), float(five), float(fifteen))
+    except (OSError, RuntimeError, NotImplementedError, AttributeError, TypeError, ValueError):
+        return None
+    if not all(math.isfinite(item) for item in values):
+        return None
+    return values
 
 
 def get_cpu_snapshot(interval: float = 0.1) -> dict:
@@ -145,17 +172,32 @@ def get_cpu_snapshot(interval: float = 0.1) -> dict:
         freq_current, freq_max
     """
     _ensure_freq_collector()
-    cores = psutil.cpu_percent(interval=interval, percpu=True)
+    try:
+        raw_cores = psutil.cpu_percent(interval=interval, percpu=True) or []
+    except (OSError, RuntimeError, NotImplementedError):
+        raw_cores = []
+    if not isinstance(raw_cores, list):
+        raw_cores = []
+    cores = [
+        float(core)
+        for core in raw_cores
+        if isinstance(core, (int, float))
+        and not isinstance(core, bool)
+        and math.isfinite(core)
+    ]
     overall = sum(cores) / len(cores) if cores else 0.0
     freq_current, freq_max = _get_freq_fields()
+    logical = psutil.cpu_count(logical=True) or 0
+    physical = psutil.cpu_count(logical=False) or logical
 
     return {
         "percent": overall,
         "cores": cores,
-        "count_logical": psutil.cpu_count(logical=True),
-        "count_physical": psutil.cpu_count(logical=False),
+        "count_logical": logical,
+        "count_physical": physical,
         "freq_current": freq_current,
         "freq_max": freq_max,
+        "load_avg": _load_average(),
     }
 
 

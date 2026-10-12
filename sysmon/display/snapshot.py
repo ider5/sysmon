@@ -9,15 +9,23 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from sysmon import __version__
 from sysmon.collectors.registry import collect
 from sysmon.config import load_config
-from sysmon.display.components import _get_os_name, _get_uptime, ascii_logo, gpu_panel
+from sysmon.display.components import (
+    _get_os_name,
+    _get_uptime,
+    ascii_logo,
+    gpu_panel,
+    one_line,
+)
 from sysmon.display.panels import (
     cpu_panel,
     disk_panel,
     memory_panel,
     network_panel,
     process_panel,
+    sensors_panel,
 )
 
 _UNSET = object()
@@ -37,10 +45,25 @@ def print_snapshot(
         "disk": _print_disk,
         "gpu": _print_gpu,
         "process": _print_process,
+        "sensors": _print_sensors,
     }
 
     handler = sections.get(section, sections["all"])
     handler(console)
+
+
+def _show_section(console: Console, label: str, render) -> None:
+    """Print one section, and keep going when that section fails."""
+    try:
+        render()
+    except Exception as exc:
+        console.print(
+            Panel(
+                Text(f"  Collection error: {exc}", style="red"),
+                title=label,
+                border_style="red",
+            )
+        )
 
 
 def _print_all(console: Console, include_gpu: bool = True) -> None:
@@ -56,16 +79,18 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
     sys_text = Text()
     sys_text.append("  System Information\n", style="bold underline")
     sys_text.append("\n")
+    sys_text.append(f"  {'Version':<12}", style="bold")
+    sys_text.append(f"{__version__}\n", style="dim")
     sys_text.append(f"  {'Host':<12}", style="bold")
-    sys_text.append(f"{hostname}\n", style="bold white")
+    sys_text.append(f"{one_line(hostname, 'unknown')}\n", style="bold white")
     sys_text.append(f"  {'OS':<12}", style="bold")
-    sys_text.append(f"{os_name}\n", style="bold blue")
+    sys_text.append(f"{one_line(os_name, 'unknown')}\n", style="bold blue")
     sys_text.append(f"  {'Arch':<12}", style="bold")
-    sys_text.append(f"{arch}\n", style="bold white")
+    sys_text.append(f"{one_line(arch, 'unknown')}\n", style="bold white")
     sys_text.append(f"  {'CPU':<12}", style="bold")
-    sys_text.append(f"{processor}\n", style="dim")
+    sys_text.append(f"{one_line(processor, 'Unknown')}\n", style="dim")
     sys_text.append(f"  {'Uptime':<12}", style="bold")
-    sys_text.append(f"{uptime}\n", style="bold green")
+    sys_text.append(f"{one_line(uptime, 'unknown')}\n", style="bold green")
 
     info_table = Table(show_header=False, box=None, padding=0)
     info_table.add_column("logo", ratio=2)
@@ -74,27 +99,36 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
     console.print(Panel(info_table, style="on grey11", padding=(1, 2)))
 
     if settings.modules.cpu:
-        _print_cpu(console, collect("cpu", settings))
+        _show_section(console, "CPU", lambda: _print_cpu(console, collect("cpu", settings)))
     if settings.modules.memory:
-        _print_memory(console, collect("memory", settings))
+        _show_section(
+            console, "Memory", lambda: _print_memory(console, collect("memory", settings))
+        )
     if settings.modules.network:
-        _print_network(console, collect("network", settings))
+        _show_section(
+            console, "Network", lambda: _print_network(console, collect("network", settings))
+        )
     if settings.modules.disk:
-        _print_disk(console, collect("disk", settings))
+        _show_section(console, "Disk", lambda: _print_disk(console, collect("disk", settings)))
     if include_gpu and settings.modules.gpu:
-        _print_gpu(console, collect("gpu", settings))
+        _show_section(console, "GPU", lambda: _print_gpu(console, collect("gpu", settings)))
     if settings.modules.process:
-        _print_process(console)
+        _show_section(console, "Processes", lambda: _print_process(console))
+    if settings.modules.sensors:
+        _show_section(
+            console, "Sensors", lambda: _print_sensors(console, collect("sensors", settings))
+        )
 
 
 def _print_cpu(console: Console, info: dict | None = None) -> None:
     """Print CPU information."""
     settings = load_config()
-    if info is None:
-        info = collect("cpu", settings)
+    if not isinstance(info, dict):
+        info = collect("cpu", settings) if info is None else {}
     console.print(
         cpu_panel(
             info,
+            cores=info.get("cores"),
             warn=settings.thresholds.cpu_warn,
             critical=settings.thresholds.cpu_critical,
         )
@@ -109,6 +143,7 @@ def _print_memory(console: Console, info: dict | None = None) -> None:
     console.print(
         memory_panel(
             info,
+            show_available=True,
             warn=settings.thresholds.memory_warn,
             critical=settings.thresholds.memory_critical,
         )
@@ -120,7 +155,7 @@ def _print_network(console: Console, info: dict | None = None) -> None:
     settings = load_config()
     if info is None:
         info = collect("network", settings)
-    console.print(network_panel(info))
+    console.print(network_panel(info, show_packets=True))
 
 
 def _print_disk(console: Console, info: dict | None = None) -> None:
@@ -151,6 +186,14 @@ def _print_gpu(console: Console, info: list | None | object = _UNSET) -> None:
     )
 
 
+def _print_sensors(console: Console, info: dict | None = None) -> None:
+    """Print battery and temperature sensors."""
+    settings = load_config()
+    if info is None:
+        info = collect("sensors", settings)
+    console.print(sensors_panel(info))
+
+
 def _print_process(console: Console) -> None:
     """Print top processes."""
     settings = load_config()
@@ -160,5 +203,7 @@ def _print_process(console: Console) -> None:
             processes,
             warn=settings.thresholds.cpu_warn,
             critical=settings.thresholds.cpu_critical,
+            mem_warn=settings.thresholds.memory_warn,
+            mem_critical=settings.thresholds.memory_critical,
         )
     )

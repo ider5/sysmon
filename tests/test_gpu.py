@@ -108,6 +108,68 @@ def test_pynvml_init_once_and_maps_fields(monkeypatch):
     assert second == first
 
 
+def test_pynvml_clamps_negative_load(monkeypatch):
+    fake = SimpleNamespace(
+        NVML_TEMPERATURE_GPU=0,
+        nvmlInit=lambda: None,
+        nvmlShutdown=lambda: None,
+        nvmlDeviceGetCount=lambda: 1,
+        nvmlDeviceGetHandleByIndex=lambda _i: object(),
+        nvmlDeviceGetName=lambda _h: "Neg",
+        nvmlDeviceGetUtilizationRates=lambda _h: SimpleNamespace(gpu=-5),
+        nvmlDeviceGetMemoryInfo=lambda _h: SimpleNamespace(total=1024 * 1024, used=0),
+        nvmlDeviceGetTemperature=lambda _h, _t: 40,
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    monkeypatch.setattr(gpu_mod, "_nvml_state", True)
+    gpus = gpu_mod._get_gpu_info_pynvml()
+    assert gpus is not None
+    assert gpus[0]["load"] == 0.0
+
+
+def test_pynvml_hides_negative_temperature(monkeypatch):
+    fake = SimpleNamespace(
+        NVML_TEMPERATURE_GPU=0,
+        nvmlInit=lambda: None,
+        nvmlShutdown=lambda: None,
+        nvmlDeviceGetCount=lambda: 1,
+        nvmlDeviceGetHandleByIndex=lambda _i: object(),
+        nvmlDeviceGetName=lambda _h: "Cold",
+        nvmlDeviceGetUtilizationRates=lambda _h: SimpleNamespace(gpu=10),
+        nvmlDeviceGetMemoryInfo=lambda _h: SimpleNamespace(total=1024 * 1024, used=0),
+        nvmlDeviceGetTemperature=lambda _h, _t: -1,
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    monkeypatch.setattr(gpu_mod, "_nvml_state", True)
+    gpus = gpu_mod._get_gpu_info_pynvml()
+    assert gpus is not None
+    assert gpus[0]["temperature"] is None
+
+
+def test_pynvml_skips_one_failing_device(monkeypatch):
+    def utilization(handle):
+        if handle == "bad":
+            raise RuntimeError("gone")
+        return SimpleNamespace(gpu=10)
+
+    fake = SimpleNamespace(
+        NVML_TEMPERATURE_GPU=0,
+        nvmlInit=lambda: None,
+        nvmlShutdown=lambda: None,
+        nvmlDeviceGetCount=lambda: 2,
+        nvmlDeviceGetHandleByIndex=lambda index: "bad" if index == 0 else "ok",
+        nvmlDeviceGetName=lambda handle: "Bad" if handle == "bad" else "Ok",
+        nvmlDeviceGetUtilizationRates=utilization,
+        nvmlDeviceGetMemoryInfo=lambda _handle: SimpleNamespace(total=1024 * 1024, used=0),
+        nvmlDeviceGetTemperature=lambda _handle, _kind: 40,
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    monkeypatch.setattr(gpu_mod, "_nvml_state", True)
+    gpus = gpu_mod._get_gpu_info_pynvml()
+    assert gpus is not None
+    assert [gpu["name"] for gpu in gpus] == ["Ok"]
+
+
 def _write_amd_sysfs(root):
     card = root / "card0" / "device"
     hwmon = card / "hwmon" / "hwmon1"
@@ -119,6 +181,35 @@ def _write_amd_sysfs(root):
     (card / "product_name").write_text("Fake AMD\n", encoding="utf-8")
     (hwmon / "temp1_input").write_text("52000\n", encoding="utf-8")
     return root
+
+
+def test_sysfs_backend_sorts_card_numbers(tmp_path, monkeypatch):
+    drm = tmp_path / "drm"
+    for card_name, label in (("card10", "Ten"), ("card2", "Two")):
+        device = drm / card_name / "device"
+        device.mkdir(parents=True)
+        (device / "vendor").write_text("0x1002\n", encoding="utf-8")
+        (device / "gpu_busy_percent").write_text("1\n", encoding="utf-8")
+        (device / "product_name").write_text(label + "\n", encoding="utf-8")
+    monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)
+    gpus = gpu_mod._get_gpu_info_sysfs()
+    assert gpus is not None
+    assert [gpu["name"] for gpu in gpus] == ["Two", "Ten"]
+    assert [gpu["id"] for gpu in gpus] == [0, 1]
+
+
+def test_sysfs_backend_clamps_negative_busy(tmp_path, monkeypatch):
+    drm = tmp_path / "drm"
+    device = drm / "card0" / "device"
+    device.mkdir(parents=True)
+    (device / "vendor").write_text("0x1002\n", encoding="utf-8")
+    (device / "gpu_busy_percent").write_text("-1\n", encoding="utf-8")
+    (device / "product_name").write_text("Fake AMD\n", encoding="utf-8")
+    monkeypatch.setattr(gpu_mod, "_DRM_ROOT", drm)
+    gpus = gpu_mod._get_gpu_info_sysfs()
+    assert gpus is not None
+    assert gpus[0]["load"] == 0.0
+    assert gpus[0]["name"] == "Fake AMD"
 
 
 def test_sysfs_backend_reads_amd_card(tmp_path, monkeypatch):

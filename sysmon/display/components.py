@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import platform
 import time
 
@@ -32,8 +33,11 @@ def _get_os_name() -> str:
 
 def _get_uptime() -> str:
     """Get system uptime as a formatted string."""
-    boot_time = psutil.boot_time()
-    uptime_seconds = time.time() - boot_time
+    try:
+        boot_time = psutil.boot_time()
+    except (OSError, RuntimeError, NotImplementedError):
+        return "unknown"
+    uptime_seconds = max(0.0, time.time() - boot_time)
 
     days = int(uptime_seconds // 86400)
     hours = int((uptime_seconds % 86400) // 3600)
@@ -56,6 +60,14 @@ def gradient_color(percent: float, warn: float = 80.0, critical: float = 95.0) -
     return "green"
 
 
+def _finite_number(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value):
+        return None
+    return float(value)
+
+
 def progress_bar(
     percent: float,
     width: int = 30,
@@ -63,6 +75,13 @@ def progress_bar(
     critical: float = 95.0,
 ) -> Text:
     """Create a text-based progress bar with color coding."""
+    number = _finite_number(percent)
+    if number is None:
+        text = Text()
+        text.append("─" * width, style="grey50")
+        text.append("   n/a", style="dim")
+        return text
+    percent = number
     filled = min(width, max(0, int(width * max(0.0, percent) / 100.0)))
     empty = width - filled
     color = gradient_color(percent, warn=warn, critical=critical)
@@ -74,7 +93,16 @@ def progress_bar(
     return text
 
 
-def header_bar(hostname: str, os_name: str, uptime: str) -> Panel:
+def _clip_label(value: str, limit: int) -> str:
+    """Keep a header field short enough that later fields stay visible."""
+    if len(value) <= limit:
+        return value
+    if limit <= 1:
+        return value[:limit]
+    return value[: limit - 1] + "…"
+
+
+def header_bar(hostname: str, os_name: str, uptime: str, notice: str | None = None) -> Panel:
     """Create the dashboard header bar with system info.
 
     Args:
@@ -82,6 +110,9 @@ def header_bar(hostname: str, os_name: str, uptime: str) -> Panel:
         os_name: Operating system name
         uptime: System uptime string
     """
+    hostname = _clip_label(one_line(hostname, "unknown"), 24)
+    os_name = _clip_label(one_line(os_name, "unknown"), 18)
+    uptime = one_line(uptime, "unknown")
     text = Text()
     text.append("⚡ ", style="bold yellow")
     text.append("sysmon", style="bold cyan")
@@ -92,6 +123,9 @@ def header_bar(hostname: str, os_name: str, uptime: str) -> Panel:
     text.append(f"{os_name}", style="bold blue")
     text.append("  │  ", style="dim")
     text.append(f"⏱  {uptime}", style="bold green")
+    if notice:
+        text.append("  │  ", style="dim")
+        text.append(notice, style="bold red")
 
     return Panel(
         text,
@@ -114,6 +148,21 @@ def ascii_logo() -> Text:
     return text
 
 
+def one_line(value: object, fallback: str = "") -> str:
+    """Collapse whitespace so an OS label cannot break a panel row."""
+    text = " ".join(str("" if value is None else value).split())
+    return text or fallback
+
+
+def celsius(value: object) -> float | None:
+    """Return a temperature in Celsius, keeping 0 and rejecting missing values."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or value < 0:
+        return None
+    return float(value)
+
+
 def gpu_panel(
     gpus: list | None,
     warn: float = 80.0,
@@ -126,33 +175,37 @@ def gpu_panel(
         warn: Load/VRAM warn threshold percent
         critical: Load/VRAM critical threshold percent
     """
-    if not gpus:
+    if not isinstance(gpus, list) or not any(isinstance(item, dict) for item in gpus):
         text = Text("  ⚠ No GPU detected.", style="dim italic")
         return Panel(text, title="[bold yellow]🎮 GPU[/bold yellow]", border_style="yellow")
 
     text = Text()
     for gpu in gpus:
-        # GPU name
-        text.append(f"  🎮 GPU {gpu['id']}: ", style="bold")
-        text.append(f"{gpu['name']}\n", style="bold white")
+        if not isinstance(gpu, dict):
+            continue
+        gpu_id = gpu.get("id", "?")
+        name = one_line(gpu.get("name"), "GPU")
+        text.append(f"  🎮 GPU {gpu_id}: ", style="bold")
+        text.append(f"{name}\n", style="bold white")
 
-        # Utilization bar
+        load = _finite_number(gpu.get("load")) or 0.0
         text.append(f"  {'Utilization':<14}", style="bold")
-        text.append_text(progress_bar(gpu["load"], width=20, warn=warn, critical=critical))
+        text.append_text(progress_bar(load, width=20, warn=warn, critical=critical))
         text.append("\n")
 
-        # VRAM
-        mem_pct = (gpu["memory_used"] / gpu["memory_total"] * 100) if gpu["memory_total"] > 0 else 0
+        memory_used = _finite_number(gpu.get("memory_used")) or 0.0
+        memory_total = _finite_number(gpu.get("memory_total")) or 0.0
+        mem_pct = (memory_used / memory_total * 100) if memory_total > 0 else 0
         text.append(f"  {'VRAM':<14}", style="bold")
         text.append_text(progress_bar(mem_pct, width=20, warn=warn, critical=critical))
-        text.append(f"\n  {'':14}{gpu['memory_used']:.0f} / {gpu['memory_total']:.0f} MB\n", style="dim")
+        text.append(f"\n  {'':14}{memory_used:.0f} / {memory_total:.0f} MB\n", style="dim")
 
         # Temperature
-        if gpu["temperature"]:
-            temp = gpu["temperature"]
+        temp = celsius(gpu.get("temperature"))
+        if temp is not None:
             temp_color = "red" if temp >= 80 else "yellow" if temp >= 65 else "green"
             text.append(f"  {'Temperature':<14}", style="bold")
-            text.append(f"🌡  {temp}°C\n", style=temp_color)
+            text.append(f"🌡  {temp:g}°C\n", style=temp_color)
 
         text.append("\n")
 

@@ -40,7 +40,7 @@ config_app = typer.Typer(help="Manage sysmon configuration.")
 app.add_typer(config_app, name="config")
 console = Console()
 
-VALID_SECTIONS = ["all", "cpu", "memory", "network", "disk", "gpu", "process"]
+VALID_SECTIONS = ["all", "cpu", "memory", "network", "disk", "gpu", "process", "sensors"]
 OutputFormat = Literal["rich", "json"]
 
 
@@ -52,11 +52,12 @@ def version_callback(value: bool) -> None:
 
 
 def _validate_format(output_format: str) -> OutputFormat:
-    if output_format not in ("rich", "json"):
+    text = output_format.strip().lower() if isinstance(output_format, str) else ""
+    if text not in ("rich", "json"):
         console.print(f"[red]Unknown format: {output_format}[/red]")
         console.print("Valid formats: rich, json")
         raise typer.Exit(code=1)
-    return output_format  # type: ignore[return-value]
+    return text  # type: ignore[return-value]
 
 
 def _resolve_format(
@@ -84,24 +85,29 @@ def _emit_json(data: dict[str, Any]) -> None:
 def _launch_dashboard(refresh: float | None, no_gpu: bool) -> None:
     from sysmon.display.dashboard import run_dashboard
 
-    settings = load_config()
-    refresh_rate = refresh if refresh is not None else settings.refresh_interval
-    run_dashboard(
-        refresh_rate=refresh_rate,
-        include_gpu=_resolve_gpu_enabled(no_gpu, settings),
-    )
+    run_dashboard(refresh_rate=refresh, include_gpu=not no_gpu)
 
 
 def _wait_for_rate_sampling(
     sample_interval: float,
     settings: SysmonConfig | None = None,
+    section: str = "all",
 ) -> None:
+    """Prime counters that need two samples. Other sections return immediately."""
     from sysmon.collectors.registry import collect
 
     cfg = settings if settings is not None else load_config()
-    collect("network", cfg)
-    collect("disk", cfg)
-    collect("process", cfg)
+    names: list[str] = []
+    if section in ("all", "network") and cfg.modules.network:
+        names.append("network")
+    if section in ("all", "disk") and cfg.modules.disk:
+        names.append("disk")
+    if section in ("all", "process") and cfg.modules.process:
+        names.append("process")
+    if not names:
+        return
+    for name in names:
+        collect(name, cfg)
     time.sleep(sample_interval)
 
 
@@ -129,6 +135,14 @@ def config_path() -> None:
     print(get_config_path())
 
 
+@config_app.command("show")
+def config_show() -> None:
+    """Print the resolved configuration as JSON."""
+    from dataclasses import asdict
+
+    _emit_json(asdict(load_config()))
+
+
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
@@ -145,7 +159,7 @@ def main(
         help="Internal: run the title-mode worker loop.",
     ),
     title_refresh: float = typer.Option(
-        2.0, "--title-refresh", hidden=True,
+        0.0, "--title-refresh", hidden=True,
     ),
     title_no_gpu: bool = typer.Option(
         False, "--title-no-gpu", hidden=True,
@@ -195,7 +209,7 @@ def dashboard(
 def snapshot(
     section: str = typer.Argument(
         "all",
-        help="Section to show: all, cpu, memory, network, disk, gpu, process.",
+        help="Section to show: all, cpu, memory, network, disk, gpu, process, sensors.",
     ),
     sample_interval: Optional[float] = typer.Option(
         None, "--sample-interval", "-s",
@@ -220,12 +234,13 @@ def snapshot(
     )
     include_gpu = _resolve_gpu_enabled(no_gpu, settings)
 
+    section = section.lower()
     if section not in VALID_SECTIONS:
         console.print(f"[red]Unknown section: {section}[/red]")
         console.print(f"Valid sections: {', '.join(VALID_SECTIONS)}")
         raise typer.Exit(code=1)
 
-    _wait_for_rate_sampling(interval, settings)
+    _wait_for_rate_sampling(interval, settings, section)
 
     if fmt == "json":
         from sysmon.export import collect_all, collect_section
@@ -276,12 +291,12 @@ def top(
     settings = load_config()
     fmt = _validate_format(_resolve_format(output_format, settings))
     count = limit if limit is not None else settings.process_limit
+    sort_by = sort_by.lower()
     if sort_by not in ("cpu", "memory"):
         console.print(f"[red]Unknown sort key: {sort_by}[/red]")
         console.print("Valid sort keys: cpu, memory")
         raise typer.Exit(code=1)
     sort_key = sort_by
-    refresh_rate = refresh if refresh is not None else settings.refresh_interval
 
     if watch:
         if fmt == "json":
@@ -290,12 +305,10 @@ def top(
         from sysmon.display.top_live import run_top_live
 
         run_top_live(
-            limit=count,
+            limit=limit,
             sort_by=sort_key,
-            refresh_rate=refresh_rate,
+            refresh_rate=refresh,
             name_filter=filter_name,
-            warn=settings.thresholds.cpu_warn,
-            critical=settings.thresholds.cpu_critical,
         )
         return
 
@@ -309,12 +322,17 @@ def top(
         name_filter=filter_name,
         sample_interval=min(settings.sample_interval, NATIVE_CPU_SAMPLE_FLOOR),
     )
+    if not isinstance(processes, list):
+        processes = []
+    else:
+        processes = [row for row in processes if isinstance(row, dict)]
 
     if fmt == "json":
         _emit_json({
             "processes": processes,
             "sort_by": sort_key,
             "filter": filter_name,
+            "collected_at": time.time(),
         })
         return
 
@@ -327,6 +345,8 @@ def top(
             name_filter=filter_name,
             warn=settings.thresholds.cpu_warn,
             critical=settings.thresholds.cpu_critical,
+            mem_warn=settings.thresholds.memory_warn,
+            mem_critical=settings.thresholds.memory_critical,
         )
     )
 
@@ -355,9 +375,13 @@ def cpu(
     from sysmon.display.snapshot import _print_cpu
 
     snapshot_data = collect("cpu", settings)
+    if not isinstance(snapshot_data, dict):
+        snapshot_data = {}
     _print_cpu(console, snapshot_data)
 
-    cores = snapshot_data["cores"]
+    cores = snapshot_data.get("cores")
+    if not isinstance(cores, list) or not cores:
+        return
     console.print("\n[bold]Per-core usage:[/bold]")
     for i, pct in enumerate(cores):
         text = Text()
@@ -497,6 +521,29 @@ def gpu(
 
 
 @app.command()
+def sensors(
+    output_format: Optional[str] = typer.Option(
+        None, "--format", "-f",
+        help="Output format: rich or json.",
+    ),
+) -> None:
+    """Show battery and temperature sensors."""
+    settings = load_config()
+    fmt = _validate_format(_resolve_format(output_format, settings))
+
+    if fmt == "json":
+        from sysmon.export import collect_section
+
+        _emit_json(collect_section("sensors"))
+        return
+
+    from sysmon.collectors.registry import collect
+    from sysmon.display.snapshot import _print_sensors
+
+    _print_sensors(console, collect("sensors", settings))
+
+
+@app.command()
 def brief(
     watch: bool = typer.Option(
         False, "--watch", "-w",
@@ -543,9 +590,6 @@ def brief(
 
     settings = load_config()
     fmt = _validate_format(_resolve_format(output_format, settings))
-    refresh_rate = (
-        refresh if refresh is not None else settings.brief_refresh_interval
-    )
     include_gpu = _resolve_gpu_enabled(no_gpu, settings)
 
     if fmt == "json":
@@ -558,21 +602,20 @@ def brief(
         from sysmon.collectors.registry import collect
         from sysmon.export import collect_brief
 
-        collect("network", settings)
-        time.sleep(settings.sample_interval)
+        if settings.modules.network:
+            collect("network", settings)
+            time.sleep(settings.sample_interval)
         _emit_json(collect_brief(include_gpu=include_gpu))
         return
 
     if title:
-        run_title_mode(console, refresh_rate=refresh_rate, no_gpu=not include_gpu)
+        run_title_mode(console, refresh_rate=refresh, no_gpu=not include_gpu)
     elif watch:
         run_brief_watch(
             console,
-            refresh_rate=refresh_rate,
+            refresh_rate=refresh,
             no_color=no_color,
             no_gpu=not include_gpu,
-            interfaces=settings.network_interfaces,
-            thresholds=settings.thresholds,
         )
     else:
         print_brief(

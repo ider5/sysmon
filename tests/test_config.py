@@ -43,6 +43,8 @@ def test_metric_status():
     assert metric_status(85, 80, 95) == "warn"
     assert metric_status(80, 80, 95) == "warn"
     assert metric_status(95, 80, 95) == "critical"
+    assert metric_status(float("nan"), 80, 95) == "unknown"
+    assert metric_status(float("inf"), 80, 95) == "unknown"
 
 
 def test_from_mapping_modules_and_thresholds():
@@ -86,9 +88,59 @@ def test_from_mapping_disk_and_network_selection():
     assert config.network_interfaces == ("eth0", "Wi-Fi")
 
 
+def test_from_mapping_clamps_unsafe_numbers():
+    config = SysmonConfig.from_mapping(
+        {
+            "refresh_interval": 0,
+            "sample_interval": -5,
+            "brief_refresh_interval": 100,
+            "process_limit": 0,
+            "thresholds": {"cpu_warn": 99, "cpu_critical": 10, "memory_warn": float("nan")},
+            "disk_mounts": "C:\\",
+            "network_interfaces": "eth0",
+        }
+    )
+    assert config.refresh_interval == 0.1
+    assert config.sample_interval == 0.1
+    assert config.brief_refresh_interval == 10.0
+    assert config.process_limit == 1
+    assert config.thresholds.cpu_warn == 10.0
+    assert config.thresholds.cpu_critical == 99.0
+    assert config.thresholds.memory_warn == 80.0
+    assert config.disk_mounts == ("C:\\",)
+    assert config.network_interfaces == ("eth0",)
+
+
+def test_from_mapping_drops_blank_mount_and_interface_names():
+    config = SysmonConfig.from_mapping(
+        {
+            "disk_mounts": [" /data ", "", None, "  "],
+            "network_interfaces": "  eth0  ",
+        }
+    )
+    assert config.disk_mounts == ("/data",)
+    assert config.network_interfaces == ("eth0",)
+    assert SysmonConfig.from_mapping({"disk_mounts": []}).disk_mounts == ()
+
+
+def test_from_mapping_ignores_non_dict_sections():
+    config = SysmonConfig.from_mapping(
+        {
+            "refresh_interval": 2.5,
+            "modules": "cpu",
+            "thresholds": 80,
+        }
+    )
+    assert config.refresh_interval == 2.5
+    assert config.modules.cpu is True
+    assert config.thresholds.cpu_warn == 80.0
+
+
 def test_from_mapping_invalid_default_format_falls_back():
     config = SysmonConfig.from_mapping({"default_format": "yaml"})
     assert config.default_format == "rich"
+    assert SysmonConfig.from_mapping({"default_format": " JSON "}).default_format == "json"
+    assert SysmonConfig.from_mapping({"default_format": "Rich"}).default_format == "rich"
 
 
 def test_load_config_from_file(tmp_path: Path, monkeypatch):
@@ -139,17 +191,20 @@ def test_load_config_invalid_toml_falls_back(tmp_path: Path, monkeypatch, capsys
     assert config.enable_gpu is True
     err = capsys.readouterr().err
     assert "failed to parse" in err.lower()
+    assert "(" in err and ")" in err
 
 
-def test_load_config_invalid_values_fall_back(tmp_path: Path, monkeypatch, capsys):
+def test_load_config_bad_interval_keeps_other_settings(tmp_path: Path, monkeypatch):
     config_path = tmp_path / "config.toml"
-    config_path.write_text('refresh_interval = "fast"\n', encoding="utf-8")
+    config_path.write_text(
+        'refresh_interval = "fast"\nenable_gpu = false\n',
+        encoding="utf-8",
+    )
     monkeypatch.setattr("sysmon.paths.get_config_path", lambda: config_path)
 
     config = load_config()
     assert config.refresh_interval == 1.0
-    err = capsys.readouterr().err
-    assert "invalid values" in err.lower()
+    assert config.enable_gpu is False
 
 
 def test_write_default_config(tmp_path: Path, monkeypatch):

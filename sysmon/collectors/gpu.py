@@ -7,6 +7,7 @@ then Linux DRM sysfs for cards that expose gpu_busy_percent (typically AMD).
 from __future__ import annotations
 
 import atexit
+import math
 import threading
 from pathlib import Path
 from typing import Optional, TypedDict
@@ -77,32 +78,35 @@ def _get_gpu_info_pynvml() -> Optional[list[GpuInfo]]:
 
         gpus: list[GpuInfo] = []
         for i in range(count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-            name = pynvml.nvmlDeviceGetName(handle)
-            if isinstance(name, bytes):
-                name = name.decode("utf-8", errors="replace")
-
-            util = pynvml.nvmlDeviceGetUtilizationRates(handle)
-            mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
             try:
-                temp = pynvml.nvmlDeviceGetTemperature(
-                    handle, pynvml.NVML_TEMPERATURE_GPU
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                name = pynvml.nvmlDeviceGetName(handle)
+                if isinstance(name, bytes):
+                    name = name.decode("utf-8", errors="replace")
+
+                util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                try:
+                    temp = pynvml.nvmlDeviceGetTemperature(
+                        handle, pynvml.NVML_TEMPERATURE_GPU
+                    )
+                except Exception:
+                    temp = None
+
+                gpus.append(
+                    {
+                        "id": i,
+                        "name": name,
+                        "load": _gpu_load(util.gpu),
+                        "memory_total": mem.total / (1024 * 1024),
+                        "memory_used": mem.used / (1024 * 1024),
+                        "temperature": _gpu_temperature(temp),
+                        "backend": "pynvml",
+                    }
                 )
             except Exception:
-                temp = None
-
-            gpus.append(
-                {
-                    "id": i,
-                    "name": name,
-                    "load": float(util.gpu),
-                    "memory_total": mem.total / (1024 * 1024),
-                    "memory_used": mem.used / (1024 * 1024),
-                    "temperature": temp,
-                    "backend": "pynvml",
-                }
-            )
-        return gpus
+                continue
+        return gpus or None
     except Exception:
         return None
 
@@ -115,20 +119,45 @@ def _get_gpu_info_gputil() -> Optional[list[GpuInfo]]:
         if not gpus:
             return None
 
-        return [
-            {
-                "id": gpu.id,
-                "name": gpu.name,
-                "load": gpu.load * 100,
-                "memory_total": gpu.memoryTotal,
-                "memory_used": gpu.memoryUsed,
-                "temperature": gpu.temperature,
-                "backend": "gputil",
-            }
-            for gpu in gpus
-        ]
+        rows: list[GpuInfo] = []
+        for gpu in gpus:
+            try:
+                raw_load = getattr(gpu, "load", None)
+                load = _gpu_load(None if raw_load is None else float(raw_load) * 100)
+                rows.append(
+                    {
+                        "id": gpu.id,
+                        "name": gpu.name,
+                        "load": load,
+                        "memory_total": gpu.memoryTotal,
+                        "memory_used": gpu.memoryUsed,
+                        "temperature": _gpu_temperature(getattr(gpu, "temperature", None)),
+                        "backend": "gputil",
+                    }
+                )
+            except Exception:
+                continue
+        return rows or None
     except Exception:
         return None
+
+
+def _gpu_temperature(value: object) -> float | None:
+    """Return a non-negative finite temperature, or None when it is missing."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or value < 0:
+        return None
+    return float(value)
+
+
+def _gpu_load(value: object) -> float:
+    """Return a non-negative finite GPU load percent, or zero."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0.0
+    if not math.isfinite(value) or value < 0:
+        return 0.0
+    return float(value)
 
 
 def _read_sysfs_text(path: Path) -> str | None:
@@ -163,11 +192,18 @@ def _hwmon_temp_c(device: Path) -> float | None:
     return None
 
 
+def _drm_card_sort_key(path: Path) -> tuple[int, int | str]:
+    name = path.name
+    if name.startswith("card") and name[4:].isdigit():
+        return (0, int(name[4:]))
+    return (1, name)
+
+
 def _get_gpu_info_sysfs() -> Optional[list[GpuInfo]]:
     if not _DRM_ROOT.is_dir():
         return None
     try:
-        cards = sorted(_DRM_ROOT.iterdir())
+        cards = sorted(_DRM_ROOT.iterdir(), key=_drm_card_sort_key)
     except OSError:
         return None
 
@@ -191,10 +227,10 @@ def _get_gpu_info_sysfs() -> Optional[list[GpuInfo]]:
             {
                 "id": index,
                 "name": label,
-                "load": float(busy),
+                "load": _gpu_load(busy),
                 "memory_total": vram_total / (1024 * 1024),
                 "memory_used": vram_used / (1024 * 1024),
-                "temperature": _hwmon_temp_c(device),
+                "temperature": _gpu_temperature(_hwmon_temp_c(device)),
                 "backend": "sysfs",
             }
         )

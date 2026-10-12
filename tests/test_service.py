@@ -5,7 +5,7 @@ import time
 import pytest
 
 from sysmon.collectors.service import CollectorService
-from sysmon.config import SysmonConfig
+from sysmon.config import ModuleConfig, SysmonConfig
 
 
 def _wait_until(predicate, timeout: float = 2.0) -> None:
@@ -36,6 +36,80 @@ def test_collector_service_caches_snapshot():
         service.stop()
 
     assert not service.running
+
+
+def test_collector_service_reloads_config_between_samples(monkeypatch):
+    cpu_only = SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": True,
+                "memory": False,
+                "network": False,
+                "disk": False,
+                "gpu": False,
+                "process": False,
+            }
+        }
+    )
+    memory_only = SysmonConfig.from_mapping(
+        {
+            "modules": {
+                "cpu": False,
+                "memory": True,
+                "network": False,
+                "disk": False,
+                "gpu": False,
+                "process": False,
+            }
+        }
+    )
+    phase = {"memory": False}
+
+    def load() -> SysmonConfig:
+        return memory_only if phase["memory"] else cpu_only
+
+    monkeypatch.setattr("sysmon.collectors.service.load_config", load)
+    service = CollectorService(
+        interval=0.05,
+        include_gpu=False,
+        config=cpu_only,
+        reload_config=True,
+    )
+    service.start()
+    try:
+        _wait_until(lambda: service.get("cpu") is not None)
+        phase["memory"] = True
+        _wait_until(
+            lambda: "memory" in service.get_snapshot() and "cpu" not in service.get_snapshot()
+        )
+    finally:
+        service.stop()
+
+
+def test_collector_loop_stays_alive_after_collect_error():
+    service = CollectorService(
+        interval=0.05,
+        include_gpu=False,
+        config=SysmonConfig(),
+    )
+    service.start()
+    original = service._collect_once
+    state = {"fail": True}
+
+    def flaky() -> None:
+        if state["fail"]:
+            raise RuntimeError("boom")
+        original()
+
+    service._collect_once = flaky
+    try:
+        time.sleep(0.2)
+        assert service.running
+        assert service._thread is not None
+        assert service._thread.is_alive()
+        state["fail"] = False
+    finally:
+        service.stop()
 
 
 def test_collector_service_respects_disabled_modules():
@@ -106,6 +180,76 @@ def test_module_failure_keeps_other_metrics(monkeypatch):
         assert "cpu" in snapshot.get("errors", {})
     finally:
         service.stop()
+
+
+def test_service_follows_config_interval(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.collectors.service.load_config",
+        lambda: SysmonConfig(
+            refresh_interval=2.5,
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            ),
+        ),
+    )
+    service = CollectorService(
+        interval=1.0,
+        include_gpu=False,
+        reload_config=True,
+        follow_config_interval=True,
+        config=SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    service._collect_once()
+    assert service._interval == 2.5
+
+
+def test_module_failure_does_not_reuse_previous_sample(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_cpu():
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise RuntimeError("cpu down")
+        return {"percent": 10.0, "cores": [10.0]}
+
+    monkeypatch.setattr("sysmon.collectors.cpu.get_cpu_snapshot", fake_cpu)
+    service = CollectorService(
+        interval=10,
+        include_gpu=False,
+        config=SysmonConfig(
+            modules=ModuleConfig(
+                cpu=True,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    service._collect_once()
+    assert service.get_snapshot()["cpu"]["percent"] == 10.0
+    service._collect_once()
+    snapshot = service.get_snapshot()
+    assert "cpu" not in snapshot
+    assert snapshot["errors"]["cpu"] == "cpu down"
 
 
 def test_collector_service_calls_registry_collect_not_cpu_snapshot(monkeypatch):

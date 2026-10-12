@@ -8,9 +8,11 @@ import time
 import traceback
 
 from sysmon.collectors.memory import bytes_to_gb
-from sysmon.collectors.network import format_speed
+from sysmon.collectors.network import down_interface_names, format_speed
 from sysmon.collectors.registry import collect
+from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import load_config
+from sysmon.display.components import _finite_number, celsius
 from sysmon.paths import get_log_dir
 
 WORKER_MARKER = "sysmon.title_worker"
@@ -58,42 +60,107 @@ def set_title(title: str) -> None:
     _write_osc(osc_title_sequence(title))
 
 
+def _num(info: object, key: str, default: float = 0.0) -> float:
+    if not isinstance(info, dict):
+        return default
+    value = _finite_number(info.get(key))
+    return default if value is None else value
+
+
 def build_title(no_gpu: bool) -> str:
     """Build plain-text title string."""
     settings = load_config()
-    cpu = collect("cpu", settings)
-    mem = collect("memory", settings)
-    net = collect("network", settings)
-
-    parts = [
-        f"CPU {cpu['percent']:.0f}%",
-        (
-            f"RAM {bytes_to_gb(mem['used'])}/{bytes_to_gb(mem['total'])}G "
-            f"({mem['percent']:.0f}%)"
-        ),
-        f"↑{format_speed(net['speed_up'])} ↓{format_speed(net['speed_down'])}",
-    ]
-
-    if not no_gpu:
+    parts: list[str] = []
+    if settings.modules.cpu:
+        cpu = collect("cpu", settings)
+        cpu_part = f"CPU {_num(cpu, 'percent'):.0f}%"
+        load_avg = cpu.get("load_avg") if isinstance(cpu, dict) else None
+        logical = _num(cpu, "count_logical", 1.0) or 1.0
+        if isinstance(load_avg, (list, tuple)) and load_avg:
+            one = _finite_number(load_avg[0])
+            if one is not None and one >= logical:
+                cpu_part += f" LD {one:.2f}"
+        parts.append(cpu_part)
+    if settings.modules.memory:
+        mem = collect("memory", settings)
+        ram = (
+            f"RAM {bytes_to_gb(_num(mem, 'used'))}/{bytes_to_gb(_num(mem, 'total'))}G "
+            f"({_num(mem, 'percent'):.0f}%)"
+        )
+        swap_total = _num(mem, "swap_total")
+        swap_percent = _num(mem, "swap_percent")
+        if swap_total > 0 and swap_percent > 0:
+            ram += f" SWAP {swap_percent:.0f}%"
+        parts.append(ram)
+    if settings.modules.network:
+        net = collect("network", settings)
+        parts.append(
+            f"↑{format_speed(_num(net, 'speed_up'))} ↓{format_speed(_num(net, 'speed_down'))}"
+        )
+        errin = int(_num(net, "errin"))
+        errout = int(_num(net, "errout"))
+        dropin = int(_num(net, "dropin"))
+        dropout = int(_num(net, "dropout"))
+        if errin or errout or dropin or dropout:
+            parts.append(f"ERR {errin}/{errout} DROP {dropin}/{dropout}")
+        down_names = down_interface_names(net)
+        if down_names:
+            shown = down_names[:3]
+            extra = len(down_names) - len(shown)
+            label = "DOWN " + ",".join(shown)
+            if extra:
+                label += f" +{extra}"
+            parts.append(label)
+    if settings.modules.disk:
+        disk = collect("disk", settings)
+        percent = disk.get("percent") if isinstance(disk, dict) else None
+        if (
+            isinstance(percent, (int, float))
+            and not isinstance(percent, bool)
+            and float(percent) >= settings.thresholds.disk_warn
+        ):
+            parts.append(f"DISK {float(percent):.0f}%")
+    if settings.modules.gpu and settings.enable_gpu and not no_gpu:
         gpus = collect("gpu", settings)
         if gpus:
-            gpu = gpus[0]
+            gpu = gpus[0] if isinstance(gpus, list) and gpus and isinstance(gpus[0], dict) else None
+            if gpu is None:
+                gpu = {}
             gpu_str = (
-                f"GPU {gpu['load']:.0f}% "
-                f"{gpu['memory_used']/1024:.1f}/{gpu['memory_total']/1024:.1f}G"
+                f"GPU {_num(gpu, 'load'):.0f}% "
+                f"{_num(gpu, 'memory_used')/1024:.1f}/{_num(gpu, 'memory_total')/1024:.1f}G"
             )
-            if gpu["temperature"]:
-                gpu_str += f" {gpu['temperature']}°C"
+            temp = celsius(gpu.get("temperature"))
+            if temp is not None:
+                gpu_str += f" {temp:g}°C"
             parts.append(gpu_str)
-
+    if settings.modules.sensors:
+        sensors = collect("sensors", settings)
+        battery = sensors.get("battery") if isinstance(sensors, dict) else None
+        battery_percent = (
+            _finite_number(battery.get("percent")) if isinstance(battery, dict) else None
+        )
+        if battery_percent is not None:
+            plugged = " AC" if battery.get("power_plugged") else ""
+            parts.append(f"BAT {battery_percent:.0f}%{plugged}")
+        hottest = hottest_temperature(sensors) if isinstance(sensors, dict) else None
+        if hottest is not None:
+            parts.append(f"TEMP {hottest[0]:.0f}°C")
+    if not parts:
+        return "sysmon"
     return " │ ".join(parts)
 
 
 def run_loop(refresh_rate: float, no_gpu: bool) -> None:
     """Main title update loop."""
     settings = load_config()
-    collect("network", settings)
-    time.sleep(0.5)
+    if settings.modules.network:
+        try:
+            collect("network", settings)
+        except Exception:
+            pass
+        else:
+            time.sleep(0.5)
 
     failures = 0
     while True:
@@ -115,12 +182,13 @@ def run_loop(refresh_rate: float, no_gpu: bool) -> None:
                 pass
             if failures >= _MAX_CONSECUTIVE_ERRORS:
                 raise SystemExit(1)
-        time.sleep(refresh_rate)
+        delay = refresh_rate if refresh_rate and refresh_rate > 0 else load_config().brief_refresh_interval
+        time.sleep(delay)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog=WORKER_MARKER)
-    parser.add_argument("--refresh", type=float, default=2.0)
+    parser.add_argument("--refresh", type=float, default=0.0)
     parser.add_argument("--no-gpu", action="store_true")
     parser.add_argument(
         "--marker",

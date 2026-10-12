@@ -7,10 +7,29 @@ from sysmon.collectors import network as network_module
 from sysmon.collectors.network import format_bytes, format_speed, get_network_info
 
 
+def test_error_counts_ignore_non_finite_values():
+    counts = network_module._error_counts(
+        SimpleNamespace(errin=float("inf"), errout=2, dropin=float("nan"), dropout=4)
+    )
+    assert counts == {"errin": 0, "errout": 2, "dropin": 0, "dropout": 4}
+
+
 def test_format_bytes():
     assert format_bytes(512) == "512.0 B"
     assert format_bytes(1536) == "1.5 KB"
     assert format_bytes(1024 ** 3) == "1.0 GB"
+    assert format_bytes(float("inf")) == "0.0 B"
+    assert format_bytes("bad") == "0.0 B"
+
+
+def test_down_interface_names():
+    assert network_module.down_interface_names(
+        {"interfaces": [{"name": "eth0", "isup": False}, {"name": "up0", "isup": True}, None]}
+    ) == ["eth0"]
+    assert network_module.down_interface_names(
+        {"interfaces": [{"name": "eth0\nbad", "isup": False}]}
+    ) == ["eth0 bad"]
+    assert network_module.down_interface_names({"speed_up": 0}) == []
 
 
 def test_format_speed():
@@ -41,6 +60,60 @@ def test_get_network_info_speed_calculation():
 
     assert second_result["speed_up"] == 500.0
     assert second_result["speed_down"] == 1000.0
+
+
+def test_get_network_info_ignores_non_numeric_counters():
+    network_module._prev_net_io = None
+    network_module._prev_time = None
+    bad = SimpleNamespace(
+        bytes_sent="bad",
+        bytes_recv=float("nan"),
+        packets_sent=3,
+        packets_recv="no",
+    )
+    with patch("sysmon.collectors.network.psutil.net_io_counters", return_value=bad):
+        with patch("sysmon.collectors.network.time.time", return_value=1.0):
+            result = get_network_info()
+    assert result["bytes_sent"] == 0.0
+    assert result["bytes_recv"] == 0.0
+    assert result["packets_sent"] == 3.0
+    assert result["packets_recv"] == 0.0
+    assert result["speed_up"] == 0.0
+
+
+def test_get_network_info_when_counters_unavailable():
+    network_module._prev_net_io = None
+    network_module._prev_time = None
+
+    with patch("sysmon.collectors.network.psutil.net_io_counters", return_value=None):
+        result = get_network_info()
+
+    assert result == {
+        "bytes_sent": 0,
+        "bytes_recv": 0,
+        "speed_up": 0.0,
+        "speed_down": 0.0,
+        "packets_sent": 0,
+        "packets_recv": 0,
+        "errin": 0,
+        "errout": 0,
+        "dropin": 0,
+        "dropout": 0,
+    }
+    assert network_module._prev_net_io is None
+
+
+def test_get_network_info_when_counters_raise():
+    network_module._prev_net_io = None
+    network_module._prev_time = None
+    with patch(
+        "sysmon.collectors.network.psutil.net_io_counters",
+        side_effect=OSError("unavailable"),
+    ):
+        result = get_network_info()
+    assert result["bytes_sent"] == 0
+    assert result["speed_up"] == 0.0
+    assert network_module._prev_net_io is None
 
 
 def test_get_network_info_clamps_counter_reset():

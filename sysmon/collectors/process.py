@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import heapq
+import math
 import os
 import threading
 import time
@@ -120,6 +121,24 @@ def _evict_stale_cpu_cache(alive: set[tuple[int, float]]) -> None:
             del _prev_cpu[key]
 
 
+def _rank_processes(processes: list[dict], sort_by: str, limit: int) -> list[dict]:
+    """Order process rows by CPU or memory, breaking ties by pid."""
+    sort_key = "memory_percent" if sort_by == "memory" else "cpu_percent"
+    if limit <= 0:
+        return []
+
+    def _sort_value(value: object) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            return 0.0
+        return float(value)
+
+    return heapq.nlargest(
+        limit,
+        processes,
+        key=lambda item: (_sort_value(item.get(sort_key)), -_sort_value(item.get("pid"))),
+    )
+
+
 def get_top_processes(
     limit: int = 10,
     sort_by: str = "cpu",
@@ -138,18 +157,33 @@ def get_top_processes(
     Returns:
         List of dicts with pid, name, cpu_percent, memory_percent, memory_mb.
     """
+    if limit is None:
+        limit = 10
+    if isinstance(limit, bool) or not isinstance(limit, (int, float)) or not math.isfinite(limit):
+        limit = 10
+    limit = int(limit)
+    if limit <= 0:
+        return []
+    if isinstance(sort_by, str) and sort_by.strip().lower() in ("cpu", "memory"):
+        sort_by = sort_by.strip().lower()
+    else:
+        sort_by = "cpu"
+    if isinstance(name_filter, str):
+        name_filter = name_filter.strip()
+        if not name_filter:
+            name_filter = None
     if sample_interval is not None and sample_interval > 0:
         if _try_native_processes(limit, sort_by, name_filter) is not None:
             time.sleep(max(sample_interval, NATIVE_CPU_SAMPLE_FLOOR))
             native = _try_native_processes(limit, sort_by, name_filter)
             if native is not None:
-                return native
+                return _rank_processes(native, sort_by, limit)
         _prime_cpu_times()
         time.sleep(sample_interval)
     else:
         native = _try_native_processes(limit, sort_by, name_filter)
         if native is not None:
-            return native
+            return _rank_processes(native, sort_by, limit)
 
     processes: list[dict] = []
     needle = name_filter.lower() if name_filter else None
@@ -160,31 +194,35 @@ def get_top_processes(
             info = getattr(proc, "info", {}) or {}
             key = _proc_key(proc, info)
             alive.add(key)
-            name = info.get("name") or "unknown"
+            raw_name = info.get("name") or "unknown"
+            name = raw_name if isinstance(raw_name, str) else str(raw_name)
             pid = info.get("pid", proc.pid)
             if is_idle_process(name, pid) or is_self_process(pid):
                 continue
             if needle is not None and needle not in name.lower():
                 continue
             mem_info = _memory_info(proc, info)
+            memory_percent = info.get("memory_percent")
+            if (
+                isinstance(memory_percent, bool)
+                or not isinstance(memory_percent, (int, float))
+                or not math.isfinite(memory_percent)
+            ):
+                memory_percent = 0.0
             processes.append(
                 {
                     "pid": info.get("pid", proc.pid),
                     "name": name,
                     "cpu_percent": _cpu_percent_from_times(key, _cpu_times(proc, info)),
-                    "memory_percent": info.get("memory_percent") or 0.0,
+                    "memory_percent": float(memory_percent),
                     "memory_mb": mem_info.rss / (1024 * 1024),
                 }
             )
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except Exception:
             continue
 
     _evict_stale_cpu_cache(alive)
-
-    sort_key = "cpu_percent" if sort_by == "cpu" else "memory_percent"
-    if limit <= 0:
-        return []
-    return heapq.nlargest(limit, processes, key=lambda item: item[sort_key])
+    return _rank_processes(processes, sort_by, limit)
 
 
 def _try_native_processes(
@@ -199,11 +237,14 @@ def _try_native_processes(
         return None
     try:
         fetch = 0 if limit <= 0 else limit + IDLE_FETCH_EXTRA
-        rows = list_processes(fetch, sort_by, name_filter)
+        rows = list_processes(fetch, sort_by, name_filter, os.getpid())
+        if not isinstance(rows, list):
+            return None
         return [
             row
             for row in rows
-            if not is_idle_process(str(row.get("name", "")), row.get("pid"))
+            if isinstance(row, dict)
+            and not is_idle_process(str(row.get("name") or ""), row.get("pid"))
             and not is_self_process(row.get("pid"))
         ][:limit]
     except Exception:

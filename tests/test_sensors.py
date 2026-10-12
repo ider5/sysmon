@@ -10,6 +10,45 @@ from sysmon.config import ModuleConfig, SysmonConfig
 from sysmon.export import collect_all
 
 
+def test_hottest_temperature_picks_the_max():
+    from sysmon.collectors.sensors import hottest_temperature
+
+    hottest = hottest_temperature(
+        {
+            "temperatures": {
+                "coretemp": [
+                    {"label": "Package", "current": 45.0, "high": 80, "critical": 100},
+                    {"label": "Core", "current": None},
+                ],
+                "nvme": [{"label": "Composite", "current": 61.4}],
+            }
+        }
+    )
+    assert hottest is not None
+    assert hottest[0] == 61.4
+    assert hottest[1]["label"] == "Composite"
+
+
+def test_hottest_temperature_skips_non_finite():
+    from sysmon.collectors.sensors import hottest_temperature
+
+    hottest = hottest_temperature(
+        {
+            "temperatures": {
+                "coretemp": [
+                    {"label": "bad", "current": float("inf")},
+                    {"label": "pkg", "current": 40.0},
+                ]
+            }
+        }
+    )
+    assert hottest is not None
+    assert hottest[0] == 40.0
+    assert hottest_temperature(
+        {"temperatures": {"coretemp": [{"label": "bad", "current": float("nan")}]}}
+    ) is None
+
+
 def test_sensors_default_disabled():
     config = SysmonConfig()
     assert config.modules.sensors is False
@@ -46,6 +85,33 @@ def test_get_sensors_info_maps_psutil(monkeypatch):
     assert info["battery"]["power_plugged"] is False
     assert info["temperatures"]["coretemp"][0]["label"] == "Package"
     assert info["temperatures"]["coretemp"][0]["current"] == 45.0
+
+
+def test_get_sensors_info_keeps_sample_when_values_are_not_numbers(monkeypatch):
+    monkeypatch.setattr(
+        sensors_mod.psutil,
+        "sensors_battery",
+        lambda: SimpleNamespace(percent="bad", secsleft="nope", power_plugged=False),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        sensors_mod.psutil,
+        "sensors_temperatures",
+        lambda: {
+            "coretemp": [
+                SimpleNamespace(label="Bad", current="hot", high=None, critical=None),
+                SimpleNamespace(label="Pkg", current=41.0, high=80.0, critical=100.0),
+            ],
+            "skip": "not-a-list",
+        },
+        raising=False,
+    )
+    info = sensors_mod.get_sensors_info()
+    assert info["battery"]["percent"] is None
+    assert info["battery"]["secsleft"] is None
+    assert info["temperatures"]["coretemp"][0]["current"] is None
+    assert info["temperatures"]["coretemp"][1]["current"] == 41.0
+    assert "skip" not in info["temperatures"]
 
 
 def test_get_sensors_info_without_temperature_api(monkeypatch):

@@ -15,9 +15,11 @@ from rich.live import Live
 from rich.text import Text
 
 from sysmon.collectors.memory import bytes_to_gb
-from sysmon.collectors.network import format_speed
+from sysmon.collectors.network import down_interface_names, format_speed
 from sysmon.collectors.registry import collect
+from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import ThresholdConfig, load_config, metric_status
+from sysmon.display.components import _finite_number, celsius
 from sysmon.display.title_worker import WORKER_MARKER
 
 _STATUS_COLORS = {
@@ -37,6 +39,13 @@ _LOCK_FILE = Path.home() / ".sysmon_title.lock"
 _WORKER_START_GRACE = 0.2
 
 
+def _num(info: object, key: str, default: float = 0.0) -> float:
+    if not isinstance(info, dict):
+        return default
+    value = _finite_number(info.get(key))
+    return default if value is None else value
+
+
 def _format_cpu(
     info: dict,
     no_color: bool = False,
@@ -46,14 +55,44 @@ def _format_cpu(
     """Format CPU info as compact text."""
     text = Text()
     text.append("CPU ")
-    pct = info["percent"]
+    pct = _num(info, "percent")
     if no_color:
         text.append(f"{pct:.0f}%")
     else:
         text.append(f"{pct:.0f}%", style=_threshold_color(pct, warn, critical))
 
-    if info["freq_current"]:
-        text.append(f" {info['freq_current']:.0f}M")
+    freq = _num(info, "freq_current")
+    if freq:
+        text.append(f" {freq:.0f}M")
+    load_text = _format_load_pressure(info, no_color)
+    if load_text is not None:
+        text.append(" ")
+        text.append_text(load_text)
+    return text
+
+
+def _format_load_pressure(info: dict, no_color: bool = False) -> Text | None:
+    """Show 1-minute load when it is at or above the logical CPU count."""
+    if not isinstance(info, dict):
+        return None
+    load_avg = info.get("load_avg")
+    if not isinstance(load_avg, (list, tuple)) or not load_avg:
+        return None
+    one = _finite_number(load_avg[0])
+    if one is None:
+        return None
+    logical = _num(info, "count_logical", 1.0)
+    if logical <= 0:
+        logical = 1.0
+    if one < logical:
+        return None
+    text = Text()
+    text.append("LD ")
+    label = f"{one:.2f}"
+    if no_color:
+        text.append(label)
+    else:
+        text.append(label, style="yellow" if one < logical * 2 else "red")
     return text
 
 
@@ -66,28 +105,69 @@ def _format_memory(
     """Format memory info as compact text."""
     text = Text()
     text.append("RAM ")
-    used = bytes_to_gb(info["used"])
-    total = bytes_to_gb(info["total"])
-    pct = info["percent"]
+    used = bytes_to_gb(_num(info, "used"))
+    total = bytes_to_gb(_num(info, "total"))
+    pct = _num(info, "percent")
 
     if no_color:
         text.append(f"{used}/{total}G ({pct:.0f}%)")
     else:
         text.append(f"{used}/{total}G", style="bold")
         text.append(f" ({pct:.0f}%)", style=_threshold_color(pct, warn, critical))
+    swap_total = _num(info, "swap_total")
+    swap_percent = _num(info, "swap_percent")
+    if swap_total > 0 and swap_percent > 0:
+        text.append(" SWAP ")
+        swap_label = f"{swap_percent:.0f}%"
+        if no_color:
+            text.append(swap_label)
+        else:
+            text.append(swap_label, style=_threshold_color(swap_percent, warn, critical))
     return text
 
 
 def _format_network(info: dict, no_color: bool = False) -> Text:
     """Format network info as compact text."""
     text = Text()
+    up = format_speed(_num(info, "speed_up"))
+    down = format_speed(_num(info, "speed_down"))
     if no_color:
-        text.append(f"↑{format_speed(info['speed_up'])} ↓{format_speed(info['speed_down'])}")
+        text.append(f"↑{up} ↓{down}")
     else:
         text.append("↑", style="green")
-        text.append(format_speed(info["speed_up"]), style="green")
+        text.append(up, style="green")
         text.append(" ↓", style="cyan")
-        text.append(format_speed(info["speed_down"]), style="cyan")
+        text.append(down, style="cyan")
+    return text
+
+
+def _format_link_down(info: dict) -> Text | None:
+    """Show interface names when their link is down."""
+    names = down_interface_names(info)
+    if not names:
+        return None
+    shown = names[:3]
+    extra = len(names) - len(shown)
+    label = "DOWN " + ",".join(shown)
+    if extra:
+        label += f" +{extra}"
+    text = Text()
+    text.append(label)
+    return text
+
+
+def _format_network_errors(info: dict) -> Text | None:
+    """Show NIC errors and drops only when at least one count is non-zero."""
+    if not isinstance(info, dict):
+        return None
+    errin = int(_num(info, "errin"))
+    errout = int(_num(info, "errout"))
+    dropin = int(_num(info, "dropin"))
+    dropout = int(_num(info, "dropout"))
+    if not (errin or errout or dropin or dropout):
+        return None
+    text = Text()
+    text.append(f"ERR {errin}/{errout} DROP {dropin}/{dropout}")
     return text
 
 
@@ -98,32 +178,108 @@ def _format_gpu(
     critical: float = 95.0,
 ) -> Text | None:
     """Format GPU info as compact text."""
-    if not gpus:
+    if not isinstance(gpus, list) or not gpus or not isinstance(gpus[0], dict):
         return None
 
     gpu = gpus[0]
     text = Text()
     text.append("GPU ")
 
-    load = gpu["load"]
+    load = _num(gpu, "load")
     if no_color:
         text.append(f"{load:.0f}%")
     else:
         text.append(f"{load:.0f}%", style=_threshold_color(load, warn, critical))
 
-    mem_used = gpu["memory_used"] / 1024
-    mem_total = gpu["memory_total"] / 1024
+    mem_used = _num(gpu, "memory_used") / 1024
+    mem_total = _num(gpu, "memory_total") / 1024
     text.append(f" {mem_used:.1f}/{mem_total:.1f}G")
 
-    if gpu["temperature"]:
-        temp = gpu["temperature"]
+    temp = celsius(gpu.get("temperature"))
+    if temp is not None:
         if no_color:
-            text.append(f" {temp}°C")
+            text.append(f" {temp:g}°C")
         else:
             color = "green" if temp < 65 else "yellow" if temp < 80 else "red"
-            text.append(f" {temp}°C", style=color)
+            text.append(f" {temp:g}°C", style=color)
 
     return text
+
+
+def _temperature_color(current: float, entry: dict) -> str:
+    critical = entry.get("critical")
+    high = entry.get("high")
+    if isinstance(critical, (int, float)) and not isinstance(critical, bool) and current >= critical:
+        return "red"
+    if isinstance(high, (int, float)) and not isinstance(high, bool) and current >= high:
+        return "yellow"
+    return "bold"
+
+
+def _format_disk_pressure(
+    info: dict,
+    no_color: bool = False,
+    warn: float = 80.0,
+    critical: float = 95.0,
+) -> Text | None:
+    """Show disk usage on the compact line only once it reaches the warn threshold."""
+    if not isinstance(info, dict):
+        return None
+    percent = info.get("percent")
+    if isinstance(percent, bool) or not isinstance(percent, (int, float)):
+        return None
+    if float(percent) < warn:
+        return None
+    text = Text()
+    text.append("DISK ")
+    label = f"{float(percent):.0f}%"
+    if no_color:
+        text.append(label)
+    else:
+        text.append(label, style=_threshold_color(float(percent), warn, critical))
+    return text
+
+
+def _format_sensors(info: dict, no_color: bool = False) -> Text | None:
+    """Format battery charge and the hottest temperature for the compact line."""
+    pieces: list[Text] = []
+    battery = info.get("battery") if isinstance(info, dict) else None
+    battery_percent = _finite_number(battery.get("percent")) if isinstance(battery, dict) else None
+    if battery_percent is not None:
+        text = Text()
+        text.append("BAT ")
+        percent = f"{battery_percent:.0f}%"
+        if no_color:
+            text.append(percent)
+        else:
+            text.append(percent, style="bold")
+        if battery.get("power_plugged"):
+            text.append(" AC")
+        pieces.append(text)
+
+    hottest = hottest_temperature(info) if isinstance(info, dict) else None
+    if hottest is not None:
+        current, entry = hottest
+        text = Text()
+        text.append("TEMP ")
+        label = f"{current:.0f}°C"
+        if no_color:
+            text.append(label)
+        else:
+            text.append(label, style=_temperature_color(current, entry))
+        pieces.append(text)
+
+    if not pieces:
+        return None
+    line = Text()
+    for index, piece in enumerate(pieces):
+        if index:
+            if no_color:
+                line.append(" │ ")
+            else:
+                line.append(" │ ", style="dim")
+        line.append_text(piece)
+    return line
 
 
 def build_brief_line(
@@ -140,43 +296,68 @@ def build_brief_line(
     if interfaces is not None:
         settings = replace(settings, network_interfaces=tuple(interfaces))
 
-    cpu_info = collect("cpu", settings)
-    mem_info = collect("memory", settings)
-    net_info = collect("network", settings)
-    gpu_info = None if no_gpu else collect("gpu", settings)
-
-    line = Text()
-    line.append_text(
-        _format_cpu(
-            cpu_info,
-            no_color,
-            warn=thresholds.cpu_warn,
-            critical=thresholds.cpu_critical,
+    parts: list[Text] = []
+    if settings.modules.cpu:
+        parts.append(
+            _format_cpu(
+                collect("cpu", settings),
+                no_color,
+                warn=thresholds.cpu_warn,
+                critical=thresholds.cpu_critical,
+            )
         )
-    )
-    line.append(" │ ", style="dim")
-    line.append_text(
-        _format_memory(
-            mem_info,
-            no_color,
-            warn=thresholds.memory_warn,
-            critical=thresholds.memory_critical,
+    if settings.modules.memory:
+        parts.append(
+            _format_memory(
+                collect("memory", settings),
+                no_color,
+                warn=thresholds.memory_warn,
+                critical=thresholds.memory_critical,
+            )
         )
-    )
-    line.append(" │ ", style="dim")
-    line.append_text(_format_network(net_info, no_color))
-
-    if gpu_info:
+    if settings.modules.network:
+        network_info = collect("network", settings)
+        parts.append(_format_network(network_info, no_color))
+        error_text = _format_network_errors(network_info)
+        if error_text is not None:
+            parts.append(error_text)
+        down_text = _format_link_down(network_info)
+        if down_text is not None:
+            parts.append(down_text)
+    if settings.modules.disk:
+        disk_text = _format_disk_pressure(
+            collect("disk", settings),
+            no_color,
+            warn=thresholds.disk_warn,
+            critical=thresholds.disk_critical,
+        )
+        if disk_text is not None:
+            parts.append(disk_text)
+    if settings.modules.gpu and settings.enable_gpu and not no_gpu:
         gpu_text = _format_gpu(
-            gpu_info,
+            collect("gpu", settings),
             no_color,
             warn=thresholds.gpu_warn,
             critical=thresholds.gpu_critical,
         )
         if gpu_text:
-            line.append(" │ ", style="dim")
-            line.append_text(gpu_text)
+            parts.append(gpu_text)
+    if settings.modules.sensors:
+        sensor_text = _format_sensors(collect("sensors", settings), no_color)
+        if sensor_text:
+            parts.append(sensor_text)
 
+    line = Text()
+    if not parts:
+        line.append("modules disabled", style=None if no_color else "dim")
+        return line
+    for index, part in enumerate(parts):
+        if index:
+            if no_color:
+                line.append(" │ ")
+            else:
+                line.append(" │ ", style="dim")
+        line.append_text(part)
     return line
 
 
@@ -192,8 +373,13 @@ def print_brief(
     settings = load_config()
     if interfaces is not None:
         settings = replace(settings, network_interfaces=tuple(interfaces))
-    collect("network", settings)
-    time.sleep(sample_interval)
+    if settings.modules.network:
+        try:
+            collect("network", settings)
+        except Exception:
+            pass
+        else:
+            time.sleep(sample_interval)
     console.print(
         build_brief_line(
             no_color, no_gpu, interfaces=interfaces, thresholds=thresholds
@@ -203,7 +389,7 @@ def print_brief(
 
 def run_brief_watch(
     console: Console,
-    refresh_rate: float = 1.0,
+    refresh_rate: float | None = None,
     no_color: bool = False,
     no_gpu: bool = False,
     interfaces: Iterable[str] | None = None,
@@ -213,8 +399,14 @@ def run_brief_watch(
     settings = load_config()
     if interfaces is not None:
         settings = replace(settings, network_interfaces=tuple(interfaces))
-    collect("network", settings)
-    time.sleep(min(0.5, refresh_rate))
+    if settings.modules.network:
+        try:
+            collect("network", settings)
+        except Exception:
+            pass
+        else:
+            delay = settings.brief_refresh_interval if refresh_rate is None else refresh_rate
+            time.sleep(min(0.5, delay))
 
     with Live(
         build_brief_line(
@@ -226,15 +418,22 @@ def run_brief_watch(
     ) as live:
         try:
             while True:
-                time.sleep(refresh_rate)
-                live.update(
-                    build_brief_line(
-                        no_color,
-                        no_gpu,
-                        interfaces=interfaces,
-                        thresholds=thresholds,
+                current = load_config()
+                delay = current.brief_refresh_interval if refresh_rate is None else refresh_rate
+                time.sleep(delay)
+                try:
+                    live.update(
+                        build_brief_line(
+                            no_color,
+                            no_gpu,
+                            interfaces=interfaces,
+                            thresholds=thresholds,
+                        )
                     )
-                )
+                except KeyboardInterrupt:
+                    raise
+                except Exception as exc:
+                    live.update(Text(f"brief error: {exc}", style="red"))
         except KeyboardInterrupt:
             pass
 
@@ -318,15 +517,12 @@ def _stop_existing_title_process() -> None:
         _PID_FILE.unlink(missing_ok=True)
 
 
-def title_worker_command(refresh_rate: float, no_gpu: bool) -> list[str]:
+def title_worker_command(refresh_rate: float | None, no_gpu: bool) -> list[str]:
     """Build the argv used to spawn the title worker."""
     if getattr(sys, "frozen", False):
-        cmd = [
-            sys.executable,
-            "--title-worker",
-            "--title-refresh",
-            str(refresh_rate),
-        ]
+        cmd = [sys.executable, "--title-worker"]
+        if refresh_rate is not None:
+            cmd.extend(["--title-refresh", str(refresh_rate)])
         if no_gpu:
             cmd.append("--title-no-gpu")
         return cmd
@@ -334,11 +530,11 @@ def title_worker_command(refresh_rate: float, no_gpu: bool) -> list[str]:
         sys.executable,
         "-m",
         "sysmon.display.title_worker",
-        "--refresh",
-        str(refresh_rate),
         "--marker",
         WORKER_MARKER,
     ]
+    if refresh_rate is not None:
+        cmd.extend(["--refresh", str(refresh_rate)])
     if no_gpu:
         cmd.append("--no-gpu")
     return cmd
@@ -346,7 +542,7 @@ def title_worker_command(refresh_rate: float, no_gpu: bool) -> list[str]:
 
 def run_title_mode(
     console: Console,
-    refresh_rate: float = 2.0,
+    refresh_rate: float | None = None,
     no_gpu: bool = False,
 ) -> None:
     """Run in terminal title mode - non-blocking background worker."""

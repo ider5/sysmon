@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import platform
 import time
 
@@ -20,6 +21,7 @@ from sysmon.display.panels import (
     memory_panel,
     network_panel,
     process_panel,
+    sensors_panel,
 )
 from sysmon.display.sparkline import HistoryBuffer
 
@@ -33,12 +35,62 @@ def _waiting_panel(title: str, error: str | None = None) -> Panel:
     )
 
 
+def _record_number(history: HistoryBuffer, value: object) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return
+    history.add(value)
+
+
+def record_dashboard_history(
+    snapshot: dict,
+    cpu_history: HistoryBuffer,
+    mem_history: HistoryBuffer,
+    net_history: HistoryBuffer,
+    net_up_history: HistoryBuffer,
+    disk_read_history: HistoryBuffer,
+    disk_write_history: HistoryBuffer,
+) -> None:
+    """Append one sample to each trail when the field is a real number."""
+    cpu = snapshot.get("cpu")
+    if isinstance(cpu, dict):
+        _record_number(cpu_history, cpu.get("percent"))
+    mem = snapshot.get("memory")
+    if isinstance(mem, dict):
+        _record_number(mem_history, mem.get("percent"))
+    net = snapshot.get("network")
+    if isinstance(net, dict):
+        _record_number(net_history, net.get("speed_down"))
+        _record_number(net_up_history, net.get("speed_up"))
+    disk = snapshot.get("disk")
+    if isinstance(disk, dict):
+        _record_number(disk_read_history, disk.get("read_speed"))
+        _record_number(disk_write_history, disk.get("write_speed"))
+
+
+def snapshot_is_stale(snapshot: dict | None, refresh_rate: float, now: float | None = None) -> bool:
+    """Return True when the cached sample is older than a few refresh intervals."""
+    if not isinstance(snapshot, dict):
+        return False
+    timestamp = snapshot.get("timestamp")
+    if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)):
+        return False
+    if not math.isfinite(timestamp):
+        return True
+    current = time.time() if now is None else now
+    return current - float(timestamp) > max(3.0, refresh_rate * 3)
+
+
 def build_dashboard(
     include_gpu: bool = True,
     config: SysmonConfig | None = None,
     cpu_history: HistoryBuffer | None = None,
+    mem_history: HistoryBuffer | None = None,
     net_history: HistoryBuffer | None = None,
+    net_up_history: HistoryBuffer | None = None,
+    disk_read_history: HistoryBuffer | None = None,
+    disk_write_history: HistoryBuffer | None = None,
     snapshot: dict | None = None,
+    notice: str | None = None,
 ) -> Layout:
     """Build the full dashboard layout from a cached snapshot."""
     settings = config or load_config()
@@ -56,14 +108,14 @@ def build_dashboard(
         Layout(name="header", size=3),
         Layout(name="content"),
     )
-    layout["header"].update(header_bar(hostname, os_name, uptime))
+    layout["header"].update(header_bar(hostname, os_name, uptime, notice=notice))
 
     metric_panels: list[tuple[str, Panel]] = []
     process_item: tuple[str, Panel] | None = None
 
     if modules.cpu:
         cpu_snapshot = data.get("cpu")
-        if cpu_snapshot is None:
+        if not isinstance(cpu_snapshot, dict):
             metric_panels.append(
                 ("cpu", _waiting_panel("[bold cyan]📊 CPU[/bold cyan]", errors.get("cpu")))
             )
@@ -73,7 +125,7 @@ def build_dashboard(
                     "cpu",
                     cpu_panel(
                         cpu_snapshot,
-                        cores=cpu_snapshot["cores"],
+                        cores=cpu_snapshot.get("cores"),
                         compact=True,
                         warn=thresholds.cpu_warn,
                         critical=thresholds.cpu_critical,
@@ -103,6 +155,7 @@ def build_dashboard(
                         show_available=True,
                         warn=thresholds.memory_warn,
                         critical=thresholds.memory_critical,
+                        history=mem_history.values() if mem_history else None,
                     ),
                 )
             )
@@ -127,6 +180,7 @@ def build_dashboard(
                         net_info,
                         show_packets=True,
                         download_history=net_history.values() if net_history else None,
+                        upload_history=net_up_history.values() if net_up_history else None,
                     ),
                 )
             )
@@ -145,6 +199,8 @@ def build_dashboard(
                         disk_info,
                         warn=thresholds.disk_warn,
                         critical=thresholds.disk_critical,
+                        read_history=disk_read_history.values() if disk_read_history else None,
+                        write_history=disk_write_history.values() if disk_write_history else None,
                     ),
                 )
             )
@@ -173,6 +229,21 @@ def build_dashboard(
                 )
             )
 
+    if modules.sensors:
+        sensors_info = data.get("sensors")
+        if sensors_info is None:
+            metric_panels.append(
+                (
+                    "sensors",
+                    _waiting_panel(
+                        "[bold bright_white]🌡 Sensors[/bold bright_white]",
+                        errors.get("sensors"),
+                    ),
+                )
+            )
+        else:
+            metric_panels.append(("sensors", sensors_panel(sensors_info)))
+
     if modules.process:
         processes = data.get("process")
         if processes is None:
@@ -190,6 +261,8 @@ def build_dashboard(
                     processes,
                     warn=thresholds.cpu_warn,
                     critical=thresholds.cpu_critical,
+                    mem_warn=thresholds.memory_warn,
+                    mem_critical=thresholds.memory_critical,
                 ),
             )
 
@@ -234,24 +307,41 @@ def build_dashboard(
     return layout
 
 
-def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
+def run_dashboard(refresh_rate: float | None = None, include_gpu: bool = True) -> None:
     """Run the real-time dashboard."""
     console = Console()
     config = load_config()
+    interval = config.refresh_interval if refresh_rate is None else refresh_rate
     cpu_history = HistoryBuffer(maxlen=60)
+    mem_history = HistoryBuffer(maxlen=60)
     net_history = HistoryBuffer(maxlen=60)
+    net_up_history = HistoryBuffer(maxlen=60)
+    disk_read_history = HistoryBuffer(maxlen=60)
+    disk_write_history = HistoryBuffer(maxlen=60)
 
     from sysmon.collectors.registry import collect
 
-    collect("network", config)
-    collect("disk", config)
-    time.sleep(0.5)
+    primed = False
+    for name, enabled in (
+        ("network", config.modules.network),
+        ("disk", config.modules.disk),
+    ):
+        if not enabled:
+            continue
+        try:
+            collect(name, config)
+        except Exception:
+            continue
+        primed = True
+    if primed:
+        time.sleep(0.5)
 
     service = CollectorService(
-        interval=refresh_rate,
+        interval=interval,
         include_gpu=include_gpu,
-        include_sensors=False,
+        include_sensors=None,
         config=config,
+        reload_config=True,
     )
     service.start()
 
@@ -261,7 +351,11 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
                 include_gpu=include_gpu,
                 config=config,
                 cpu_history=cpu_history,
+                mem_history=mem_history,
                 net_history=net_history,
+                net_up_history=net_up_history,
+                disk_read_history=disk_read_history,
+                disk_write_history=disk_write_history,
                 snapshot=service.get_snapshot(),
             ),
             console=console,
@@ -270,23 +364,49 @@ def run_dashboard(refresh_rate: float = 1.0, include_gpu: bool = True) -> None:
         ) as live:
             try:
                 while True:
-                    snapshot = service.get_snapshot()
-                    cpu = snapshot.get("cpu")
-                    if cpu is not None:
-                        cpu_history.add(cpu["percent"])
-                    net = snapshot.get("network")
-                    if net is not None:
-                        net_history.add(net["speed_down"])
-                    live.update(
-                        build_dashboard(
-                            include_gpu=include_gpu,
-                            config=config,
-                            cpu_history=cpu_history,
-                            net_history=net_history,
-                            snapshot=snapshot,
+                    try:
+                        config = load_config()
+                        interval = (
+                            config.refresh_interval if refresh_rate is None else refresh_rate
                         )
-                    )
-                    time.sleep(refresh_rate)
+                        if hasattr(service, "set_interval"):
+                            service.set_interval(interval)
+                        snapshot = service.get_snapshot()
+                        notice = "stale" if snapshot_is_stale(snapshot, interval) else None
+                        record_dashboard_history(
+                            snapshot,
+                            cpu_history,
+                            mem_history,
+                            net_history,
+                            net_up_history,
+                            disk_read_history,
+                            disk_write_history,
+                        )
+                        live.update(
+                            build_dashboard(
+                                include_gpu=include_gpu,
+                                config=config,
+                                cpu_history=cpu_history,
+                                mem_history=mem_history,
+                                net_history=net_history,
+                                net_up_history=net_up_history,
+                                disk_read_history=disk_read_history,
+                                disk_write_history=disk_write_history,
+                                snapshot=snapshot,
+                                notice=notice,
+                            )
+                        )
+                    except KeyboardInterrupt:
+                        raise
+                    except Exception as exc:
+                        live.update(
+                            Panel(
+                                Text(f"  Display error: {exc}", style="red"),
+                                title="sysmon",
+                                border_style="red",
+                            )
+                        )
+                    time.sleep(interval)
             except KeyboardInterrupt:
                 pass
     finally:
