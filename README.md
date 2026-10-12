@@ -212,6 +212,7 @@ Modules set to `false` are left out of this line and out of title mode. A select
 
 ```bash
 sysmon --version        # Show version
+python -m sysmon --version
 sysmon --help           # Show help
 ```
 

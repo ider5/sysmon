@@ -236,6 +236,22 @@ def test_top_json_uses_collect_processes(monkeypatch):
     assert captured["sort_by"] == "memory"
 
 
+def test_python_module_entrypoint_shows_version():
+    import subprocess
+    import sys
+
+    from sysmon import __version__
+
+    result = subprocess.run(
+        [sys.executable, "-m", "sysmon", "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert __version__ in result.stdout
+
+
 def test_format_flag_is_case_insensitive():
     result = runner.invoke(app, ["cpu", "--format", "JSON"])
     assert result.exit_code == 0
