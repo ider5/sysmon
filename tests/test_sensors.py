@@ -29,6 +29,26 @@ def test_hottest_temperature_picks_the_max():
     assert hottest[1]["label"] == "Composite"
 
 
+def test_hottest_temperature_skips_non_finite():
+    from sysmon.collectors.sensors import hottest_temperature
+
+    hottest = hottest_temperature(
+        {
+            "temperatures": {
+                "coretemp": [
+                    {"label": "bad", "current": float("inf")},
+                    {"label": "pkg", "current": 40.0},
+                ]
+            }
+        }
+    )
+    assert hottest is not None
+    assert hottest[0] == 40.0
+    assert hottest_temperature(
+        {"temperatures": {"coretemp": [{"label": "bad", "current": float("nan")}]}}
+    ) is None
+
+
 def test_sensors_default_disabled():
     config = SysmonConfig()
     assert config.modules.sensors is False

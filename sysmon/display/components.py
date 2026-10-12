@@ -140,6 +140,8 @@ def celsius(value: object) -> float | None:
     """Return a temperature in Celsius, keeping 0 and rejecting missing values."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
+    if not math.isfinite(value):
+        return None
     return float(value)
 
 

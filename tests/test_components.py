@@ -3,7 +3,14 @@
 from pathlib import Path
 
 from sysmon.display import components
-from sysmon.display.components import gpu_panel, gradient_color, progress_bar
+from sysmon.display.components import celsius, gpu_panel, gradient_color, progress_bar
+
+
+def test_celsius_rejects_non_finite():
+    assert celsius(0) == 0.0
+    assert celsius(float("inf")) is None
+    assert celsius(float("nan")) is None
+    assert celsius(True) is None
 
 
 def test_gradient_color_thresholds():

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import psutil
@@ -66,6 +67,8 @@ def hottest_temperature(info: dict[str, Any]) -> tuple[float, dict[str, Any]] | 
                 continue
             current = entry.get("current")
             if isinstance(current, bool) or not isinstance(current, (int, float)):
+                continue
+            if not math.isfinite(current):
                 continue
             reading = float(current)
             if best is None or reading > best[0]:
