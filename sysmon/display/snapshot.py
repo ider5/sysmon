@@ -46,6 +46,20 @@ def print_snapshot(
     handler(console)
 
 
+def _show_section(console: Console, label: str, render) -> None:
+    """Print one section, and keep going when that section fails."""
+    try:
+        render()
+    except Exception as exc:
+        console.print(
+            Panel(
+                Text(f"  Collection error: {exc}", style="red"),
+                title=label,
+                border_style="red",
+            )
+        )
+
+
 def _print_all(console: Console, include_gpu: bool = True) -> None:
     """Print all system information with ASCII logo."""
     settings = load_config()
@@ -79,19 +93,25 @@ def _print_all(console: Console, include_gpu: bool = True) -> None:
     console.print(Panel(info_table, style="on grey11", padding=(1, 2)))
 
     if settings.modules.cpu:
-        _print_cpu(console, collect("cpu", settings))
+        _show_section(console, "CPU", lambda: _print_cpu(console, collect("cpu", settings)))
     if settings.modules.memory:
-        _print_memory(console, collect("memory", settings))
+        _show_section(
+            console, "Memory", lambda: _print_memory(console, collect("memory", settings))
+        )
     if settings.modules.network:
-        _print_network(console, collect("network", settings))
+        _show_section(
+            console, "Network", lambda: _print_network(console, collect("network", settings))
+        )
     if settings.modules.disk:
-        _print_disk(console, collect("disk", settings))
+        _show_section(console, "Disk", lambda: _print_disk(console, collect("disk", settings)))
     if include_gpu and settings.modules.gpu:
-        _print_gpu(console, collect("gpu", settings))
+        _show_section(console, "GPU", lambda: _print_gpu(console, collect("gpu", settings)))
     if settings.modules.process:
-        _print_process(console)
+        _show_section(console, "Processes", lambda: _print_process(console))
     if settings.modules.sensors:
-        _print_sensors(console, collect("sensors", settings))
+        _show_section(
+            console, "Sensors", lambda: _print_sensors(console, collect("sensors", settings))
+        )
 
 
 def _print_cpu(console: Console, info: dict | None = None) -> None:

@@ -11,6 +11,46 @@ from sysmon.display import snapshot as snapshot_mod
 from sysmon.display import top_live as top_live_mod
 
 
+def test_print_all_continues_after_section_error(monkeypatch):
+    def fake_collect(name, settings=None):
+        if name == "cpu":
+            raise RuntimeError("cpu down")
+        if name == "memory":
+            return {
+                "percent": 12.0,
+                "used": 1,
+                "total": 2,
+                "available": 1,
+                "swap_total": 0,
+                "swap_used": 0,
+                "swap_percent": 0.0,
+            }
+        raise AssertionError(name)
+
+    monkeypatch.setattr(snapshot_mod, "collect", fake_collect)
+    monkeypatch.setattr(
+        snapshot_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=True,
+                memory=True,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    buffer = io.StringIO()
+    console = Console(file=buffer, force_terminal=True, width=100)
+    snapshot_mod.print_snapshot(console, section="all", include_gpu=False)
+    text = buffer.getvalue()
+    assert "cpu down" in text
+    assert "12.0%" in text
+
+
 def test_print_network_shows_packet_counts():
     info = {
         "speed_up": 0,
