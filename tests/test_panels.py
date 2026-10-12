@@ -245,6 +245,11 @@ def test_process_panel_memory_color_uses_memory_thresholds():
     assert "yellow" in str(cell.style)
 
 
+def test_process_panel_ignores_non_dict_rows():
+    rendered = _render_panel(process_panel([None, "python"]))  # type: ignore[list-item]
+    assert "No matching processes" in rendered
+
+
 def test_process_panel_empty_still_has_table_frame():
     rendered = _render_panel(process_panel([]))
     assert "PID" in rendered

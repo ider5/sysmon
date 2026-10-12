@@ -355,10 +355,11 @@ def process_panel(
     table.add_column("MEM%", justify="right", no_wrap=True)
     table.add_column("RSS", justify="right", style="dim", no_wrap=True)
 
-    if not processes:
+    rows = [proc for proc in processes if isinstance(proc, dict)] if isinstance(processes, list) else []
+    if not rows:
         table.add_row("—", "—", "No matching processes", "—", "—", "—")
     else:
-        for index, proc in enumerate(processes, start=1):
+        for index, proc in enumerate(rows, start=1):
             cpu = _as_number(proc.get("cpu_percent"))
             mem = _as_number(proc.get("memory_percent"))
             rss = _as_number(proc.get("memory_mb"))
