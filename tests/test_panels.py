@@ -166,6 +166,27 @@ def test_process_panel_legacy_windows_still_has_table_frame():
     assert "python" in rendered
 
 
+def test_process_panel_memory_color_uses_memory_thresholds():
+    panel = process_panel(
+        [
+            {
+                "pid": 1,
+                "name": "a",
+                "cpu_percent": 1.0,
+                "memory_percent": 15.0,
+                "memory_mb": 10.0,
+            }
+        ],
+        warn=80.0,
+        critical=95.0,
+        mem_warn=10.0,
+        mem_critical=20.0,
+    )
+    table = panel.renderable
+    cell = table.columns[4]._cells[0]
+    assert "yellow" in str(cell.style)
+
+
 def test_process_panel_empty_still_has_table_frame():
     rendered = _render_panel(process_panel([]))
     assert "PID" in rendered

@@ -313,6 +313,8 @@ def top(
             name_filter=filter_name,
             warn=settings.thresholds.cpu_warn,
             critical=settings.thresholds.cpu_critical,
+            mem_warn=settings.thresholds.memory_warn,
+            mem_critical=settings.thresholds.memory_critical,
         )
         return
 
@@ -344,6 +346,8 @@ def top(
             name_filter=filter_name,
             warn=settings.thresholds.cpu_warn,
             critical=settings.thresholds.cpu_critical,
+            mem_warn=settings.thresholds.memory_warn,
+            mem_critical=settings.thresholds.memory_critical,
         )
     )
 

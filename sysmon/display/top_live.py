@@ -114,6 +114,8 @@ def run_top_live(
     name_filter: str | None = None,
     warn: float = 80.0,
     critical: float = 95.0,
+    mem_warn: float | None = None,
+    mem_critical: float | None = None,
 ) -> None:
     """Run interactive top with runtime sort and filter."""
     console = Console()
@@ -131,6 +133,8 @@ def run_top_live(
             name_filter=state.name_filter,
             warn=warn,
             critical=critical,
+            mem_warn=mem_warn,
+            mem_critical=mem_critical,
         )
         footer = Panel(
             _footer_text(state.filter_mode, state.filter_buffer),

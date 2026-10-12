@@ -172,5 +172,7 @@ def _print_process(console: Console) -> None:
             processes,
             warn=settings.thresholds.cpu_warn,
             critical=settings.thresholds.cpu_critical,
+            mem_warn=settings.thresholds.memory_warn,
+            mem_critical=settings.thresholds.memory_critical,
         )
     )

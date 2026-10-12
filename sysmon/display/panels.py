@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from rich import box
 from rich.panel import Panel
 from rich.table import Table
@@ -291,6 +293,15 @@ def disk_panel(
     )
 
 
+def _as_percent(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0.0
+    number = float(value)
+    if not math.isfinite(number):
+        return 0.0
+    return number
+
+
 def process_panel(
     processes: list[dict],
     *,
@@ -298,8 +309,12 @@ def process_panel(
     name_filter: str | None = None,
     warn: float = 80.0,
     critical: float = 95.0,
+    mem_warn: float | None = None,
+    mem_critical: float | None = None,
 ) -> Panel:
     """Build a bordered top-processes table."""
+    memory_warn = warn if mem_warn is None else mem_warn
+    memory_critical = critical if mem_critical is None else mem_critical
     title_suffix = f" (sort: {sort_by}"
     if name_filter:
         title_suffix += f", filter: {name_filter}"
@@ -327,10 +342,10 @@ def process_panel(
         table.add_row("—", "—", "No matching processes", "—", "—", "—")
     else:
         for index, proc in enumerate(processes, start=1):
-            cpu = float(proc.get("cpu_percent") or 0.0)
-            mem = float(proc.get("memory_percent") or 0.0)
-            rss = float(proc.get("memory_mb") or 0.0)
-            mem_color = gradient_color(mem, warn=warn, critical=critical)
+            cpu = _as_percent(proc.get("cpu_percent"))
+            mem = _as_percent(proc.get("memory_percent"))
+            rss = _as_percent(proc.get("memory_mb"))
+            mem_color = gradient_color(mem, warn=memory_warn, critical=memory_critical)
             table.add_row(
                 str(index),
                 str(proc.get("pid", "")),

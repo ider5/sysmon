@@ -214,6 +214,8 @@ def build_dashboard(
                     processes,
                     warn=thresholds.cpu_warn,
                     critical=thresholds.cpu_critical,
+                    mem_warn=thresholds.memory_warn,
+                    mem_critical=thresholds.memory_critical,
                 ),
             )
 

@@ -30,6 +30,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon snapshot` and `sysmon serve` only sample network and disk counters when those modules are enabled. Snapshot also skips that wait for sections that do not need it
 - `sysmon snapshot` section names and `sysmon top --sort` accept any letter case
 - Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled. Swap usage is appended only while swap is actually in use
+- Process memory percentages use the memory warn/critical thresholds. CPU bars still use the CPU thresholds
 - `sysmon brief --format json` uses those same module switches and includes `sensors` when the module is enabled
 
 ### Fixed
