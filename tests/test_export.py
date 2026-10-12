@@ -168,6 +168,31 @@ def test_collect_all_gpu_with_mock(monkeypatch):
     assert data["gpu"][0]["name"] == "FakeGPU"
 
 
+def test_collect_all_isolates_section_errors(monkeypatch):
+    from sysmon.config import ModuleConfig, SysmonConfig
+
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=True,
+            memory=True,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    monkeypatch.setattr("sysmon.export.load_config", lambda: settings)
+    monkeypatch.setattr(
+        "sysmon.export._cpu_payload",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("cpu down")),
+    )
+    data = collect_all(include_gpu=False)
+    assert "cpu" not in data
+    assert data["errors"]["cpu"] == "cpu down"
+    assert "percent" in data["memory"]
+
+
 def test_collect_all_respects_disabled_modules(monkeypatch):
     from sysmon.config import ModuleConfig, SysmonConfig
 

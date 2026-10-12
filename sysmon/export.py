@@ -194,6 +194,16 @@ def collect_brief(include_gpu: bool = True) -> dict[str, Any]:
     return data
 
 
+def _store(data: dict[str, Any], key: str, producer: Any) -> None:
+    """Store one section, recording a failure instead of aborting the payload."""
+    try:
+        data[key] = producer()
+    except Exception as exc:
+        errors = data.setdefault("errors", {})
+        if isinstance(errors, dict):
+            errors[key] = str(exc)
+
+
 def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     """Aggregate all metrics into a stable schema."""
     settings = load_config()
@@ -207,19 +217,19 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     }
 
     if settings.modules.cpu:
-        data["cpu"] = _cpu_payload(settings)
+        _store(data, "cpu", lambda: _cpu_payload(settings))
     if settings.modules.memory:
-        data["memory"] = _memory_payload(settings)
+        _store(data, "memory", lambda: _memory_payload(settings))
     if settings.modules.network:
-        data["network"] = _network_payload(settings)
+        _store(data, "network", lambda: _network_payload(settings))
     if settings.modules.disk:
-        data["disk"] = _disk_payload(settings)
+        _store(data, "disk", lambda: _disk_payload(settings))
     if settings.modules.gpu and include_gpu:
-        data["gpu"] = _gpu_payload(settings)
+        _store(data, "gpu", lambda: _gpu_payload(settings))
     if settings.modules.process:
-        data["processes"] = _process_payload(settings=settings)
+        _store(data, "processes", lambda: _process_payload(settings=settings))
     if settings.modules.sensors:
-        data["sensors"] = collect("sensors", settings)
+        _store(data, "sensors", lambda: collect("sensors", settings))
 
     return data
 
@@ -240,15 +250,15 @@ def collect_all_from_snapshot(
         "uptime": _get_uptime(),
     }
     if cfg.modules.cpu and snapshot.get("cpu") is not None:
-        data["cpu"] = _cpu_payload(cfg, info=snapshot["cpu"])
+        _store(data, "cpu", lambda: _cpu_payload(cfg, info=snapshot["cpu"]))
     if cfg.modules.memory and snapshot.get("memory") is not None:
-        data["memory"] = _memory_payload(cfg, info=snapshot["memory"])
+        _store(data, "memory", lambda: _memory_payload(cfg, info=snapshot["memory"]))
     if cfg.modules.network and snapshot.get("network") is not None:
-        data["network"] = _network_payload(cfg, info=snapshot["network"])
+        _store(data, "network", lambda: _network_payload(cfg, info=snapshot["network"]))
     if cfg.modules.disk and snapshot.get("disk") is not None:
-        data["disk"] = _disk_payload(cfg, info=snapshot["disk"])
+        _store(data, "disk", lambda: _disk_payload(cfg, info=snapshot["disk"]))
     if cfg.modules.gpu and include_gpu and "gpu" in snapshot:
-        data["gpu"] = _gpu_payload(cfg, info=snapshot["gpu"])
+        _store(data, "gpu", lambda: _gpu_payload(cfg, info=snapshot["gpu"]))
     processes = snapshot.get("process", snapshot.get("processes"))
     if cfg.modules.process and processes is not None:
         data["processes"] = processes

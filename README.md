@@ -85,7 +85,7 @@ sysmon snapshot disk    # Show only disk info
 sysmon snapshot gpu     # Show only GPU info
 sysmon snapshot process # Show only top processes
 sysmon snapshot sensors # Battery and temperatures (`[modules] sensors` for the all view)
-sysmon snapshot --format json   # JSON output for scripting (schema_version 3)
+sysmon snapshot --format json   # JSON output for scripting (schema_version 3). A failed section is reported under `errors` and the rest is still returned.
 sysmon snapshot -s 0.5          # Faster network/disk/process sampling; other sections do not wait
 sysmon snapshot --no-gpu        # Hide GPU section
 ```
