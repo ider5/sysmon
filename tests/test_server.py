@@ -213,6 +213,30 @@ def test_server_json_and_metrics_endpoints(monkeypatch):
         thread.join(timeout=2)
 
 
+def test_server_head_has_headers_and_no_body():
+    httpd = start_server("127.0.0.1", 0, payload_fn=lambda: _FAKE_ALL)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = httpd.server_address[1]
+        conn = HTTPConnection("127.0.0.1", port, timeout=2)
+        conn.request("HEAD", "/health")
+        response = conn.getresponse()
+        body = response.read()
+        assert response.status == 200
+        assert body == b""
+        assert int(response.getheader("Content-Length")) > 0
+        conn.request("HEAD", "/missing")
+        missing = conn.getresponse()
+        assert missing.status == 404
+        assert missing.read() == b""
+        conn.close()
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=2)
+
+
 def test_server_accepts_trailing_slash():
     httpd = start_server("127.0.0.1", 0, payload_fn=lambda: _FAKE_ALL)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)

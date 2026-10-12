@@ -315,37 +315,56 @@ class MetricsHandler(BaseHTTPRequestHandler):
     payload_fn: PayloadFn = staticmethod(collect_all)  # type: ignore[assignment]
 
     def do_GET(self) -> None:  # noqa: N802
+        self._handle(include_body=True)
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        self._handle(include_body=False)
+
+    def _handle(self, include_body: bool) -> None:
         path = urlparse(self.path).path.rstrip("/") or "/"
         try:
             if path == "/json":
                 body = to_json(self.payload_fn()).encode("utf-8")
-                self._send(200, "application/json; charset=utf-8", body)
+                self._send(200, "application/json; charset=utf-8", body, include_body)
                 return
             if path == "/metrics":
                 body = format_prometheus(self.payload_fn()).encode("utf-8")
-                self._send(200, "text/plain; version=0.0.4; charset=utf-8", body)
+                self._send(
+                    200,
+                    "text/plain; version=0.0.4; charset=utf-8",
+                    body,
+                    include_body,
+                )
                 return
             if path in ("/", "/health"):
                 self._send(
                     200,
                     "text/plain; charset=utf-8",
                     b"sysmon serve\nGET /json\nGET /metrics\n",
+                    include_body,
                 )
                 return
-            self._send(404, "text/plain; charset=utf-8", b"not found\n")
+            self._send(404, "text/plain; charset=utf-8", b"not found\n", include_body)
         except Exception as exc:
             body = to_json({"error": str(exc)}).encode("utf-8")
-            self._send(500, "application/json; charset=utf-8", body)
+            self._send(500, "application/json; charset=utf-8", body, include_body)
 
     def log_message(self, format: str, *args: object) -> None:
         return
 
-    def _send(self, status: int, content_type: str, body: bytes) -> None:
+    def _send(
+        self,
+        status: int,
+        content_type: str,
+        body: bytes,
+        include_body: bool = True,
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if include_body:
+            self.wfile.write(body)
 
 
 def start_server(
