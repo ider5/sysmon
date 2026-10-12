@@ -426,6 +426,9 @@ def collect_all_from_snapshot(
     processes = snapshot.get("process", snapshot.get("processes"))
     if cfg.modules.process and processes is not None:
         data["processes"] = _process_rows(processes)
+    errors = snapshot.get("errors")
+    if isinstance(errors, dict) and errors:
+        data["errors"] = {str(key): str(value) for key, value in errors.items()}
     if cfg.modules.sensors and "sensors" in snapshot:
         sensors = snapshot["sensors"]
         if isinstance(sensors, dict):

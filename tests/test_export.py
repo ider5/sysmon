@@ -388,6 +388,27 @@ def test_collect_all_from_snapshot_uses_collector_timestamp():
     assert data["collected_at"] == 123.5
 
 
+def test_snapshot_preserves_collector_errors():
+    settings = SysmonConfig(
+        modules=ModuleConfig(
+            cpu=True,
+            memory=False,
+            network=False,
+            disk=False,
+            gpu=False,
+            process=False,
+            sensors=False,
+        )
+    )
+    data = collect_all_from_snapshot(
+        {"timestamp": 10.0, "errors": {"cpu": "cpu down"}},
+        include_gpu=False,
+        settings=settings,
+    )
+    assert data["errors"]["cpu"] == "cpu down"
+    assert "cpu" not in data
+
+
 def test_snapshot_collected_at_ignores_non_finite(monkeypatch):
     monkeypatch.setattr("sysmon.export.time.time", lambda: 1000.0)
     settings = SysmonConfig(

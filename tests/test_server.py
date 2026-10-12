@@ -182,6 +182,11 @@ def test_format_prometheus_includes_link_speed():
     assert 'sysmon_network_interface_speed_mbps{device="eth0"} 1000.0' in text
 
 
+def test_format_prometheus_counts_collector_errors():
+    text = format_prometheus({"errors": {"cpu": "cpu down", "disk": "disk down"}})
+    assert "sysmon_section_errors 2.0" in text
+
+
 def test_format_prometheus_includes_process_sample():
     text = format_prometheus(
         {

@@ -104,6 +104,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon brief --watch` skips that startup wait when the network module is disabled
 - `sysmon snapshot` section names and `sysmon top --sort` accept any letter case
 - JSON snapshots keep the sections that succeeded when one section raises, and record the failure under `errors`
+- JSON and Prometheus built from the background collector keep that collector's section errors, including `sysmon_section_errors`
 - The rich `sysmon snapshot` keeps printing later sections when one section fails, and shows that section's error
 - JSON snapshots, brief output, top output, and single-section JSON include `collected_at` as a Unix timestamp without changing `schema_version`. A snapshot built from the background collector uses that collector's timestamp, not the time the JSON was formatted. A non-finite collector timestamp is replaced with the current time
 - JSON snapshots include `uptime_seconds` and `boot_time`, and Prometheus exports `sysmon_uptime_seconds` and `sysmon_boot_time_seconds`, when the boot time can be read
