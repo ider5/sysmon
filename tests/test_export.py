@@ -351,6 +351,23 @@ def test_collect_section_unknown_raises():
         collect_section("invalid")
 
 
+def test_sensors_payload_includes_hottest_temperature(monkeypatch):
+    monkeypatch.setattr(
+        "sysmon.export.collect",
+        lambda *_a, **_k: {
+            "battery": None,
+            "temperatures": {
+                "coretemp": [
+                    {"label": "a", "current": 40.0},
+                    {"label": "b", "current": 55.5},
+                ]
+            },
+        },
+    )
+    data = collect_section("sensors")
+    assert data["sensors"]["hottest_c"] == 55.5
+
+
 def test_collect_section_sensors(monkeypatch):
     payload = {"battery": None, "temperatures": {"coretemp": []}}
 

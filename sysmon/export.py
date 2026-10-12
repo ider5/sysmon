@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from sysmon import __version__
 from sysmon.collectors.registry import collect
+from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import SysmonConfig, load_config, metric_status
 from sysmon.display.components import _get_os_name, _get_uptime
 
@@ -211,6 +212,17 @@ def _gpu_payload(
     return rows or None
 
 
+def _sensors_payload(settings: SysmonConfig) -> Any:
+    info = collect("sensors", settings)
+    if not isinstance(info, dict):
+        return info
+    payload = dict(info)
+    hottest = hottest_temperature(payload)
+    if hottest is not None:
+        payload["hottest_c"] = hottest[0]
+    return payload
+
+
 def _process_payload(
     name_filter: str | None = None,
     settings: SysmonConfig | None = None,
@@ -242,7 +254,7 @@ def collect_section(section: str, include_gpu: bool = True) -> dict[str, Any]:
     elif section == "process":
         payload = {"processes": _process_payload()}
     elif section == "sensors":
-        payload = {"sensors": collect("sensors", _resolve_settings(None))}
+        payload = {"sensors": _sensors_payload(_resolve_settings(None))}
     else:
         raise ValueError(f"Unknown section: {section}")
     payload["collected_at"] = time.time()
@@ -335,7 +347,7 @@ def collect_all(include_gpu: bool = True) -> dict[str, Any]:
     if settings.modules.process:
         _store(data, "processes", lambda: _process_payload(settings=settings))
     if settings.modules.sensors:
-        _store(data, "sensors", lambda: collect("sensors", settings))
+        _store(data, "sensors", lambda: _sensors_payload(settings))
 
     return data
 
