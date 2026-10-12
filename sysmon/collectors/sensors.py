@@ -50,3 +50,24 @@ def get_sensors_info() -> dict[str, Any]:
             for entry in entries
         ]
     return {"battery": battery, "temperatures": temperatures}
+
+
+def hottest_temperature(info: dict[str, Any]) -> tuple[float, dict[str, Any]] | None:
+    """Return the highest numeric temperature reading and its entry."""
+    temperatures = info.get("temperatures") if isinstance(info, dict) else None
+    if not isinstance(temperatures, dict):
+        return None
+    best: tuple[float, dict[str, Any]] | None = None
+    for entries in temperatures.values():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            current = entry.get("current")
+            if isinstance(current, bool) or not isinstance(current, (int, float)):
+                continue
+            reading = float(current)
+            if best is None or reading > best[0]:
+                best = (reading, entry)
+    return best

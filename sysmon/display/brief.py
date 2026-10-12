@@ -17,6 +17,7 @@ from rich.text import Text
 from sysmon.collectors.memory import bytes_to_gb
 from sysmon.collectors.network import format_speed
 from sysmon.collectors.registry import collect
+from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import ThresholdConfig, load_config, metric_status
 from sysmon.display.title_worker import WORKER_MARKER
 
@@ -126,21 +127,52 @@ def _format_gpu(
     return text
 
 
+def _temperature_color(current: float, entry: dict) -> str:
+    critical = entry.get("critical")
+    high = entry.get("high")
+    if isinstance(critical, (int, float)) and not isinstance(critical, bool) and current >= critical:
+        return "red"
+    if isinstance(high, (int, float)) and not isinstance(high, bool) and current >= high:
+        return "yellow"
+    return "bold"
+
+
 def _format_sensors(info: dict, no_color: bool = False) -> Text | None:
-    """Format battery charge for the compact status line."""
+    """Format battery charge and the hottest temperature for the compact line."""
+    pieces: list[Text] = []
     battery = info.get("battery") if isinstance(info, dict) else None
-    if not isinstance(battery, dict) or battery.get("percent") is None:
+    if isinstance(battery, dict) and battery.get("percent") is not None:
+        text = Text()
+        text.append("BAT ")
+        percent = f"{float(battery['percent']):.0f}%"
+        if no_color:
+            text.append(percent)
+        else:
+            text.append(percent, style="bold")
+        if battery.get("power_plugged"):
+            text.append(" AC")
+        pieces.append(text)
+
+    hottest = hottest_temperature(info) if isinstance(info, dict) else None
+    if hottest is not None:
+        current, entry = hottest
+        text = Text()
+        text.append("TEMP ")
+        label = f"{current:.0f}°C"
+        if no_color:
+            text.append(label)
+        else:
+            text.append(label, style=_temperature_color(current, entry))
+        pieces.append(text)
+
+    if not pieces:
         return None
-    text = Text()
-    text.append("BAT ")
-    percent = f"{float(battery['percent']):.0f}%"
-    if no_color:
-        text.append(percent)
-    else:
-        text.append(percent, style="bold")
-    if battery.get("power_plugged"):
-        text.append(" AC")
-    return text
+    line = Text()
+    for index, piece in enumerate(pieces):
+        if index:
+            line.append(" │ ", style="dim")
+        line.append_text(piece)
+    return line
 
 
 def build_brief_line(

@@ -170,6 +170,39 @@ def test_build_brief_line_includes_battery_when_sensors_enabled(monkeypatch):
     assert line.plain == "BAT 80% AC"
 
 
+def test_build_brief_line_includes_hottest_temperature(monkeypatch):
+    def fake_collect(name, settings=None):
+        assert name == "sensors"
+        return {
+            "battery": None,
+            "temperatures": {
+                "coretemp": [
+                    {"label": "Package", "current": 70.2, "high": 80, "critical": 100},
+                    {"label": "Core", "current": 91.0, "high": 80, "critical": 90},
+                ]
+            },
+        }
+
+    monkeypatch.setattr(brief_mod, "collect", fake_collect)
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=True,
+            )
+        ),
+    )
+    line = brief_mod.build_brief_line(no_color=True)
+    assert line.plain == "TEMP 91°C"
+
+
 def test_build_brief_line_empty_when_modules_disabled(monkeypatch):
     monkeypatch.setattr(
         brief_mod,

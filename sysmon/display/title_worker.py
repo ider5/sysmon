@@ -10,6 +10,7 @@ import traceback
 from sysmon.collectors.memory import bytes_to_gb
 from sysmon.collectors.network import format_speed
 from sysmon.collectors.registry import collect
+from sysmon.collectors.sensors import hottest_temperature
 from sysmon.config import load_config
 from sysmon.paths import get_log_dir
 
@@ -93,6 +94,9 @@ def build_title(no_gpu: bool) -> str:
         if isinstance(battery, dict) and battery.get("percent") is not None:
             plugged = " AC" if battery.get("power_plugged") else ""
             parts.append(f"BAT {float(battery['percent']):.0f}%{plugged}")
+        hottest = hottest_temperature(sensors) if isinstance(sensors, dict) else None
+        if hottest is not None:
+            parts.append(f"TEMP {hottest[0]:.0f}°C")
     if not parts:
         return "sysmon"
     return " │ ".join(parts)

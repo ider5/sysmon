@@ -10,6 +10,25 @@ from sysmon.config import ModuleConfig, SysmonConfig
 from sysmon.export import collect_all
 
 
+def test_hottest_temperature_picks_the_max():
+    from sysmon.collectors.sensors import hottest_temperature
+
+    hottest = hottest_temperature(
+        {
+            "temperatures": {
+                "coretemp": [
+                    {"label": "Package", "current": 45.0, "high": 80, "critical": 100},
+                    {"label": "Core", "current": None},
+                ],
+                "nvme": [{"label": "Composite", "current": 61.4}],
+            }
+        }
+    )
+    assert hottest is not None
+    assert hottest[0] == 61.4
+    assert hottest[1]["label"] == "Composite"
+
+
 def test_sensors_default_disabled():
     config = SysmonConfig()
     assert config.modules.sensors is False

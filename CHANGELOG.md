@@ -14,7 +14,7 @@ All notable changes to SysMon are documented in this file.
 
 ### Changed
 - The dashboard keeps a memory sparkline next to the existing CPU and download history
-- Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading is included when sensors are enabled
+- Brief mode and the terminal title follow `[modules]` (and `enable_gpu`); a battery reading and the hottest temperature are included when sensors are enabled
 - `sysmon brief --format json` uses those same module switches and includes `sensors` when the module is enabled
 
 ### Fixed

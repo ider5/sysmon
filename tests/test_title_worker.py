@@ -48,6 +48,33 @@ def test_build_title_follows_modules_and_battery(monkeypatch):
     assert title_worker.build_title(no_gpu=False) == "BAT 42%"
 
 
+def test_build_title_includes_hottest_temperature(monkeypatch):
+    def fake_collect(name, settings=None):
+        assert name == "sensors"
+        return {
+            "battery": {"percent": 42.0, "power_plugged": False, "secsleft": 10},
+            "temperatures": {"coretemp": [{"label": "Package", "current": 55.6}]},
+        }
+
+    monkeypatch.setattr(title_worker, "collect", fake_collect)
+    monkeypatch.setattr(
+        title_worker,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=False,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=True,
+            )
+        ),
+    )
+    assert title_worker.build_title(no_gpu=True) == "BAT 42% │ TEMP 56°C"
+
+
 def test_build_title_placeholder_when_nothing_enabled(monkeypatch):
     monkeypatch.setattr(
         title_worker,
