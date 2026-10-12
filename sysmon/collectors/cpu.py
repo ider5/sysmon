@@ -119,6 +119,15 @@ def _ensure_freq_collector() -> None:
                 _freq_cache["timestamp"] = time.time()
 
 
+def _freq_mhz(value: object) -> float:
+    """Return a non-negative finite frequency in MHz, or zero."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return 0.0
+    if value < 0:
+        return 0.0
+    return float(value)
+
+
 def _get_freq_fields() -> tuple[float, float]:
     """Return current and max CPU frequency in MHz."""
     freq_current = 0.0
@@ -127,13 +136,13 @@ def _get_freq_fields() -> tuple[float, float]:
     if platform.system() == "Windows":
         with _freq_lock:
             if _freq_cache["timestamp"] > 0 and (time.time() - _freq_cache["timestamp"]) < 3:
-                freq_current = _freq_cache["current"]
-                freq_max = _freq_cache["base"]
+                freq_current = _freq_mhz(_freq_cache["current"])
+                freq_max = _freq_mhz(_freq_cache["base"])
     else:
         freq = _psutil_cpu_freq()
         if freq and freq.current:
-            freq_current = freq.current
-            freq_max = freq.max if freq.max else 0
+            freq_current = _freq_mhz(freq.current)
+            freq_max = _freq_mhz(freq.max)
 
     return freq_current, freq_max
 

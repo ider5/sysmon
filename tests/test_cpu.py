@@ -1,5 +1,6 @@
 """Tests for CPU snapshot collector."""
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from sysmon.collectors import cpu as cpu_mod
@@ -96,6 +97,17 @@ def test_get_cpu_snapshot_includes_load_average(monkeypatch):
                 ):
                     snapshot = get_cpu_snapshot(interval=0)
     assert snapshot["load_avg"] == (1.0, 0.5, 0.25)
+
+
+def test_get_freq_fields_ignores_non_finite(monkeypatch):
+    monkeypatch.setattr(cpu_mod.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        cpu_mod.psutil,
+        "cpu_freq",
+        lambda: SimpleNamespace(current=float("nan"), max=float("inf")),
+        raising=False,
+    )
+    assert cpu_mod._get_freq_fields() == (0.0, 0.0)
 
 
 def test_get_freq_fields_when_cpu_freq_missing(monkeypatch):

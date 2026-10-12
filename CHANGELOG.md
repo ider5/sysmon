@@ -110,6 +110,7 @@ All notable changes to SysMon are documented in this file.
 - CPU collection returns a zero snapshot instead of crashing when percent sampling is not implemented
 - Memory collection uses zero for a missing or non-finite field instead of failing the sample
 - A non-numeric per-core sample or load average is dropped instead of failing the CPU snapshot
+- CPU frequency is zero when the OS reports a missing or non-finite clock speed
 - Memory collection keeps RAM data when swap is unavailable, and returns zeros instead of crashing when RAM itself cannot be read
 - The native process scanner drops idle placeholders and the current process before applying the top-N limit, so the list is not shortened by those rows
 - An unrecognized process sort key orders by CPU, matching the native scanner. It previously fell back to memory on the psutil path
