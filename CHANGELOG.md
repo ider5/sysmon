@@ -32,7 +32,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon brief --format json` uses those same module switches and includes `sensors` when the module is enabled
 
 ### Fixed
-- Aggregate network collection returns zero counters instead of crashing when the OS exposes no I/O counters
+- Aggregate network collection returns zero counters instead of crashing when the OS exposes no I/O counters or the call raises. Disk I/O uses the same fallback, and usage for selected mounts is still reported
 - CPU physical core count falls back to the logical count when the OS does not report it, instead of rendering "None cores"
 - The native process scanner drops idle placeholders and the current process before applying the top-N limit, so the list is not shortened by those rows
 - Linux DRM GPUs are ordered by card number, so `card10` no longer sorts before `card2`

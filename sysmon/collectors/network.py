@@ -58,7 +58,10 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
     now = time.time()
 
     if resolved is not None:
-        per_nic = psutil.net_io_counters(pernic=True)
+        try:
+            per_nic = psutil.net_io_counters(pernic=True) or {}
+        except (OSError, RuntimeError):
+            per_nic = {}
         iface_entries: list[dict] = []
         with _net_lock:
             for name in resolved:
@@ -111,7 +114,10 @@ def get_network_info(interfaces: Iterable[str] | None = None) -> dict:
             result["interfaces"] = iface_entries
         return result
 
-    current = psutil.net_io_counters()
+    try:
+        current = psutil.net_io_counters()
+    except (OSError, RuntimeError):
+        current = None
     if current is None:
         return {
             "bytes_sent": 0,

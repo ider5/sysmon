@@ -32,6 +32,23 @@ def test_get_disk_info_speed_calculation():
     assert second_result["write_speed"] == 1500.0
 
 
+def test_get_disk_info_when_io_counters_raise():
+    usage = SimpleNamespace(total=100, used=40, free=60, percent=40.0)
+    disk_module._prev_disk_io = None
+    disk_module._prev_time = None
+    with patch("sysmon.collectors.disk.psutil.disk_usage", return_value=usage):
+        with patch(
+            "sysmon.collectors.disk.psutil.disk_io_counters",
+            side_effect=OSError("unavailable"),
+        ):
+            result = get_disk_info(mounts=["/data"])
+    assert result["mount"] == "/data"
+    assert result["percent"] == 40.0
+    assert result["read_speed"] == 0.0
+    assert result["read_bytes"] == 0
+    assert disk_module._prev_disk_io is None
+
+
 def test_get_disk_info_clamps_counter_reset():
     usage = SimpleNamespace(total=100, used=50, free=50, percent=50.0)
     first_io = SimpleNamespace(read_bytes=5000, write_bytes=4000)

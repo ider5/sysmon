@@ -61,6 +61,19 @@ def test_get_network_info_when_counters_unavailable():
     assert network_module._prev_net_io is None
 
 
+def test_get_network_info_when_counters_raise():
+    network_module._prev_net_io = None
+    network_module._prev_time = None
+    with patch(
+        "sysmon.collectors.network.psutil.net_io_counters",
+        side_effect=OSError("unavailable"),
+    ):
+        result = get_network_info()
+    assert result["bytes_sent"] == 0
+    assert result["speed_up"] == 0.0
+    assert network_module._prev_net_io is None
+
+
 def test_get_network_info_clamps_counter_reset():
     first = SimpleNamespace(
         bytes_sent=5000, bytes_recv=8000, packets_sent=10, packets_recv=20,

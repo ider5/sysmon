@@ -106,7 +106,10 @@ def get_disk_info(mounts: Iterable[str] | None = None) -> dict:
             }
         ]
 
-    current_io = psutil.disk_io_counters()
+    try:
+        current_io = psutil.disk_io_counters()
+    except (OSError, RuntimeError):
+        current_io = None
     now = time.time()
 
     read_speed = 0.0
