@@ -487,6 +487,30 @@ def test_run_brief_watch_survives_a_bad_refresh(monkeypatch):
     assert any(getattr(item, "plain", "") == "brief error: bad brief" for item in updates)
 
 
+def test_print_brief_skips_sample_wait_when_network_disabled(monkeypatch):
+    slept: list[float] = []
+    monkeypatch.setattr(brief_mod, "collect", lambda *a, **k: None)
+    monkeypatch.setattr(brief_mod, "build_brief_line", lambda *a, **k: "line")
+    monkeypatch.setattr(brief_mod.time, "sleep", lambda seconds: slept.append(seconds))
+    monkeypatch.setattr(
+        brief_mod,
+        "load_config",
+        lambda: SysmonConfig(
+            modules=ModuleConfig(
+                cpu=True,
+                memory=False,
+                network=False,
+                disk=False,
+                gpu=False,
+                process=False,
+                sensors=False,
+            )
+        ),
+    )
+    brief_mod.print_brief(Console(), no_gpu=True, sample_interval=0.25)
+    assert slept == []
+
+
 def test_print_brief_uses_sample_interval(monkeypatch):
     slept = {}
     monkeypatch.setattr(brief_mod, "collect", lambda *a, **k: None)

@@ -369,7 +369,7 @@ def print_brief(
         settings = replace(settings, network_interfaces=tuple(interfaces))
     if settings.modules.network:
         collect("network", settings)
-    time.sleep(sample_interval)
+        time.sleep(sample_interval)
     console.print(
         build_brief_line(
             no_color, no_gpu, interfaces=interfaces, thresholds=thresholds

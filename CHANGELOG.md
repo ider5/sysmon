@@ -91,6 +91,7 @@ All notable changes to SysMon are documented in this file.
 - `sysmon snapshot` and `sysmon serve` only sample network and disk counters when those modules are enabled. Snapshot also skips that wait for sections that do not need it
 - The dashboard skips that same network and disk prime when those modules are disabled
 - Title mode skips the network sample wait when the network module is disabled
+- One-shot `sysmon brief` skips that wait when the network module is disabled
 - `sysmon snapshot` section names and `sysmon top --sort` accept any letter case
 - JSON snapshots keep the sections that succeeded when one section raises, and record the failure under `errors`
 - JSON snapshots, brief output, top output, and single-section JSON include `collected_at` as a Unix timestamp without changing `schema_version`. A snapshot built from the background collector uses that collector's timestamp, not the time the JSON was formatted
