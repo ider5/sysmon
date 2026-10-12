@@ -24,6 +24,12 @@ def test_inode_percent_missing_without_statvfs(monkeypatch):
     assert disk_module._inode_percent("/") is None
 
 
+def test_resolve_mounts_ignores_blank_names():
+    with patch("sysmon.collectors.disk.list_mount_points", return_value=["/data"]):
+        assert disk_module._resolve_mounts(["", "  "]) == ["/data"]
+        assert disk_module._resolve_mounts([" /data "]) == ["/data"]
+
+
 def test_filesystem_type_matches_mount_with_trailing_slash():
     parts = [SimpleNamespace(mountpoint="/data/", fstype="ext4")]
     usage = SimpleNamespace(total=10, used=1, free=9, percent=10.0)

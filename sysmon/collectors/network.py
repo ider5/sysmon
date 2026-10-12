@@ -106,7 +106,7 @@ def _resolve_interfaces(selected: Iterable[str] | None) -> list[str] | None:
     """Resolve interface filter; None = aggregate all, empty = all non-loopback."""
     if selected is None:
         return None
-    names = list(selected)
+    names = [item.strip() for item in selected if isinstance(item, str) and item.strip()]
     if not names:
         return list_network_interfaces()
     return names

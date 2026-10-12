@@ -144,6 +144,15 @@ def test_missing_interface_is_listed_at_zero():
     assert "nope" not in network_module._prev_iface_io
 
 
+def test_resolve_interfaces_ignores_blank_names():
+    with patch(
+        "sysmon.collectors.network.list_network_interfaces",
+        return_value=["eth0"],
+    ):
+        assert network_module._resolve_interfaces(["", " "]) == ["eth0"]
+        assert network_module._resolve_interfaces([" eth0 "]) == ["eth0"]
+
+
 def test_list_network_interfaces_when_stats_unavailable():
     with patch(
         "sysmon.collectors.network.psutil.net_if_stats",
