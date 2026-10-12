@@ -131,6 +131,20 @@ def format_prometheus(data: dict[str, Any]) -> str:
                 lines.append(
                     f'sysmon_disk_mount_percent{{mount="{_escape_label(mount)}"}} {_fmt(percent)}'
                 )
+        read_speed = _first_number(disk, "read_speed")
+        write_speed = _first_number(disk, "write_speed")
+        if read_speed is not None:
+            gauge(
+                "sysmon_disk_read_speed",
+                read_speed,
+                "Disk read throughput in bytes per second",
+            )
+        if write_speed is not None:
+            gauge(
+                "sysmon_disk_write_speed",
+                write_speed,
+                "Disk write throughput in bytes per second",
+            )
     network = data.get("network")
     if isinstance(network, dict):
         if "speed_up" in network:

@@ -62,6 +62,14 @@ def test_format_prometheus_includes_mounts_and_interfaces():
     assert 'sysmon_network_interface_speed_down{device="eth\\"0"} 2.5' in text
 
 
+def test_format_prometheus_includes_disk_speeds():
+    text = format_prometheus(
+        {"disk": {"percent": 10.0, "read_speed": 4096.0, "write_speed": 0.0}}
+    )
+    assert "sysmon_disk_read_speed 4096.0" in text
+    assert "sysmon_disk_write_speed 0.0" in text
+
+
 def test_format_prometheus_includes_swap_when_present():
     text = format_prometheus(
         {
