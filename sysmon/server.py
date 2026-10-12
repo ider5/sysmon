@@ -106,6 +106,14 @@ def format_prometheus(data: dict[str, Any]) -> str:
     if isinstance(memory, dict) and isinstance(memory.get("percent"), (int, float)):
         if not isinstance(memory.get("percent"), bool):
             gauge("sysmon_memory_percent", memory["percent"], "Memory utilization percent")
+        for key, metric, help_text in (
+            ("used", "sysmon_memory_used_bytes", "Memory used in bytes"),
+            ("available", "sysmon_memory_available_bytes", "Memory available in bytes"),
+            ("total", "sysmon_memory_total_bytes", "Memory total in bytes"),
+        ):
+            value = _first_number(memory, key)
+            if value is not None:
+                gauge(metric, value, help_text)
         swap_total = memory.get("swap_total")
         swap_percent = memory.get("swap_percent")
         if (

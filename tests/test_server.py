@@ -84,6 +84,15 @@ def test_format_prometheus_includes_disk_speeds():
     assert "sysmon_disk_write_speed 0.0" in text
 
 
+def test_format_prometheus_includes_memory_bytes():
+    text = format_prometheus(
+        {"memory": {"percent": 40.0, "used": 100.0, "available": 150.0, "total": 250.0}}
+    )
+    assert "sysmon_memory_used_bytes 100.0" in text
+    assert "sysmon_memory_available_bytes 150.0" in text
+    assert "sysmon_memory_total_bytes 250.0" in text
+
+
 def test_format_prometheus_includes_swap_when_present():
     text = format_prometheus(
         {
