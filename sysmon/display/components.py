@@ -152,26 +152,30 @@ def gpu_panel(
         warn: Load/VRAM warn threshold percent
         critical: Load/VRAM critical threshold percent
     """
-    if not gpus:
+    if not isinstance(gpus, list) or not any(isinstance(item, dict) for item in gpus):
         text = Text("  ⚠ No GPU detected.", style="dim italic")
         return Panel(text, title="[bold yellow]🎮 GPU[/bold yellow]", border_style="yellow")
 
     text = Text()
     for gpu in gpus:
-        # GPU name
-        text.append(f"  🎮 GPU {gpu['id']}: ", style="bold")
-        text.append(f"{gpu['name']}\n", style="bold white")
+        if not isinstance(gpu, dict):
+            continue
+        gpu_id = gpu.get("id", "?")
+        name = str(gpu.get("name") or "GPU")
+        text.append(f"  🎮 GPU {gpu_id}: ", style="bold")
+        text.append(f"{name}\n", style="bold white")
 
-        # Utilization bar
+        load = _finite_number(gpu.get("load")) or 0.0
         text.append(f"  {'Utilization':<14}", style="bold")
-        text.append_text(progress_bar(gpu["load"], width=20, warn=warn, critical=critical))
+        text.append_text(progress_bar(load, width=20, warn=warn, critical=critical))
         text.append("\n")
 
-        # VRAM
-        mem_pct = (gpu["memory_used"] / gpu["memory_total"] * 100) if gpu["memory_total"] > 0 else 0
+        memory_used = _finite_number(gpu.get("memory_used")) or 0.0
+        memory_total = _finite_number(gpu.get("memory_total")) or 0.0
+        mem_pct = (memory_used / memory_total * 100) if memory_total > 0 else 0
         text.append(f"  {'VRAM':<14}", style="bold")
         text.append_text(progress_bar(mem_pct, width=20, warn=warn, critical=critical))
-        text.append(f"\n  {'':14}{gpu['memory_used']:.0f} / {gpu['memory_total']:.0f} MB\n", style="dim")
+        text.append(f"\n  {'':14}{memory_used:.0f} / {memory_total:.0f} MB\n", style="dim")
 
         # Temperature
         temp = celsius(gpu.get("temperature"))

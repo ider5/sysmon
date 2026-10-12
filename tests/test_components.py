@@ -85,6 +85,14 @@ def test_uptime_is_zero_when_boot_time_is_ahead(monkeypatch):
     assert components._get_uptime() == "0m"
 
 
+def test_gpu_panel_tolerates_partial_record():
+    panel = gpu_panel([{}])
+    rendered = str(panel.renderable)
+    assert "GPU" in rendered
+    assert "0.0%" in rendered
+    assert "0 / 0 MB" in rendered
+
+
 def test_gpu_panel_empty_list_shows_unavailable():
     panel = gpu_panel([])
     assert "No GPU" in str(panel.renderable)
