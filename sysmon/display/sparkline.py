@@ -37,6 +37,7 @@ def render_sparkline(values: list[float], width: int = 30) -> str:
     if len(finite) > width:
         step = len(finite) / width
         sampled = [finite[int(i * step)] for i in range(width)]
+        sampled[-1] = finite[-1]
     else:
         sampled = finite
         if len(sampled) < width:

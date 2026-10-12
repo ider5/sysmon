@@ -32,6 +32,12 @@ def test_render_sparkline_empty():
     assert render_sparkline([], width=10) == " " * 10
 
 
+def test_render_sparkline_keeps_the_newest_sample():
+    values = [0.0] * 60 + [100.0]
+    line = render_sparkline(values, width=30)
+    assert line[-1] == "█"
+
+
 def test_render_sparkline_pads_with_the_first_sample():
     line = render_sparkline([80.0], width=5)
     assert line == "▁" * 5
